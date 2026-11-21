@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" fill="none">
+  <g stroke="#cfe6d8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- figure 1: raising hand -->
+    <circle cx="120" cy="212" r="20"/>
+    <path d="M120 232v58M120 290l-16 34M120 290l16 34M120 246l-26 22M120 244l24-30"/>
+    <!-- figure 2: with book -->
+    <circle cx="228" cy="196" r="22"/>
+    <path d="M228 218v64M228 282l-15 38M228 282l15 38"/>
+    <path d="M204 240h48v30h-48zM228 240v30" stroke="#8fbf4a" stroke-width="4.5"/>
+    <path d="M228 236l-24 6M228 236l24 6"/>
+    <!-- figure 3: laptop -->
+    <circle cx="338" cy="208" r="20"/>
+    <path d="M338 228v54M338 282l-15 36M338 282l15 36"/>
+    <path d="M312 258h52l8 24h-68z" stroke="#8fbf4a" stroke-width="4.5"/>
+    <path d="M338 244l-22 12M338 244l22 12"/>
+    <!-- figure 4: both arms up -->
+    <circle cx="444" cy="200" r="21"/>
+    <path d="M444 221v60M444 281l-16 37M444 281l16 37M444 236l-28-24M444 236l28-24"/>
+    <!-- figure 5: waving to heart -->
+    <circle cx="540" cy="222" r="19"/>
+    <path d="M540 241v52M540 293l-14 32M540 293l14 32M540 254l-26-8M540 252l22-30"/>
+  </g>
+  <!-- ground line -->
+  <path d="M70 348h500" stroke="#3c443e" stroke-width="5" stroke-linecap="round"/>
+  <!-- heart with rays -->
+  <path d="M320 74c-14-20-46-14-46 10 0 20 26 36 46 52 20-16 46-32 46-52 0-24-32-30-46-10Z" stroke="#c7e86a" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g stroke="#c7e86a" stroke-width="5" stroke-linecap="round">
+    <path d="M320 12v22M258 26l10 18M382 26l-10 18M232 78h20M388 78h-20"/>
+  </g>
+  <!-- dashed connector arc -->
+  <path d="M144 224c40-46 92-52 150-42" stroke="#8fbf4a" stroke-width="4" stroke-dasharray="2 12" stroke-linecap="round"/>
+  <!-- sparkles -->
+  <g fill="#8fbf4a">
+    <circle cx="84" cy="120" r="4"/><circle cx="560" cy="96" r="4"/><circle cx="600" cy="180" r="3"/><circle cx="48" cy="250" r="3"/>
+  </g>
+  <path d="M584 130l3.5 8.5 8.5 3.5-8.5 3.5-3.5 8.5-3.5-8.5-8.5-3.5 8.5-3.5Z" fill="#cfe6d8"/>
+  <path d="M60 66l3 7.5 7.5 3-7.5 3-3 7.5-3-7.5-7.5-3 7.5-3Z" fill="#e4f3bc"/>
+</svg>
