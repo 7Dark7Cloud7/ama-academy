@@ -503,6 +503,90 @@ function scoreRelatedLessons(keywords, lessons) {
     .slice(0, 3);
 }
 
+function buildConceptMap(title, definitions, keywords, sentences) {
+  const center = truncateAtWord(title || (definitions[0]?.term) || (keywords[0]?.term) || "Tema Central", 38);
+  const nodes = [];
+  const seen = new Set([stripDiacritics(center.toLowerCase())]);
+  for (const def of definitions) {
+    if (nodes.length >= 7) break;
+    const key = stripDiacritics(def.term.toLowerCase());
+    if (seen.has(key)) continue;
+    seen.add(key);
+    nodes.push({
+      id: `n${nodes.length + 1}`,
+      label: truncateAtWord(def.term, 24),
+      kind: "definition",
+      detail: truncateAtWord(def.sentence, 220),
+      weight: 3,
+    });
+  }
+  for (const kw of keywords) {
+    if (nodes.length >= 7) break;
+    const key = stripDiacritics(kw.term.toLowerCase());
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const matchSentence = sentences.find((s) => stripDiacritics(s.toLowerCase()).includes(key)) || "";
+    nodes.push({
+      id: `n${nodes.length + 1}`,
+      label: truncateAtWord(kw.term, 24),
+      kind: "keyword",
+      detail: truncateAtWord(matchSentence || `Termo recorrente (${kw.count}× no texto).`, 220),
+      weight: Math.min(3, Math.max(1, kw.count)),
+    });
+  }
+  return { center, nodes };
+}
+
+function buildActiveRecall(definitions, sentences, keyIdeas, language) {
+  const isPt = language !== "en";
+  const prompts = [];
+  if (definitions.length) {
+    prompts.push({
+      stage: isPt ? "1 · Explicar sem consultar" : "1 · Explain from memory",
+      prompt: isPt
+        ? `Explica «${definitions[0].term}» como se estivesses a ensinar a um colega que nunca ouviu o termo.`
+        : `Explain “${definitions[0].term}” as if teaching a classmate hearing it for the first time.`,
+      hint: truncateAtWord(definitions[0].sentence, 180),
+    });
+  } else if (keyIdeas.length) {
+    prompts.push({
+      stage: isPt ? "1 · Ideia central por palavras tuas" : "1 · Core idea in your own words",
+      prompt: isPt
+        ? "Resume o núcleo deste texto em duas frases curtas sem usar jargão."
+        : "Summarize the core of this text in two short sentences without jargon.",
+      hint: truncateAtWord(keyIdeas[0], 180),
+    });
+  }
+  const causal = sentences.find((s) => CAUSAL_WORDS.test(s));
+  prompts.push({
+    stage: isPt ? "2 · Causa e consequência" : "2 · Cause and consequence",
+    prompt: isPt
+      ? "O que acontece se um dos elementos-chave mudar? Liga uma causa a um efeito real."
+      : "What changes if one key element shifts? Connect a cause to a real effect.",
+    hint: truncateAtWord(causal || keyIdeas[1] || sentences[0] || "", 180),
+  });
+  prompts.push({
+    stage: isPt ? "3 · Aplicação prática" : "3 · Practical transfer",
+    prompt: definitions[1]
+      ? (isPt
+          ? `Constrói um exemplo concreto onde «${definitions[0].term}» e «${definitions[1].term}» atuam juntos.`
+          : `Build a concrete example where “${definitions[0].term}” and “${definitions[1].term}” act together.`)
+      : (isPt
+          ? "Onde usarias este conceito num problema do dia a dia em Angola ou no trabalho?"
+          : "Where would you apply this concept in an everyday or workplace problem?"),
+    hint: truncateAtWord(keyIdeas[keyIdeas.length - 1] || "", 180),
+  });
+  return prompts;
+}
+
+function computeDifficulty(wordCount, sentenceCount, definitionCount) {
+  const avg = Math.round((wordCount / Math.max(1, sentenceCount)) * 10) / 10;
+  let label = "Leitura direta";
+  if (avg >= 22 || (avg >= 17 && definitionCount >= 4)) label = "Denso";
+  else if (avg >= 14 || definitionCount >= 2) label = "Intermédio";
+  return { label, avgWordsPerSentence: avg };
+}
+
 export function analyzeSummary({ text, title = "", subject = "general", lessons = [] } = {}) {
   const clean = normalizeText(text);
   const sentences = splitSentences(clean);
@@ -530,6 +614,7 @@ export function analyzeSummary({ text, title = "", subject = "general", lessons 
 
   const language = detectLanguage(clean);
   const suggestedTitle = suggestionTitle(clean);
+  const finalTitle = title.trim() || suggestedTitle;
   const keywords = keywordTable(sentences, title || suggestedTitle);
   const definitions = mergeDefinitions(sentences, clean);
   const keySentences = scoreSentences(sentences, keywords, title || suggestedTitle);
@@ -538,14 +623,18 @@ export function analyzeSummary({ text, title = "", subject = "general", lessons 
   const outline = buildOutline(clean);
   const cards = makeCards(sentences, definitions, keywords, language);
   const quiz = makeQuiz(sentences, keywords);
+  const conceptMap = buildConceptMap(finalTitle, definitions, keywords, sentences);
+  const activeRecall = buildActiveRecall(definitions, sentences, keyIdeas, language);
+  const difficulty = computeDifficulty(wordCount, sentences.length, definitions.length);
 
   return {
     insufficient: false,
-    version: 1,
+    version: 2,
     stats,
+    difficulty,
     language,
     detectedSubjects: [],
-    title: title.trim() || suggestedTitle,
+    title: finalTitle,
     suggestedTitle,
     subject,
     text: clean,
@@ -554,6 +643,8 @@ export function analyzeSummary({ text, title = "", subject = "general", lessons 
     outline,
     definitions,
     keywords: keywords.map(({ term, count }) => ({ term, count })).slice(0, 10),
+    conceptMap,
+    activeRecall,
     guidingQuestions: makeGuidingQuestions(definitions, language),
     coverage: coverageOf(sentences, definitions, clean),
     cards,

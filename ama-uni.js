@@ -1,6 +1,6 @@
 /* AMA — Universidade
    Turmas, disciplinas, semestres, sessões de aula, presenças e materiais.
-   Tudo local: vive em localStorage['ama-uni-v1'] e usa os motores do Ingenium
+   Tudo local: vive em localStorage['ama-uni-v1'] e usa o Núcleo AMA
    (Study) para fichas, planos e exportações. O registo oficial da escola
    continua a ser o da secretaria — esta camada é apoio de sala de aula. */
 (function () {
@@ -195,7 +195,7 @@
       });
       const materiais = def.materiais.map(([titulo, nota, tipo]) => ({
         id: uid('m'), titulo, nota, tipo,
-        texto: `${titulo}. ${nota}. Esta matéria foi preparada para a turma ${def.codigo} de ${disciplina.nome}. Serve de ponto de partida para o estudo: identifique as ideias centrais, relacione com os exemplos dados em aula e teste-se com os cartões gerados pelo motor Ingenium.`,
+        texto: `${titulo}. ${nota}. Esta matéria foi preparada para a turma ${def.codigo} de ${disciplina.nome}. Serve de ponto de partida para o estudo: identifique as ideias centrais, relacione com os exemplos dados em aula e teste-se com os cartões gerados pelo Núcleo AMA.`,
         arquivo: null, nomeArquivo: '', enviado: true, enviadoEm: new Date().toISOString(), autor: def.docenteNome,
       }));
       return {
@@ -208,7 +208,7 @@
       };
     });
 
-    return { version: 2, semestre, criadoEm: new Date().toISOString(), escolas, disciplinas, turmas };
+    return { version: 3, semestre, criadoEm: new Date().toISOString(), escolas, disciplinas, turmas };
   }
 
   /* --------------------------------------------------------------- store */
@@ -227,11 +227,16 @@
       if (!t.escolaId) { t.escolaId = d.escolas[0].id; mudou = true; }
       const antes = (t.materiais || []).length;
       t.materiais = (t.materiais || []).map((m) => {
-        if (m.enviado !== undefined && m.texto !== undefined) return m;
+        let texto = m.texto !== undefined ? m.texto : ([m.titulo, m.nota].filter(Boolean).join('. ') + '.');
+        if (/ingenium/i.test(texto)) {
+          texto = texto.replace(/motor\s+ingenium/gi, 'Núcleo AMA').replace(/ingenium/gi, 'Núcleo AMA');
+          mudou = true;
+        }
+        if (m.enviado !== undefined && m.texto === texto) return m;
         mudou = true;
         return {
           ...m,
-          texto: m.texto || [m.titulo, m.nota].filter(Boolean).join('. ') + '.',
+          texto,
           arquivo: m.arquivo || null, nomeArquivo: m.nomeArquivo || '',
           enviado: m.enviado !== false, enviadoEm: m.enviadoEm || new Date().toISOString(),
           autor: m.autor || t.docenteNome || 'Docente',
@@ -239,7 +244,7 @@
       });
       if (antes !== t.materiais.length) mudou = true;
     });
-    if (d.version !== 2) { d.version = 2; mudou = true; }
+    if (d.version !== 3) { d.version = 3; mudou = true; }
     if (mudou) { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { } }
     return d;
   }
@@ -354,7 +359,7 @@
      "gerámos 0 cartões", o que é pior do que não oferecer o botão. */
   const textoPratica = (s) => [s.tema, s.resumo, ...(s.guiao || [])].filter(Boolean).join('. ');
   const assuntoDe = (dp) => (({ Tecnologia: 'programacao', Finanças: 'financas', Negócios: 'empreendedorismo' })[dp?.area] || 'geral');
-  /* O motor de estudo Ingenium vive em engine/*.js e é carregado como módulo,
+  /* O Núcleo AMA vive em engine/*.js e é carregado como módulo,
      portanto pode chegar depois da interface. Toda a integração da Universidade
      espera por ele (no máximo 3 s) em vez de falhar com "sumário curto". */
   const motorPronto = () => !!(window.Study && window.AMAStudy);
@@ -372,8 +377,8 @@
     var temporizador = setTimeout(() => pronto(motorPronto()), ms);
   });
   const seloMotor = () => motorPronto()
-    ? '<span class="ing-selo on"><i></i>Motor Ingenium ligado · geração neste navegador</span>'
-    : '<span class="ing-selo"><i></i>Motor Ingenium a iniciar…</span>';
+    ? '<span class="na-selo on"><i></i>Núcleo AMA ativo · processamento local</span>'
+    : '<span class="na-selo"><i></i>Núcleo AMA a iniciar…</span>';
   /* O título é a chave: ingest() junta título e origem, e é por ele que a turma
      reconhece a ficha já gerada de uma sessão (e a regenera sem duplicar). */
   const tituloPratica = (t, s) => [s.tema, 'turma ' + t.codigo].join(' · ');
@@ -387,94 +392,260 @@
     return S_.analyzeSummary({ text: textoPratica(s), title: s.tema, subject: assuntoDe(disc(load(), t.disciplinaId)) });
   }
 
-  /* =================================================== INGENIUM 2.0 VISUAL */
+  /* =================================================== NÚCLEO AMA · LABORATÓRIO INTERATIVO */
   const PROG_KEY = 'ama-uni-prog-v1';
   function loadProg() {
     try {
       const r = JSON.parse(localStorage.getItem(PROG_KEY) || '{}');
-      return { lessons: Array.isArray(r.lessons) ? r.lessons : [], shortcuts: Array.isArray(r.shortcuts) ? r.shortcuts : [], triangles: Array.isArray(r.triangles) ? r.triangles : [] };
-    } catch { return { lessons: [], shortcuts: [], triangles: [] }; }
+      return {
+        lessons: Array.isArray(r.lessons) ? r.lessons : [],
+        shortcuts: Array.isArray(r.shortcuts) ? r.shortcuts : [],
+        sims: Array.isArray(r.sims) ? r.sims : (Array.isArray(r.triangles) ? r.triangles : []),
+      };
+    } catch { return { lessons: [], shortcuts: [], sims: [] }; }
   }
-  function saveProg(p) { try { localStorage.setItem(PROG_KEY, JSON.stringify(p)); } catch { } }
+  function saveProg(p) {
+    try { localStorage.setItem(PROG_KEY, JSON.stringify({ lessons: p.lessons || [], shortcuts: p.shortcuts || [], sims: p.sims || [] })); } catch { }
+  }
   function progPct() {
     const p = loadProg();
-    const total = UNI_AREAS.length + UNI_TRIANGLES.length + UNI_SHORTCUTS.length;
-    const done = new Set(p.lessons).size + new Set(p.triangles).size + new Set(p.shortcuts).size;
+    const total = UNI_AREAS.length + UNI_SIMS.length + UNI_SHORTCUTS.length;
+    const done = new Set(p.lessons).size + new Set(p.sims).size + new Set(p.shortcuts).size;
     return total ? Math.min(100, Math.round((done / total) * 100)) : 0;
   }
+  function studySnapshot() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('ama-study-v1') || '{}');
+      const recs = Array.isArray(raw.recs) ? raw.recs : [];
+      let totalCards = 0, mastered = 0;
+      recs.forEach((r) => {
+        const cards = (r.analysis && r.analysis.cards) || [];
+        totalCards += cards.length;
+        const states = (r.progress && r.progress.cards) || {};
+        Object.values(states).forEach((st) => { if (st && st.interval >= 7) mastered += 1; });
+      });
+      return { recs: recs.length, cards: totalCards, mastered };
+    } catch { return { recs: 0, cards: 0, mastered: 0 }; }
+  }
+
+  const fmtNum = (n, dec = 1) => {
+    if (!Number.isFinite(n)) return '0';
+    const r = Math.abs(n) >= 1000 ? Math.round(n) : Math.round(n * Math.pow(10, dec)) / Math.pow(10, dec);
+    return r.toLocaleString('pt-PT', { maximumFractionDigits: dec });
+  };
 
   const UNI_AREAS = [
     {
-      id: 'mat', titulo: 'Matemática', sub: 'Conjuntos, sucessões e funções.', tag: '27 tópicos', tone: 'sage',
-      svg: `<svg viewBox="0 0 220 88" fill="none" aria-hidden="true"><rect x="16" y="42" width="32" height="28" rx="9" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/><text x="32" y="61" text-anchor="middle" font-size="13" font-weight="800" fill="#065f46">2</text><rect x="74" y="42" width="32" height="28" rx="9" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/><text x="90" y="61" text-anchor="middle" font-size="13" font-weight="800" fill="#065f46">4</text><rect x="132" y="42" width="32" height="28" rx="9" fill="#d1fae5" stroke="#0f7a53" stroke-width="2"/><text x="148" y="61" text-anchor="middle" font-size="13" font-weight="800" fill="#064e3b">6</text><rect x="184" y="42" width="24" height="28" rx="8" fill="#111815"/><text x="196" y="61" text-anchor="middle" font-size="13" font-weight="800" fill="#b9f257">?</text><path d="M32 36 C46 14, 76 14, 90 36" stroke="#0e7490" stroke-width="2" stroke-dasharray="3 3"/><text x="61" y="18" text-anchor="middle" font-size="11" font-weight="800" fill="#0e7490">+2</text><path d="M90 36 C104 14, 134 14, 148 36" stroke="#0e7490" stroke-width="2" stroke-dasharray="3 3"/><text x="119" y="18" text-anchor="middle" font-size="11" font-weight="800" fill="#0e7490">+2</text></svg>`,
-      analogia: 'Pense numa escada onde cada degrau tem exatamente a mesma altura: se sabe onde começou e o tamanho do passo, sabe a altura de qualquer degrau sem subir todos.',
+      id: 'mat', titulo: 'Matemática', sub: 'Progressões, crescimento e funções.', tag: '27 tópicos',
+      img: 'media/nucleo-math-3d.jpg?v=71',
+      svg: `<svg viewBox="0 0 220 84" fill="none" aria-hidden="true"><rect x="14" y="42" width="32" height="26" rx="7" fill="#eef5f0" stroke="#15704c" stroke-width="1.8"/><text x="30" y="59" text-anchor="middle" font-size="12" font-weight="700" fill="#124735">2</text><rect x="68" y="34" width="32" height="34" rx="7" fill="#eef5f0" stroke="#15704c" stroke-width="1.8"/><text x="84" y="56" text-anchor="middle" font-size="12" font-weight="700" fill="#124735">5</text><rect x="122" y="24" width="32" height="44" rx="7" fill="#cfe6d8" stroke="#124735" stroke-width="1.8"/><text x="138" y="51" text-anchor="middle" font-size="12" font-weight="700" fill="#124735">8</text><rect x="176" y="14" width="30" height="54" rx="7" fill="#124735"/><text x="191" y="45" text-anchor="middle" font-size="12" font-weight="700" fill="#d2ef8d">uₙ</text><path d="M30 34 Q57 12 84 26 M84 26 Q111 6 138 18" stroke="#2a8f5f" stroke-width="1.6" stroke-dasharray="3 3"/></svg>`,
+      analogia: 'Pense numa escada onde cada degrau sobe exatamente a mesma altura: sabendo o primeiro degrau e o tamanho do passo, calcula a altura de qualquer degrau sem contar um a um.',
       formula: 'uₙ = u₁ + (n − 1) · r',
-      exemplo: 'Na sucessão 2, 4, 6, 8… temos u₁ = 2 e razão r = 2. O 10.º termo é u₁₀ = 2 + 9×2 = 20.',
-      resumo: 'Numa progressão aritmética, somamos sempre a mesma constante r a cada passo.',
+      sim: {
+        label: 'Posição do termo (n)', unit: 'º termo', min: 1, max: 20, step: 1, val: 6,
+        eval: (n) => {
+          const u1 = 2, r = 3, res = u1 + (n - 1) * r;
+          return {
+            readout: `u${n} = ${res}`,
+            expr: `2 + (${n} − 1) × 3 = ${res}`,
+            note: `Sequência inicial: 2, 5, 8, 11… · salto constante r = +3`,
+            pct: Math.round((n / 20) * 100),
+          };
+        },
+      },
+      resumo: 'Numa progressão aritmética, somamos sempre a mesma razão r a cada passo.',
       pergunta: 'Qual é o 6.º termo da sucessão 3, 7, 11, 15…?',
-      opcoes: ['19', '23', '27'], certa: 1, exp: 'A razão é +4. Logo u₆ = 3 + 5×4 = 23.'
+      opcoes: ['19', '23', '27'], certa: 1, exp: 'A razão é +4. Logo u₆ = 3 + 5×4 = 23.',
     },
     {
-      id: 'fis', titulo: 'Física', sub: 'Movimento, vectores e energia.', tag: '41 tópicos', tone: 'mint',
-      svg: `<svg viewBox="0 0 220 88" fill="none" aria-hidden="true"><line x1="20" y1="74" x2="202" y2="74" stroke="#334155" stroke-width="1.8" opacity=".4"/><path d="M26 72 Q110 -6 194 72" stroke="#10b981" stroke-width="2.6" stroke-dasharray="5 4"/><circle cx="62" cy="40" r="6" fill="#111815"/><path d="M62 40 L94 24" stroke="#0f7a53" stroke-width="2.2" stroke-linecap="round"/><circle cx="110" cy="24" r="5" fill="#10b981"/><text x="110" y="15" text-anchor="middle" font-size="10" font-weight="800" fill="#065f46">vᵧ = 0</text></svg>`,
-      analogia: 'Quando lança uma bola para cima, a gravidade trava-a até parar por um instante no ponto mais alto — e depois acelera-a de volta ao chão.',
-      formula: 'v = v₀ − g · t  (g ≈ 9,8 m/s²)',
-      exemplo: 'Lançada a 19,6 m/s para cima, a bola atinge o topo quando v = 0, ou seja t = 19,6 / 9,8 = 2 segundos.',
-      resumo: 'No ponto mais alto de um lançamento vertical, a velocidade vertical anula-se instantaneamente.',
+      id: 'fis', titulo: 'Física', sub: 'Movimento, gravidade e energia.', tag: '41 tópicos',
+      img: 'media/nucleo-physics-3d.jpg?v=71',
+      svg: `<svg viewBox="0 0 220 84" fill="none" aria-hidden="true"><line x1="18" y1="70" x2="202" y2="70" stroke="#7d867f" stroke-width="1.5" opacity=".45"/><path d="M24 68 Q110 -4 196 68" stroke="#15704c" stroke-width="2.2" stroke-dasharray="5 4"/><circle cx="110" cy="24" r="5.5" fill="#124735"/><circle cx="110" cy="24" r="9.5" stroke="#8fbf4a" stroke-width="1.5" opacity=".8"/><text x="110" y="13" text-anchor="middle" font-size="9.5" font-weight="700" fill="#124735">topo · v = 0</text></svg>`,
+      analogia: 'Ao lançar uma bola para cima, a gravidade trava-a de forma constante até parar um instante no ponto mais alto — e depois acelera-a de volta ao chão.',
+      formula: 'hₘáₓ = v₀² ÷ (2 · g)  ·  t = v₀ ÷ g',
+      sim: {
+        label: 'Velocidade inicial (v₀)', unit: ' m/s', min: 5, max: 40, step: 1, val: 20,
+        eval: (v0) => {
+          const g = 9.8, t = v0 / g, h = (v0 * v0) / (2 * g);
+          return {
+            readout: `${fmtNum(h, 1)} m de altura`,
+            expr: `t = ${fmtNum(t, 2)} s até ao topo · g = 9,8 m/s²`,
+            note: `Duplicar a velocidade quadruplica a altura máxima atingida.`,
+            pct: Math.min(100, Math.round((h / 82) * 100)),
+          };
+        },
+      },
+      resumo: 'No topo de um lançamento vertical, a velocidade vertical anula-se e toda a energia cinética virou potencial.',
       pergunta: 'Um corpo parte do repouso com aceleração constante de 3 m/s². Qual a velocidade após 4 s?',
-      opcoes: ['7 m/s', '12 m/s', '16 m/s'], certa: 1, exp: 'v = v₀ + a·t = 0 + 3 × 4 = 12 m/s.'
+      opcoes: ['7 m/s', '12 m/s', '16 m/s'], certa: 1, exp: 'v = v₀ + a·t = 0 + 3 × 4 = 12 m/s.',
     },
     {
-      id: 'alga', titulo: 'Álgebra Linear (ALGA)', sub: 'Coordenadas, vectores e matrizes.', tag: '38 tópicos', tone: 'slate',
-      svg: `<svg viewBox="0 0 220 88" fill="none" aria-hidden="true"><path d="M44 74 H190 M44 74 V14" stroke="#334155" stroke-width="1.8" opacity=".55"/><path d="M44 40 H126 V74" stroke="#0e7490" stroke-width="1.6" stroke-dasharray="4 3"/><circle cx="126" cy="40" r="7" fill="#d1fae5" stroke="#0f7a53" stroke-width="2.5"/><circle cx="126" cy="40" r="2.5" fill="#0f7a53"/><text x="142" y="34" font-size="11.5" font-weight="800" fill="#111815">P(3, 2)</text></svg>`,
-      analogia: 'Dar coordenadas P(3, 2) é como dar direcções em Luanda: "ande 3 quarteirões para leste e 2 para norte" — não há ambiguidade.',
+      id: 'alga', titulo: 'Álgebra Linear', sub: 'Coordenadas, vectores e normas.', tag: '38 tópicos',
+      img: 'media/nucleo-3d-hero.jpg?v=71',
+      svg: `<svg viewBox="0 0 220 84" fill="none" aria-hidden="true"><path d="M40 70 H190 M40 70 V14" stroke="#7d867f" stroke-width="1.6" opacity=".6"/><path d="M40 34 H134 V70" stroke="#2a8f5f" stroke-width="1.5" stroke-dasharray="4 3"/><line x1="40" y1="70" x2="134" y2="34" stroke="#124735" stroke-width="2.2"/><circle cx="134" cy="34" r="5" fill="#15704c"/><text x="145" y="32" font-size="10.5" font-weight="700" fill="#124735">v(x, y)</text></svg>`,
+      analogia: 'Dar coordenadas P(x, y) é como dar direcções em Luanda: «ande x quarteirões para leste e y para norte». O módulo é a distância em linha recta.',
       formula: '|v| = √(x² + y²)',
-      exemplo: 'Para o vector v = (3, 4), o seu módulo é √(9 + 16) = √25 = 5 unidades.',
-      resumo: 'Cada ponto no plano é uma receita única (x, y) a partir da origem; o teorema de Pitágoras dá-lhe o comprimento.',
+      sim: {
+        label: 'Componente horizontal (x) · com y = 4', unit: ' u', min: 0, max: 12, step: 1, val: 3,
+        eval: (x) => {
+          const y = 4, mod = Math.hypot(x, y), ang = Math.round(Math.atan2(y, x) * (180 / Math.PI));
+          return {
+            readout: `|v| = ${fmtNum(mod, 2)}`,
+            expr: `√(${x}² + 4²) = √${x * x + 16} · ângulo ${ang}°`,
+            note: x === 3 ? 'Triângulo pitagórico clássico 3–4–5.' : `Para v = (${x}, 4), a norma cresce com a distância à origem.`,
+            pct: Math.min(100, Math.round((mod / 13) * 100)),
+          };
+        },
+      },
+      resumo: 'Cada ponto no plano é um par único (x, y); o teorema de Pitágoras dá o comprimento exato do vector.',
       pergunta: 'Qual é o determinante da matriz 2×2 [[4, 2], [1, 3]]?',
-      opcoes: ['10', '14', '6'], certa: 0, exp: 'det = (4 × 3) − (2 × 1) = 12 − 2 = 10.'
+      opcoes: ['10', '14', '6'], certa: 0, exp: 'det = (4 × 3) − (2 × 1) = 12 − 2 = 10.',
     },
     {
-      id: 'prog', titulo: 'Programação & Algoritmos', sub: 'Variáveis, ciclos, funções e dados.', tag: 'Turma PROG102B', tone: 'teal',
-      svg: `<svg viewBox="0 0 220 88" fill="none" aria-hidden="true"><rect x="16" y="18" width="60" height="24" rx="8" fill="#e0f2fe" stroke="#0e7490" stroke-width="1.8"/><text x="46" y="34" text-anchor="middle" font-size="10.5" font-weight="800" fill="#155e75">input()</text><path d="M76 30 H98" stroke="#0e7490" stroke-width="2"/><polygon points="118,14 146,30 118,46 90,30" fill="#fff" stroke="#111815" stroke-width="2"/><text x="118" y="34" text-anchor="middle" font-size="9.5" font-weight="800" fill="#111815">if ?</text><path d="M146 30 H164" stroke="#10b981" stroke-width="2"/><rect x="164" y="18" width="44" height="24" rx="8" fill="#10b981"/><text x="186" y="34" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">OK</text><path d="M118 46 V68 H164" stroke="#475569" stroke-width="1.8" stroke-dasharray="3 3"/><text x="185" y="71" text-anchor="middle" font-size="9.5" font-weight="700" fill="#475569">else</text></svg>`,
-      analogia: 'Um algoritmo é uma receita de cozinha sem margem para adivinhar: entradas certas, passos ordenados e uma decisão clara quando algo muda.',
-      formula: 'for item in lista: processar(item)',
-      exemplo: 'Para somar as notas de 16 alunos, inicializamos total = 0 e acumulamos cada nota dentro de um ciclo for.',
-      resumo: 'Decompor antes de codificar evita erros: resolva em português primeiro, depois traduza para Python.',
+      id: 'prog', titulo: 'Programação & Algoritmos', sub: 'Decomposição, ciclos e eficiência.', tag: 'PROG102B',
+      img: 'media/nucleo-code-fin-3d.jpg?v=71',
+      svg: `<svg viewBox="0 0 220 84" fill="none" aria-hidden="true"><rect x="14" y="24" width="52" height="24" rx="6" fill="#eef5f0" stroke="#15704c" stroke-width="1.6"/><text x="40" y="40" text-anchor="middle" font-size="10" font-weight="700" fill="#124735">dados</text><path d="M66 36 H92" stroke="#15704c" stroke-width="1.8"/><polygon points="116,16 142,36 116,56 90,36" fill="#fff" stroke="#124735" stroke-width="1.8"/><text x="116" y="39" text-anchor="middle" font-size="9.5" font-weight="700" fill="#124735">meio?</text><path d="M142 36 H166" stroke="#15704c" stroke-width="1.8"/><rect x="166" y="24" width="42" height="24" rx="6" fill="#124735"/><text x="187" y="40" text-anchor="middle" font-size="9.5" font-weight="700" fill="#d2ef8d">O(log n)</text></svg>`,
+      analogia: 'Procurar um nome numa lista ordenada abrindo sempre ao meio elimina metade das hipóteses a cada passo — como procurar uma palavra num dicionário.',
+      formula: 'passos ≈ ⌈log₂(n)⌉  vs  pesquisa linear (n)',
+      sim: {
+        label: 'Tamanho da lista ordenada (n)', unit: ' registos', min: 16, max: 1024, step: 16, val: 256,
+        eval: (n) => {
+          const steps = Math.ceil(Math.log2(n));
+          const ratio = Math.round(n / steps);
+          return {
+            readout: `${steps} comparações`,
+            expr: `Pesquisa binária: ${steps} passos · Linear: até ${n} passos`,
+            note: `Cerca de ${ratio}× mais rápida no pior caso do que percorrer item a item.`,
+            pct: Math.min(100, Math.round((steps / 10) * 100)),
+          };
+        },
+      },
+      resumo: 'Escolher o algoritmo certo importa mais do que escrever código depressa: O(log₂ n) escala sem esforço.',
       pergunta: 'O que devolve len([10, 20, 30, 40]) em Python?',
-      opcoes: ['3', '4', '40'], certa: 1, exp: 'A lista tem 4 elementos, portanto len() devolve 4.'
+      opcoes: ['3', '4', '40'], certa: 1, exp: 'A lista tem 4 elementos, portanto len() devolve 4.',
     },
     {
-      id: 'fin', titulo: 'Finanças & Kwanzas', sub: 'Juros, inflação, fluxo e poupança.', tag: 'Turma FIN110A', tone: 'lime',
-      svg: `<svg viewBox="0 0 220 88" fill="none" aria-hidden="true"><rect x="26" y="54" width="22" height="20" rx="5" fill="#cbd5e1"/><rect x="60" y="44" width="22" height="30" rx="5" fill="#94a3b8"/><rect x="94" y="32" width="22" height="42" rx="5" fill="#34d399"/><rect x="128" y="18" width="22" height="56" rx="5" fill="#0f7a53"/><path d="M36 46 Q94 34 156 14" stroke="#111815" stroke-width="2.4" stroke-linecap="round"/><text x="178" y="24" font-size="11" font-weight="800" fill="#065f46">+Kz</text></svg>`,
-      analogia: 'Juro composto é uma bola de neve: no mês seguinte, os juros ganham juros sobre os juros anteriores.',
+      id: 'fin', titulo: 'Finanças & Kwanzas', sub: 'Juro composto, inflação e reserva.', tag: 'FIN110A',
+      img: 'media/nucleo-code-fin-3d.jpg?v=71',
+      svg: `<svg viewBox="0 0 220 84" fill="none" aria-hidden="true"><rect x="24" y="54" width="22" height="16" rx="4" fill="#cfd4cd"/><rect x="58" y="44" width="22" height="26" rx="4" fill="#a8b0a9"/><rect x="92" y="32" width="22" height="38" rx="4" fill="#2a8f5f"/><rect x="126" y="16" width="22" height="54" rx="4" fill="#124735"/><path d="M34 48 Q94 34 156 12" stroke="#15704c" stroke-width="2" stroke-linecap="round"/><text x="176" y="22" font-size="10.5" font-weight="700" fill="#124735">+Kz</text></svg>`,
+      analogia: 'O juro composto funciona como uma bola de neve: cada ano rende juros sobre o capital inicial e também sobre os juros acumulados antes.',
       formula: 'M = C · (1 + i)ⁿ',
-      exemplo: '100.000 Kz a 10% ao ano em 2 anos viram 100.000 × 1,1² = 121.000 Kz (1.000 Kz extra só de juros sobre juros).',
-      resumo: 'Compare sempre o juro nominal com a inflação: só há ganho real quando o rendimento supera a perda de poder de compra.',
+      sim: {
+        label: 'Horizonte temporal (n) · 100.000 Kz a 12%/ano', unit: ' anos', min: 1, max: 15, step: 1, val: 5,
+        eval: (anos) => {
+          const cap = 100000, m = Math.round(cap * Math.pow(1.12, anos)), lucro = m - cap;
+          return {
+            readout: `${m.toLocaleString('pt-PT')} Kz`,
+            expr: `Capital: 100.000 Kz + Juros acumulados: ${lucro.toLocaleString('pt-PT')} Kz`,
+            note: `Compare sempre com a inflação anual para saber o ganho real de poder de compra.`,
+            pct: Math.min(100, Math.round((m / 550000) * 100)),
+          };
+        },
+      },
+      resumo: 'O tempo amplifica o juro composto; comece cedo e compare sempre a taxa nominal com a inflação.',
       pergunta: 'Com orçamento 50/30/20 sobre 200.000 Kz, quanto vai para poupança/reserva (20%)?',
-      opcoes: ['20.000 Kz', '40.000 Kz', '60.000 Kz'], certa: 1, exp: '20% de 200.000 Kz = 0,20 × 200.000 = 40.000 Kz.'
+      opcoes: ['20.000 Kz', '40.000 Kz', '60.000 Kz'], certa: 1, exp: '20% de 200.000 Kz = 0,20 × 200.000 = 40.000 Kz.',
     },
     {
-      id: 'com', titulo: 'Comunicação & Negócios', sub: 'Oratória, crise, marca e funil.', tag: 'COM201A · MKT205A', tone: 'stone',
-      svg: `<svg viewBox="0 0 220 88" fill="none" aria-hidden="true"><circle cx="48" cy="44" r="18" fill="#d1fae5" stroke="#0f7a53" stroke-width="2"/><text x="48" y="48" text-anchor="middle" font-size="10" font-weight="800" fill="#065f46">Voz</text><path d="M76 32 Q90 44 76 56 M88 24 Q108 44 88 64" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"/><rect x="122" y="22" width="78" height="44" rx="12" fill="#fff" stroke="#334155" stroke-width="1.8"/><text x="161" y="40" text-anchor="middle" font-size="10" font-weight="800" fill="#111815">Mensagem</text><text x="161" y="54" text-anchor="middle" font-size="9" font-weight="700" fill="#0f7a53">Clara · Activa</text></svg>`,
-      analogia: 'Um bom comunicado executivo funciona como um sinal de trânsito: quem passa lê em 5 segundos e sabe exatamente o que fazer.',
-      formula: 'Clareza = Público + Promessa + Próximo passo',
-      exemplo: 'Em gestão de crise, responda nos primeiros 60 minutos: o que aconteceu, o que estamos a fazer e quando volta a haver atualização.',
-      resumo: 'Numa apresentação ou campanha, uma ideia forte por ecrã vence sempre dez ideias amontoadas.',
+      id: 'com', titulo: 'Comunicação & Negócios', sub: 'Oratória, crise e funil de vendas.', tag: 'COM201A · MKT205A',
+      img: 'media/nucleo-math-3d.jpg?v=71',
+      svg: `<svg viewBox="0 0 220 84" fill="none" aria-hidden="true"><polygon points="24,18 196,18 164,42 56,42" fill="#eef5f0" stroke="#15704c" stroke-width="1.6"/><polygon points="56,42 164,42 138,66 82,66" fill="#cfe6d8" stroke="#124735" stroke-width="1.6"/><text x="110" y="34" text-anchor="middle" font-size="9.5" font-weight="700" fill="#124735">Alcance · Interesse</text><text x="110" y="58" text-anchor="middle" font-size="9.5" font-weight="700" fill="#124735">Decisão</text></svg>`,
+      analogia: 'Um funil comercial saudável mede quantas conversas claras viram clientes reais — melhorar a clareza da proposta multiplica vendas sem gastar mais em anúncios.',
+      formula: 'Vendas = Visitas × Taxa de Conversão',
+      sim: {
+        label: 'Taxa de conversão · sobre 1.000 visitas', unit: '%', min: 1, max: 15, step: 1, val: 4,
+        eval: (taxaPct) => {
+          const visitas = 1000, vendas = Math.round(visitas * (taxaPct / 100));
+          const receita = vendas * 25000;
+          return {
+            readout: `${vendas} clientes`,
+            expr: `${taxaPct}% × 1.000 visitas · ticket médio 25.000 Kz = ${receita.toLocaleString('pt-PT')} Kz`,
+            note: `Subir a clareza da oferta de 2% para 4% duplica o resultado com o mesmo tráfego.`,
+            pct: Math.min(100, Math.round((taxaPct / 15) * 100)),
+          };
+        },
+      },
+      resumo: 'Em comunicação e vendas, clareza na promessa e um próximo passo óbvio convertem mais do que volume.',
       pergunta: 'Num comunicado de crise eficaz, qual deve ser a primeira regra nos primeiros 60 minutos?',
-      opcoes: ['Esperar uma semana em silêncio', 'Confirmar os factos conhecidos e o próximo horário de atualização', 'Culpar terceiros sem dados'], certa: 1, exp: 'Silêncio gera rumor; transparência rápida constrói confiança.'
+      opcoes: ['Esperar uma semana em silêncio', 'Confirmar os factos conhecidos e o próximo horário de atualização', 'Culpar terceiros sem dados'], certa: 1, exp: 'Silêncio gera rumor; transparência rápida constrói confiança.',
     },
   ];
 
-  const UNI_TRIANGLES = [
-    { id: 'tr-vel', area: 'Física', titulo: 'Movimento Uniforme', top: { sym: 'd', name: 'Distância', unit: 'm' }, left: { sym: 'v', name: 'Velocidade', unit: 'm/s' }, right: { sym: 't', name: 'Tempo', unit: 's' }, ex: 'Um autocarro a 20 m/s durante 30 s percorre d = 20 × 30 = 600 m.' },
-    { id: 'tr-new', area: 'Física', titulo: '2.ª Lei de Newton', top: { sym: 'F', name: 'Força', unit: 'N' }, left: { sym: 'm', name: 'Massa', unit: 'kg' }, right: { sym: 'a', name: 'Aceleração', unit: 'm/s²' }, ex: 'Uma massa de 5 kg acelerada a 2 m/s² precisa de F = 5 × 2 = 10 N.' },
-    { id: 'tr-ohm', area: 'Física', titulo: 'Lei de Ohm', top: { sym: 'V', name: 'Tensão', unit: 'V' }, left: { sym: 'I', name: 'Corrente', unit: 'A' }, right: { sym: 'R', name: 'Resistência', unit: 'Ω' }, ex: 'Com 2 A numa resistência de 6 Ω, a tensão é V = 2 × 6 = 12 V.' },
-    { id: 'tr-ond', area: 'Física', titulo: 'Velocidade da Onda', top: { sym: 'v', name: 'Velocidade', unit: 'm/s' }, left: { sym: 'λ', name: 'Comp. de onda', unit: 'm' }, right: { sym: 'f', name: 'Frequência', unit: 'Hz' }, ex: 'Uma onda com λ = 2 m e f = 5 Hz propaga-se a v = 10 m/s.' },
-    { id: 'tr-den', area: 'Química', titulo: 'Densidade', top: { sym: 'm', name: 'Massa', unit: 'g' }, left: { sym: 'ρ', name: 'Densidade', unit: 'g/cm³' }, right: { sym: 'V', name: 'Volume', unit: 'cm³' }, ex: '200 g de água (ρ = 1 g/cm³) ocupam V = 200 ÷ 1 = 200 cm³.' },
-    { id: 'tr-pot', area: 'Física', titulo: 'Potência Mecânica', top: { sym: 'W', name: 'Trabalho', unit: 'J' }, left: { sym: 'P', name: 'Potência', unit: 'W' }, right: { sym: 't', name: 'Tempo', unit: 's' }, ex: 'Um motor de 500 W em 10 s realiza W = 500 × 10 = 5.000 J.' },
-    { id: 'tr-jur', area: 'Finanças', titulo: 'Juro Simples Anual', top: { sym: 'J', name: 'Juro (Kz)', unit: 'Kz' }, left: { sym: 'C', name: 'Capital', unit: 'Kz' }, right: { sym: 'i·t', name: 'Taxa × Tempo', unit: 'dec.' }, ex: '50.000 Kz a 12% em 1 ano rendem J = 50.000 × 0,12 = 6.000 Kz.' },
-    { id: 'tr-area', area: 'Matemática', titulo: 'Área do Rectângulo', top: { sym: 'A', name: 'Área', unit: 'm²' }, left: { sym: 'b', name: 'Base', unit: 'm' }, right: { sym: 'h', name: 'Altura', unit: 'm' }, ex: 'Uma sala de 8 m por 5 m tem A = 8 × 5 = 40 m².' },
+  /* Simuladores de Grandezas: bancada interativa com isolamento de variável + 2 sliders reais */
+  const UNI_SIMS = [
+    {
+      id: 'sim-vel', area: 'Física', titulo: 'Movimento Uniforme',
+      vars: {
+        a: { sym: 'd', name: 'Distância', unit: 'm', min: 50, max: 2000, step: 50, def: 600 },
+        b: { sym: 'v', name: 'Velocidade', unit: 'm/s', min: 2, max: 50, step: 1, def: 20 },
+        c: { sym: 't', name: 'Tempo', unit: 's', min: 2, max: 120, step: 2, def: 30 },
+      },
+      note: 'Relação directa entre espaço percorrido, velocidade constante e tempo.',
+    },
+    {
+      id: 'sim-new', area: 'Física', titulo: '2.ª Lei de Newton',
+      vars: {
+        a: { sym: 'F', name: 'Força', unit: 'N', min: 5, max: 500, step: 5, def: 40 },
+        b: { sym: 'm', name: 'Massa', unit: 'kg', min: 1, max: 80, step: 1, def: 10 },
+        c: { sym: 'a', name: 'Aceleração', unit: 'm/s²', min: 1, max: 20, step: 0.5, def: 4 },
+      },
+      note: 'Mais massa exige maior força resultante para atingir a mesma aceleração.',
+    },
+    {
+      id: 'sim-ohm', area: 'Física', titulo: 'Lei de Ohm',
+      vars: {
+        a: { sym: 'V', name: 'Tensão', unit: 'V', min: 1, max: 240, step: 1, def: 12 },
+        b: { sym: 'I', name: 'Corrente', unit: 'A', min: 0.5, max: 20, step: 0.5, def: 2 },
+        c: { sym: 'R', name: 'Resistência', unit: 'Ω', min: 1, max: 100, step: 1, def: 6 },
+      },
+      note: 'Num condutor óhmico, tensão, corrente e resistência equilibram-se linearmente.',
+    },
+    {
+      id: 'sim-ond', area: 'Física', titulo: 'Propagação de Ondas',
+      vars: {
+        a: { sym: 'v', name: 'Velocidade', unit: 'm/s', min: 2, max: 400, step: 2, def: 20 },
+        b: { sym: 'λ', name: 'Comp. de onda', unit: 'm', min: 0.5, max: 20, step: 0.5, def: 2 },
+        c: { sym: 'f', name: 'Frequência', unit: 'Hz', min: 1, max: 60, step: 1, def: 10 },
+      },
+      note: 'À mesma velocidade do meio, frequências mais altas têm comprimentos de onda mais curtos.',
+    },
+    {
+      id: 'sim-den', area: 'Química', titulo: 'Densidade',
+      vars: {
+        a: { sym: 'm', name: 'Massa', unit: 'g', min: 20, max: 2000, step: 20, def: 250 },
+        b: { sym: 'ρ', name: 'Densidade', unit: 'g/cm³', min: 0.5, max: 12, step: 0.5, def: 1 },
+        c: { sym: 'V', name: 'Volume', unit: 'cm³', min: 10, max: 1000, step: 10, def: 250 },
+      },
+      note: 'Água pura tem ρ ≈ 1 g/cm³: corpos mais densos afundam, menos densos flutuam.',
+    },
+    {
+      id: 'sim-pot', area: 'Física', titulo: 'Potência Mecânica',
+      vars: {
+        a: { sym: 'W', name: 'Trabalho', unit: 'J', min: 100, max: 20000, step: 100, def: 5000 },
+        b: { sym: 'P', name: 'Potência', unit: 'W', min: 50, max: 2000, step: 50, def: 500 },
+        c: { sym: 't', name: 'Tempo', unit: 's', min: 1, max: 60, step: 1, def: 10 },
+      },
+      note: 'Potência mede a rapidez com que um motor ou sistema realiza trabalho.',
+    },
+    {
+      id: 'sim-jur', area: 'Finanças', titulo: 'Juro Simples Anual',
+      vars: {
+        a: { sym: 'J', name: 'Juro', unit: 'Kz', min: 5000, max: 300000, step: 5000, def: 18000 },
+        b: { sym: 'C', name: 'Capital', unit: 'Kz', min: 20000, max: 500000, step: 10000, def: 150000 },
+        c: { sym: 'i', name: 'Taxa anual', unit: '%', min: 2, max: 30, step: 1, def: 12 },
+      },
+      isPercentC: true,
+      note: 'Calcula rapidamente o juro anual em kwanzas para poupanças ou crédito simples.',
+    },
+    {
+      id: 'sim-area', area: 'Matemática', titulo: 'Área do Rectângulo',
+      vars: {
+        a: { sym: 'A', name: 'Área', unit: 'm²', min: 4, max: 400, step: 2, def: 40 },
+        b: { sym: 'b', name: 'Base', unit: 'm', min: 1, max: 30, step: 1, def: 8 },
+        c: { sym: 'h', name: 'Altura', unit: 'm', min: 1, max: 20, step: 1, def: 5 },
+      },
+      note: 'Útil para estimar espaço de salas, terrenos ou orçamento de revestimento.',
+    },
   ];
 
   const UNI_SHORTCUTS = [
@@ -492,40 +663,125 @@
     { id: 'sc-12', area: 'Comunicação & Negócios', tipo: 'Truque', titulo: 'SPIN Selling em vendas B2B', expr: 'Situação → Problema → Implicação → Necessidade', dica: 'Faça o cliente sentir o custo do problema antes de apresentar o seu preço.' },
   ];
 
-  function triangleCardHTML(tr, sel = 'top') {
-    const ops = {
-      top: `${tr.top.sym} = ${tr.left.sym} × ${tr.right.sym}`,
-      left: `${tr.left.sym} = ${tr.top.sym} ÷ ${tr.right.sym}`,
-      right: `${tr.right.sym} = ${tr.top.sym} ÷ ${tr.left.sym}`,
-    };
-    const chosen = tr[sel] || tr.top;
-    const learned = loadProg().triangles.includes(tr.id);
-    return `<article class="tri-card ${learned ? 'done' : ''}" data-tri="${tr.id}">
-      <div class="tri-head"><span class="tri-area">${esc(tr.area)}</span><span class="tri-code">${esc(tr.id.toUpperCase())}</span></div>
-      <h4>${esc(tr.titulo)}</h4>
-      <div class="tri-stage" role="group" aria-label="Triângulo ${escAttr(tr.titulo)}">
-        <button type="button" class="tri-node tri-top ${sel === 'top' ? 'on' : ''}" onclick="UNI.pickTri('${tr.id}','top')"><b>${esc(tr.top.sym)}</b><small>${esc(tr.top.name)}</small></button>
-        <div class="tri-base">
-          <button type="button" class="tri-node ${sel === 'left' ? 'on' : ''}" onclick="UNI.pickTri('${tr.id}','left')"><b>${esc(tr.left.sym)}</b><small>${esc(tr.left.name)}</small></button>
-          <span class="tri-mul" aria-hidden="true">×</span>
-          <button type="button" class="tri-node ${sel === 'right' ? 'on' : ''}" onclick="UNI.pickTri('${tr.id}','right')"><b>${esc(tr.right.sym)}</b><small>${esc(tr.right.name)}</small></button>
-        </div>
+  function simState(sim) {
+    if (!U.eqState[sim.id]) {
+      U.eqState[sim.id] = { target: 'a', a: sim.vars.a.def, b: sim.vars.b.def, c: sim.vars.c.def };
+    }
+    return U.eqState[sim.id];
+  }
+
+  function simCompute(sim, st) {
+    const { a, b, c } = sim.vars;
+    const factor = sim.isPercentC ? 0.01 : 1;
+    let value = 0, expr = '', inputs = [];
+    if (st.target === 'a') {
+      value = st.b * (st.c * factor);
+      expr = sim.isPercentC ? `${a.sym} = ${b.sym} × (${c.sym} ÷ 100)` : `${a.sym} = ${b.sym} × ${c.sym}`;
+      inputs = ['b', 'c'];
+    } else if (st.target === 'b') {
+      value = st.a / Math.max(0.0001, st.c * factor);
+      expr = sim.isPercentC ? `${b.sym} = ${a.sym} ÷ (${c.sym} ÷ 100)` : `${b.sym} = ${a.sym} ÷ ${c.sym}`;
+      inputs = ['a', 'c'];
+    } else {
+      value = (st.a / Math.max(0.0001, st.b)) / factor;
+      expr = sim.isPercentC ? `${c.sym} = (${a.sym} ÷ ${b.sym}) × 100` : `${c.sym} = ${a.sym} ÷ ${b.sym}`;
+      inputs = ['a', 'b'];
+    }
+    const tv = sim.vars[st.target];
+    const pct = Math.max(6, Math.min(100, Math.round((value / Math.max(1, tv.max)) * 100)));
+    return { value, expr, inputs, targetVar: tv, pct };
+  }
+
+  function eqCardHTML(sim) {
+    const st = simState(sim);
+    const res = simCompute(sim, st);
+    const explored = loadProg().sims.includes(sim.id);
+    const keys = ['a', 'b', 'c'];
+    return `<article class="eq-card ${explored ? 'done' : ''}" data-eq="${sim.id}">
+      <div class="eq-head">
+        <span class="eq-meta">${esc(sim.area)}${explored ? ' · Explorado' : ''}</span>
+        <span class="eq-formula-tag">${esc(res.expr)}</span>
       </div>
-      <div class="tri-out">
-        <span class="tri-lbl">Descobrir ${esc(chosen.name)} (${esc(chosen.unit)})</span>
-        <strong class="tri-eq">${esc(ops[sel])}</strong>
-        <p class="tri-ex">${esc(tr.ex)}</p>
+      <h4>${esc(sim.titulo)}</h4>
+      <div class="eq-seg" role="group" aria-label="Escolher grandeza a calcular em ${escAttr(sim.titulo)}">
+        ${keys.map((k) => {
+          const v = sim.vars[k];
+          return `<button type="button" class="${st.target === k ? 'on' : ''}" onclick="UNI.eqPick('${sim.id}','${k}')"><b>${esc(v.sym)}</b><span>${esc(v.name)}</span></button>`;
+        }).join('')}
+      </div>
+      <div class="eq-sliders">
+        ${res.inputs.map((k) => {
+          const v = sim.vars[k];
+          return `<label class="eq-slider-row">
+            <span><b>${esc(v.name)} (${esc(v.sym)})</b><em data-eq-val="${k}">${fmtNum(st[k], v.step < 1 ? 1 : 0)} ${esc(v.unit)}</em></span>
+            <input type="range" min="${v.min}" max="${v.max}" step="${v.step}" value="${st[k]}" oninput="UNI.eqSlide('${sim.id}','${k}',this.value)">
+          </label>`;
+        }).join('')}
+      </div>
+      <div class="eq-readout">
+        <div class="eq-out-top">
+          <span>${esc(res.targetVar.name)} calculada</span>
+          <strong class="eq-num">${fmtNum(res.value, res.value >= 100 ? 0 : 2)} <small>${esc(res.targetVar.unit)}</small></strong>
+        </div>
+        <div class="eq-meter" aria-hidden="true"><i style="width:${res.pct}%"></i></div>
+        <p class="eq-note">${esc(sim.note)}</p>
       </div>
     </article>`;
+  }
+
+  function ruleDrillHTML(list) {
+    if (!list.length) return '<div class="card empty"><h3>Sem regras neste filtro</h3><p>Altere o filtro acima para iniciar o desafio.</p></div>';
+    if (!U.drill || U.drill.idx >= list.length) {
+      if (U.drill && U.drill.done > 0) {
+        return `<div class="card drill-stage">
+          <span class="eyebrow-t">DESAFIO CONCLUÍDO</span>
+          <h3>Acertou ${U.drill.score} de ${U.drill.done} regras</h3>
+          <p class="muted">As regras certas foram marcadas no seu mapa de domínio local.</p>
+          <div class="flex" style="gap:8px;justify-content:center;margin-top:14px">
+            <button type="button" class="btn btn-p btn-sm" onclick="UNI.drillStart()">Repetir desafio</button>
+            <button type="button" class="btn btn-o btn-sm" onclick="UNI.toggleDrill(false)">Voltar ao caderno</button>
+          </div>
+        </div>`;
+      }
+      U.drill = { idx: 0, score: 0, done: 0, answered: false, pick: -1, opts: null };
+    }
+    const item = list[U.drill.idx];
+    if (!U.drill.opts) {
+      const others = UNI_SHORTCUTS.filter((x) => x.id !== item.id).sort((a, b) => (a.id.charCodeAt(3) % 7) - (b.id.charCodeAt(3) % 7)).slice(0, 2);
+      const opts = [item, ...others].sort((a, b) => a.expr.localeCompare(b.expr));
+      U.drill.opts = opts;
+    }
+    return `<div class="card drill-stage">
+      <div class="drill-top">
+        <span>Pergunta ${U.drill.idx + 1} de ${list.length} · ${esc(item.area)}</span>
+        <strong>${U.drill.score} certas</strong>
+      </div>
+      <h3>Qual expressão corresponde a «${esc(item.titulo)}»?</h3>
+      <p class="drill-hint">${esc(item.dica)}</p>
+      <div class="drill-opts">
+        ${U.drill.opts.map((o, i) => {
+          const isRight = o.id === item.id;
+          let cls = '';
+          if (U.drill.answered) {
+            if (isRight) cls = 'ok';
+            else if (i === U.drill.pick) cls = 'bad';
+          }
+          return `<button type="button" class="${cls}" ${U.drill.answered ? 'disabled' : ''} onclick="UNI.drillPick(${i},'${item.id}')">${esc(o.expr)}</button>`;
+        }).join('')}
+      </div>
+      ${U.drill.answered ? `<div class="drill-foot">
+        <button type="button" class="btn btn-p btn-sm" onclick="UNI.drillNext()">${U.drill.idx + 1 < list.length ? 'Próxima regra' : 'Ver resultado'} ${I.arrow}</button>
+      </div>` : ''}
+    </div>`;
   }
 
   function uniDockHTML(active) {
     const items = [
       ['universidade', 'home', 'Início', '#/universidade'],
-      ['ferramentas', 'spark', 'Fórmulas', '#/universidade/ferramentas'],
-      ['turmas', 'users', 'Turmas', S.user ? '#/turmas' : '#/escolas'],
-      ['estudar', 'book', 'Prática', '#/estudar'],
-      ['revisao', 'clock', 'Revisão', '#/revisao'],
+      ['ferramentas', 'spark', 'Laboratório', '#/universidade/ferramentas'],
+      ['quiz', 'quiz', 'Modo Quiz', '#/quiz'],
+      ['projetor', 'play', 'Projetor', '#/projetor'],
+      ['estudar', 'book', 'Estudar', '#/estudar'],
     ];
     return `<nav class="uni-float-dock" id="uni-float-dock" aria-label="Navegação rápida da Universidade">
       ${items.map(([k, ic, lbl, href]) => `<a class="ufd-item ${active === k ? 'on' : ''}" href="${href}">${I[ic] || I.spark}<span>${lbl}</span></a>`).join('')}
@@ -545,16 +801,17 @@
     <section class="uni-hero hub-hero">
       <div class="in">
         <div class="hub-copy">
-          <span class="kicker">UNIVERSIDADE · INGENIUM 2.0</span>
+          <span class="kicker">UNIVERSIDADE · NÚCLEO AMA</span>
           <h1>A sua escola.<br><em class="hl">As suas turmas.</em><span class="title-dot">.</span></h1>
-          <span class="trust-badge"><i></i>Sem servidor · progresso e turmas ficam neste navegador</span>
-          <p>Estudo visual, mapa do programa, horário semanal, triângulos de fórmulas interativos e turmas ligadas ao motor Ingenium — tudo num só lugar, sem sair do navegador.</p>
+          <span class="trust-badge"><i></i>Sem servidor · turmas, simulações e estudo ficam neste navegador</span>
+          <p>Simuladores manipuláveis, mapa do programa, horário semanal e turmas ligadas ao Núcleo AMA — tudo num só espaço de aprendizagem ativa.</p>
           <div class="cta" style="display:flex;gap:10px;flex-wrap:wrap">
-            <a class="btn btn-f btn-lg" href="${dest}">Abrir as minhas turmas ${I.arrow}</a>
-            <a class="btn btn-o btn-ghost-d btn-lg" href="#/universidade/ferramentas">${I.spark} Fórmulas & Triângulos</a>
+            <a class="btn btn-f btn-lg" href="#/quiz">${I.quiz} Modo Quiz Interativo</a>
+            <a class="btn btn-o btn-ghost-d btn-lg" href="#/projetor">${I.play} Projetor PDF → Slides</a>
+            <a class="btn btn-o btn-ghost-d btn-lg" href="${dest}">Turmas ${I.arrow}</a>
           </div>
         </div>
-        <figure class="hub-art"><img src="media/hero-mentor-v3.jpg?v=59" alt="Docente AMA com material de aprendizagem" loading="lazy" decoding="async"><figcaption>Da matéria da turma ao domínio visual.</figcaption></figure>
+        <figure class="hub-art hub-art-3d"><img src="media/nucleo-3d-hero.jpg?v=71" alt="Escultura 3D do Núcleo AMA representando disciplinas interligadas" loading="eager" decoding="async"><figcaption>Núcleo AMA · visualização 3D, simuladores e estudo ativo.</figcaption></figure>
         <div class="uni-facts">
           <div><b data-count="${(d.escolas || []).length}">${(d.escolas || []).length}</b><span>escolas</span></div>
           <div><b data-count="${d.turmas.length}">${d.turmas.length}</b><span>turmas ativas</span></div>
@@ -568,41 +825,96 @@
       <div class="uni-util-bar">
         <div class="uni-util-sem">
           <strong>2026/2027</strong>
-          <span class="uni-sem-pill">I Semestre</span>
-          <span class="uni-util-sub">${(d.escolas || []).length} escolas · ${d.turmas.length} turmas</span>
+          <span class="uni-sem-meta">I Semestre · ${(d.escolas || []).length} escolas · ${d.turmas.length} turmas</span>
         </div>
         <div class="uni-util-acts">
           <button type="button" class="uni-pill-btn u-blue" onclick="UNI.openHorario()">${I.calendar} Horário semanal</button>
           <button type="button" class="uni-pill-btn u-coral" onclick="UNI.openProvas()">${I.doc} Provas <b class="u-cnt">${totalProvas}</b></button>
           <button type="button" class="uni-pill-btn u-violet" onclick="UNI.openSearch()">${I.search} Pesquisar <kbd>Ctrl K</kbd></button>
-          <a class="uni-prog-pill" href="#/universidade/ferramentas" title="O seu progresso visual neste dispositivo">
+          <a class="uni-prog-pill" href="#/universidade/ferramentas" title="O seu domínio no Núcleo AMA neste dispositivo">
             <span class="upp-ring" style="--p:${pct}">${pct}%</span>
-            <span>Progresso</span>
+            <span>Domínio</span>
           </a>
         </div>
+      </div>
+    </section>
+
+    <section class="uni-section" data-testid="nucleo-3d-section">
+      <div class="uni-sec-row">
+        <div>
+          <span class="eyebrow-t">${I.spark} NÚCLEO AMA · LABORATÓRIO ESPACIAL 3D</span>
+          <h2 class="section-title" style="margin:8px 0 0">Explore o conhecimento <span class="hl">em 3D.</span></h2>
+          <p class="uni-sec-sub">Arraste para rodar o modelo em perspetiva, abra a vista explodida ou toque num nó orbital para inspecionar a disciplina e iniciar a prática.</p>
+        </div>
+        <div class="flex wrap" style="gap:8px">
+          <a class="btn btn-f btn-sm" href="#/quiz">${I.quiz} Abrir Modo Quiz</a>
+          <a class="btn btn-o btn-sm" href="#/projetor">${I.play} Projetor de Aulas</a>
+        </div>
+      </div>
+      <div class="n3d-shell">
+        <div class="n3d-viewport">
+          <canvas id="nucleo-3d-canvas" data-testid="nucleo-3d-canvas" aria-label="Palco 3D interativo do Núcleo AMA"></canvas>
+          <div class="n3d-top-hint">Arraste para rodar · Clique num nó orbital</div>
+          <div class="n3d-dock" role="toolbar" aria-label="Controlos do palco 3D">
+            <div class="n3d-dock-group" role="group" aria-label="Modelo 3D">
+              <button type="button" class="n3d-btn on" data-n3d-mode="core" onclick="UNI.set3DMode('core')">Núcleo 3D</button>
+              <button type="button" class="n3d-btn" data-n3d-mode="wave" onclick="UNI.set3DMode('wave')">Onda f(x)</button>
+              <button type="button" class="n3d-btn" data-n3d-mode="gyro" onclick="UNI.set3DMode('gyro')">Giroscópio</button>
+              <button type="button" class="n3d-btn" data-n3d-mode="matrix" onclick="UNI.set3DMode('matrix')">Matriz Kz</button>
+            </div>
+            <label class="n3d-slider-wrap">
+              <span>Explodir</span>
+              <input type="range" min="0" max="100" value="0" aria-label="Vista explodida 3D" oninput="UNI.set3DExplode(this.value)">
+            </label>
+            <div class="n3d-dock-group" role="group" aria-label="Ângulos de câmara">
+              <button type="button" class="n3d-btn" onclick="UNI.set3DPreset('iso')">Iso</button>
+              <button type="button" class="n3d-btn" onclick="UNI.set3DPreset('front')">Frontal</button>
+              <button type="button" class="n3d-btn" onclick="UNI.set3DPreset('top')">Topo</button>
+              <button type="button" class="n3d-btn on" id="n3d-spin-btn" onclick="UNI.toggle3DSpin()">Girar</button>
+            </div>
+          </div>
+        </div>
+        <aside class="n3d-inspector" id="n3d-inspector" data-testid="nucleo-3d-inspector">
+          <span class="eyebrow-t">NÓ SELECIONADO</span>
+          <h3>Núcleo Poliédrico AMA</h3>
+          <p>6 disciplinas interligadas: Matemática, Física, Álgebra, Programação, Finanças e Oratória. Toque num nó no ecrã 3D ou escolha abaixo:</p>
+          <div class="n3d-node-picks">
+            ${UNI_AREAS.map((a) => `<button type="button" onclick="UNI.focus3DNode('${a.id}')">${esc(a.titulo)}</button>`).join('')}
+          </div>
+          <div class="n3d-insp-visual">
+            <img src="media/nucleo-math-3d.jpg?v=71" alt="Estudo visual 3D do Núcleo AMA" loading="lazy" decoding="async">
+          </div>
+          <div class="n3d-insp-foot">
+            <button type="button" class="btn btn-p btn-sm" onclick="UNI.openArea('mat')">Abrir Simulador</button>
+            <a class="btn btn-o btn-sm" href="#/quiz">Quiz da Área</a>
+          </div>
+        </aside>
       </div>
     </section>
 
     <section class="uni-section">
       <div class="uni-sec-row">
         <div>
-          <span class="eyebrow-t">${I.spark} ESTUDO VISUAL · INGENIUM</span>
-          <h2 class="section-title" style="margin:8px 0 0">O que vamos <span class="hl">aprender hoje?</span></h2>
-          <p class="uni-sec-sub">Toque numa área para abrir a explicação visual, fórmula, exemplo resolvido e pergunta rápida — sem precisar de conta.</p>
+          <span class="eyebrow-t">${I.spark} NÚCLEO AMA · EXPLORADOR VISUAL DE CONCEITOS</span>
+          <h2 class="section-title" style="margin:8px 0 0">Teste a intuição <span class="hl">antes da fórmula.</span></h2>
+          <p class="uni-sec-sub">Abra uma disciplina para manipular variáveis em tempo real, ver o efeito nos números e validar num desafio rápido.</p>
         </div>
         <a class="btn btn-o btn-sm" href="#/universidade/ferramentas">Abrir laboratório completo ${I.arrow}</a>
       </div>
-      <div class="ing-area-grid">
+      <div class="na-concept-grid">
         ${UNI_AREAS.map((a) => {
           const done = prog.lessons.includes(a.id);
-          return `<button type="button" class="ing-area-card tone-${a.tone} ${done ? 'done' : ''}" onclick="UNI.openArea('${a.id}')">
-            <div class="iac-art">${a.svg}</div>
-            <div class="iac-body">
-              <div class="iac-top"><span class="iac-tag">${esc(a.tag)}</span>${done ? '<span class="iac-done">✓ Feito</span>' : ''}</div>
+          return `<button type="button" class="na-concept-card na-concept-3d ${done ? 'done' : ''}" onclick="UNI.openArea('${a.id}')">
+            <div class="nac-visual-wrap">
+              <img class="nac-3d-img" src="${escAttr(a.img || 'media/nucleo-3d-hero.jpg?v=71')}" alt="${escAttr(a.titulo)}" loading="lazy" decoding="async">
+              <div class="nac-svg-chip">${a.svg}</div>
+            </div>
+            <div class="nac-body">
+              <div class="nac-meta">${esc(a.tag)}${done ? ' · <b>Concluído</b>' : ' · Simulador 3D &amp; Fórmula'}</div>
               <h3>${esc(a.titulo)}</h3>
               <p>${esc(a.sub)}</p>
             </div>
-            <span class="iac-go" aria-hidden="true">${I.arrow}</span>
+            <span class="nac-go" aria-hidden="true">${I.arrow}</span>
           </button>`;
         }).join('')}
       </div>
@@ -613,7 +925,7 @@
         <div>
           <span class="eyebrow-t">${I.grad} MAPA DO PROGRAMA</span>
           <h2 class="section-title" style="margin:8px 0 0">Turmas e <span class="hl">materiais de origem.</span></h2>
-          <p class="uni-sec-sub">Explore cada disciplina do semestre, veja o horário, a sala e abra os materiais diretamente no motor de estudo.</p>
+          <p class="uni-sec-sub">Explore cada disciplina do semestre, veja o horário, a sala e abra os materiais diretamente no estúdio de estudo.</p>
         </div>
         <div class="flex" style="gap:8px;flex-wrap:wrap">
           <a class="btn btn-o btn-sm" href="${S.user ? '#/escolas' : '#/entrar'}">${I.home} Ver escolas</a>
@@ -621,13 +933,12 @@
         </div>
       </div>
       <div class="prog-map-grid">
-        ${d.turmas.map((t, idx) => {
+        ${d.turmas.map((t) => {
           const dp = disc(d, t.disciplinaId);
           const escObj = escola(d, t.escolaId);
           const mats = publicadas(t);
           const nextAv = (t.avaliacoes || []).slice().sort((a, b) => a.data.localeCompare(b.data))[0];
-          const tones = ['lav', 'mint', 'amber', 'rose'];
-          return `<article class="pm-card tone-${tones[idx % 4]}">
+          return `<article class="pm-card">
             <div class="pm-head">
               <span class="pm-code">${esc(t.codigo)}</span>
               <span class="pm-escola">${esc(escObj.sigla)} · ${t.ano}.º ano · ${dp.ects} ECTS</span>
@@ -650,14 +961,14 @@
     <section class="uni-section">
       <div class="uni-sec-row">
         <div>
-          <span class="eyebrow-t">${I.spark} FERRAMENTA INTERATIVA · FT-01</span>
-          <h2 class="section-title" style="margin:8px 0 0">Triângulos de <span class="hl">fórmulas.</span></h2>
-          <p class="uni-sec-sub">Toque na grandeza que quer descobrir: o triângulo isola a variável e mostra a operação exata.</p>
+          <span class="eyebrow-t">${I.spark} BANCADA DE EQUAÇÕES</span>
+          <h2 class="section-title" style="margin:8px 0 0">Simulador de <span class="hl">grandezas.</span></h2>
+          <p class="uni-sec-sub">Escolha qual grandeza quer isolar e deslize os valores conhecidos: o resultado e a barra de escala atualizam no instante.</p>
         </div>
-        <a class="btn btn-f btn-sm" href="#/universidade/ferramentas">Ver os ${UNI_TRIANGLES.length} triângulos e ${UNI_SHORTCUTS.length} atalhos ${I.arrow}</a>
+        <a class="btn btn-f btn-sm" href="#/universidade/ferramentas">Abrir os ${UNI_SIMS.length} simuladores e ${UNI_SHORTCUTS.length} regras ${I.arrow}</a>
       </div>
-      <div class="tri-grid tri-preview">
-        ${UNI_TRIANGLES.slice(0, 3).map((tr) => triangleCardHTML(tr, U.triSel[tr.id] || 'top')).join('')}
+      <div class="eq-solver-grid">
+        ${UNI_SIMS.slice(0, 3).map((sim) => eqCardHTML(sim)).join('')}
       </div>
     </section>
 
@@ -665,114 +976,128 @@
       <span class="eyebrow-t">${I.grad} COMO FUNCIONA</span>
       <h2 class="section-title" style="margin:8px 0 0;max-width:20ch">Da escola ao <span class="hl">cartão de estudo</span></h2>
       <div class="uni-flow">
-        <article><i>01 / ESCOLA</i><h3>Escolha a escola</h3><p>Cada turma pertence a uma escola. O docente vê só as suas, o estudante encontra a turma pelo código que recebeu.</p></article>
-        <article><i>02 / TURMA</i><h3>Crie a turma e a disciplina</h3><p>Nome, código, horário e sala. A turma ganha um código partilhável e um quadro de sessões com guião de aula.</p></article>
-        <article><i>03 / MATÉRIAS</i><h3>Envie o material</h3><p>O docente publica resumos, fichas e texto de estudo. O estudante abre a matéria e estuda diretamente a partir dela.</p></article>
-        <article><i>04 / PRÁTICA · INGENIUM</i><h3>O motor transforma a matéria</h3><p>Ingenium lê o texto publicado e devolve perguntas, cartões de revisão, ficha e plano de aula. Tudo gerado aqui, sem enviar nada para fora do navegador.</p></article>
+        <article><i>01 · ESCOLA</i><h3>Escolha a escola</h3><p>Cada turma pertence a uma escola. O docente vê só as suas, o estudante encontra a turma pelo código que recebeu.</p></article>
+        <article><i>02 · TURMA</i><h3>Crie a turma e a disciplina</h3><p>Nome, código, horário e sala. A turma ganha um código partilhável e um quadro de sessões com guião de aula.</p></article>
+        <article><i>03 · MATÉRIAS</i><h3>Envie o material</h3><p>O docente publica resumos, fichas e texto de estudo. O estudante abre a matéria e estuda diretamente a partir dela.</p></article>
+        <article><i>04 · NÚCLEO AMA</i><h3>O motor transforma a matéria</h3><p>O Núcleo AMA lê o texto publicado e cria mapa de conceitos, cartões de revisão, quiz, ficha e plano de aula — tudo localmente neste navegador.</p></article>
       </div>
       <div class="school-paths">
         <article class="school-path"><span class="sp-ic">${I.users}</span><div><span class="eyebrow-t">SOU DOCENTE</span><h3>Crie a sua turma</h3><p>Publique disciplinas, sessões e matérias. Acompanhe a chamada e gere fichas com um clique.</p></div><a class="btn btn-o btn-sm" href="${S.user ? '#/turmas' : '#/registo'}">Começar ${I.arrow}</a></article>
-        <article class="school-path"><span class="sp-ic">${I.book || I.doc}</span><div><span class="eyebrow-t">SOU ESTUDANTE</span><h3>Estude com a sua turma</h3><p>Entre pelo código, leia o material enviado e transforme-o em cartões e perguntas.</p></div><a class="btn btn-o btn-sm" href="${S.user ? '#/turmas' : '#/entrar'}">Entrar ${I.arrow}</a></article>
+        <article class="school-path"><span class="sp-ic">${I.book || I.doc}</span><div><span class="eyebrow-t">SOU ESTUDANTE</span><h3>Estude com a sua turma</h3><p>Entre pelo código, leia o material enviado e transforme-o em cartões, mapas e perguntas.</p></div><a class="btn btn-o btn-sm" href="${S.user ? '#/turmas' : '#/entrar'}">Entrar ${I.arrow}</a></article>
       </div>
-      <div class="ing-band">
-        <span class="ing-band-mark">In</span>
-        <div><b>Ingenium · motor de estudo</b><span>Uma ponte entre a turma e o espaço de estudo: a sessão vira prática, a prática entra na revisão espaçada.</span></div>
+      <div class="na-band">
+        <span class="na-band-mark">NA</span>
+        <div><b>Núcleo AMA · aprendizagem ativa</b><span>Ponte directa entre a turma e o estudo: a sessão vira mapa de conceitos, prática Feynman e revisão espaçada SM-2.</span></div>
         ${seloMotor()}
       </div>
     </section>
     <section class="uni-section">
-      <span class="eyebrow-t">${I.spark} ESTUDO</span>
+      <span class="eyebrow-t">${I.spark} ESTÚDIO DE ESTUDO</span>
       <h2 class="section-title" style="margin:8px 0 18px;max-width:24ch">Uma ideia de <span class="hl">cada vez.</span></h2>
-      <div class="study-dock">
-        <a class="dock-card" href="#/estudar"><span class="dock-ic">${I.doc}</span><b>RESUMOS</b><span>O que estudaste? O Ingenium transforma texto em cartões.</span>${I.arrow}</a>
-        <a class="dock-card" href="#/professor"><span class="dock-ic">${I.calendar}</span><b>PLANO</b><span>Quando estudar o quê, com datas e uma semana organizada.</span>${I.arrow}</a>
-        <a class="dock-card" href="#/revisao"><span class="dock-ic">${I.clock}</span><b>REVISÃO</b><span>Cartões espaçados: hoje, difícil, bem ou fácil.</span>${I.arrow}</a>
+      <div class="study-dock study-dock-5">
+        <a class="dock-card" href="#/quiz"><span class="dock-ic">${I.quiz}</span><b>MODO QUIZ</b><span>Teste conhecimentos por aula com pontuação, sequência e revisão de erros.</span>${I.arrow}</a>
+        <a class="dock-card" href="#/projetor"><span class="dock-ic">${I.play}</span><b>PROJETOR PDF</b><span>Converta PDFs em apresentações visuais 16:9 com Modo Leitura e notas.</span>${I.arrow}</a>
+        <a class="dock-card" href="#/estudar"><span class="dock-ic">${I.doc}</span><b>RESUMOS &amp; MAPAS</b><span>O Núcleo AMA extrai ideias-chave, mapa de conceitos e cartões.</span>${I.arrow}</a>
+        <a class="dock-card" href="#/professor"><span class="dock-ic">${I.calendar}</span><b>OFICINA DOCENTE</b><span>Fichas imprimíveis, planos de aula, rubricas e chamadas locais.</span>${I.arrow}</a>
+        <a class="dock-card" href="#/revisao"><span class="dock-ic">${I.clock}</span><b>REVISÃO SM-2</b><span>Cartões espaçados com previsão de carga para os próximos 7 dias.</span>${I.arrow}</a>
       </div>
     </section>
     <section class="uni-section">
-      <span class="eyebrow-t">${I.check} HONESTIDADE LOCAL</span>
+      <span class="eyebrow-t">${I.check} TRANSPARÊNCIA LOCAL</span>
       <div class="grid g-3" style="margin-top:18px">
         <article class="card uni-home-card"><i>01</i><h3>Não substitui a secretaria</h3><p>Presenças e notas aqui são apoio de sala de aula. O registo oficial continua a ser o da instituição.</p></article>
-        <article class="card uni-home-card"><i>02</i><h3>Sem servidor</h3><p>Turmas, sessões, presenças e progresso visual ficam em localStorage. Noutro dispositivo, os dados não aparecem.</p></article>
-        <article class="card uni-home-card"><i>03</i><h3>Feito para Angola</h3><p>Horários, salas, disciplinas e exemplos pensados para o contexto do ensino superior angolano.</p></article>
+        <article class="card uni-home-card"><i>02</i><h3>Sem servidor</h3><p>Turmas, sessões, presenças e simulações ficam em localStorage. Noutro dispositivo, os dados não aparecem.</p></article>
+        <article class="card uni-home-card"><i>03</i><h3>Feito para Angola</h3><p>Horários, salas, kwanzas e exemplos pensados para a realidade do ensino superior angolano.</p></article>
       </div>
     </section>
     <section class="uni-cta">
-      <div class="box"><div><h2>Pronto para dar a próxima aula?</h2><p>Entre ou crie a sua conta para abrir a primeira turma ou explore os triângulos de fórmulas agora.</p></div><a class="btn btn-g btn-lg" href="${dest}">Entrar nas turmas ${I.arrow}</a></div>
+      <div class="box"><div><h2>Pronto para dar a próxima aula?</h2><p>Entre ou crie a sua conta para abrir a primeira turma ou experimente a bancada de equações agora.</p></div><a class="btn btn-g btn-lg" href="${dest}">Entrar nas turmas ${I.arrow}</a></div>
     </section>
     ${uniDockHTML('universidade')}`, 'universidade');
   });
 
-  /* Laboratório visual Ingenium 2.0: Triângulos, Atalhos e Progresso Local */
+  /* Laboratório Interativo AMA: Simuladores de Grandezas, Caderno de Regras + Desafio Ativo, e Mapa de Domínio */
   on('/universidade/ferramentas', async () => {
     const pct = progPct();
     const prog = loadProg();
+    const snap = studySnapshot();
     const areas = ['Tudo', ...new Set(UNI_SHORTCUTS.map((s) => s.area))];
     const tipos = ['Todos', 'Mnemónica', 'Truque', 'Fórmula'];
     const filtrados = UNI_SHORTCUTS.filter((s) =>
       (U.scArea === 'Tudo' || s.area === U.scArea) &&
       (U.scTipo === 'Todos' || s.tipo === U.scTipo));
-    const badges = [
-      { nome: 'Explorador Visual', desc: 'Complete 1 área visual na Universidade', ok: prog.lessons.length >= 1 },
-      { nome: 'Mestre dos Triângulos', desc: 'Experimente 3 triângulos de fórmulas', ok: prog.triangles.length >= 3 },
-      { nome: 'Colecionador de Atalhos', desc: 'Marque 4 atalhos como dominados', ok: prog.shortcuts.length >= 4 },
-      { nome: 'Pronto para Frequência', desc: 'Atinja 50% de progresso visual local', ok: pct >= 50 },
+    const marcos = [
+      { nome: 'Intuição Validada', desc: 'Complete 1 simulador de conceitos na Universidade', ok: prog.lessons.length >= 1 },
+      { nome: 'Domínio de Grandezas', desc: 'Explore 3 simuladores de equações na bancada', ok: prog.sims.length >= 3 },
+      { nome: 'Memória de Regras', desc: 'Marque 4 regras ou mnemónicas como dominadas', ok: prog.shortcuts.length >= 4 },
+      { nome: 'Ritmo de Frequência', desc: 'Atinja 50% de domínio no Laboratório AMA', ok: pct >= 50 },
     ];
     return shellPublic(`
     <section class="uni-section" style="padding-top:34px">
       <div class="uni-sec-row">
         <div>
           <a class="uni-back-lnk" href="#/universidade">${I.back} Voltar à Universidade</a>
-          <span class="eyebrow-t" style="margin-top:12px">${I.spark} LABORATÓRIO VISUAL · INGENIUM 2.0</span>
-          <h1 class="section-title" style="margin:8px 0 0;font-size:clamp(34px,4.5vw,52px)">Fórmulas, Triângulos <span class="hl">&amp; Atalhos.</span></h1>
-          <p class="uni-sec-sub">Sem conta, sem stress: o progresso fica neste dispositivo. Toque nas variáveis dos triângulos ou filtre mnemónicas para rever antes da prova.</p>
+          <span class="eyebrow-t" style="margin-top:12px">${I.spark} LABORATÓRIO INTERATIVO AMA</span>
+          <h1 class="section-title" style="margin:8px 0 0;font-size:clamp(34px,4.5vw,52px)">Simuladores, Regras <span class="hl">&amp; Domínio.</span></h1>
+          <p class="uni-sec-sub">Experimente variáveis em direto, treine regras no modo desafio e acompanhe o seu domínio local sem precisar de conta.</p>
         </div>
         <div class="uni-lab-score">
           <span class="upp-ring lg" style="--p:${pct}">${pct}%</span>
-          <div><b>Progresso visual</b><small>${prog.lessons.length}/${UNI_AREAS.length} áreas · ${prog.triangles.length}/${UNI_TRIANGLES.length} triângulos · ${prog.shortcuts.length}/${UNI_SHORTCUTS.length} atalhos</small></div>
+          <div><b>Domínio local</b><small>${prog.lessons.length}/${UNI_AREAS.length} conceitos · ${prog.sims.length}/${UNI_SIMS.length} simuladores · ${prog.shortcuts.length}/${UNI_SHORTCUTS.length} regras</small></div>
         </div>
       </div>
 
       <div class="uni-lab-tabs" role="tablist">
-        <button type="button" class="${U.labTab === 'tri' ? 'on' : ''}" onclick="UNI.labTab('tri')">Triângulos de fórmulas <span>${UNI_TRIANGLES.length}</span></button>
-        <button type="button" class="${U.labTab === 'sc' ? 'on' : ''}" onclick="UNI.labTab('sc')">Atalhos &amp; mnemónicas <span>${UNI_SHORTCUTS.length}</span></button>
-        <button type="button" class="${U.labTab === 'prog' ? 'on' : ''}" onclick="UNI.labTab('prog')">Medalhas &amp; perfil local <span>${badges.filter((b) => b.ok).length}/${badges.length}</span></button>
+        <button type="button" class="${U.labTab === 'sim' ? 'on' : ''}" onclick="UNI.labTab('sim')">Simulador de grandezas <span>${UNI_SIMS.length}</span></button>
+        <button type="button" class="${U.labTab === 'sc' ? 'on' : ''}" onclick="UNI.labTab('sc')">Caderno de regras <span>${UNI_SHORTCUTS.length}</span></button>
+        <button type="button" class="${U.labTab === 'prog' ? 'on' : ''}" onclick="UNI.labTab('prog')">Mapa de domínio <span>${marcos.filter((b) => b.ok).length}/${marcos.length}</span></button>
       </div>
 
-      ${U.labTab === 'tri' ? `
-        <div class="tri-grid">${UNI_TRIANGLES.map((tr) => triangleCardHTML(tr, U.triSel[tr.id] || 'top')).join('')}</div>
+      ${U.labTab === 'sim' ? `
+        <div class="eq-solver-grid">${UNI_SIMS.map((sim) => eqCardHTML(sim)).join('')}</div>
       ` : ''}
 
       ${U.labTab === 'sc' ? `
-        <div class="sc-filters">
-          <div class="sc-pills">${areas.map((a) => `<button type="button" class="${U.scArea === a ? 'on' : ''}" onclick="UNI.scFilter('area','${escAttr(a)}')">${esc(a)}</button>`).join('')}</div>
-          <div class="sc-pills sub">${tipos.map((t) => `<button type="button" class="${U.scTipo === t ? 'on' : ''}" onclick="UNI.scFilter('tipo','${escAttr(t)}')">${esc(t)}</button>`).join('')}</div>
+        <div class="sc-toolbar">
+          <div class="sc-filters">
+            <div class="sc-pills">${areas.map((a) => `<button type="button" class="${U.scArea === a ? 'on' : ''}" onclick="UNI.scFilter('area','${escAttr(a)}')">${esc(a)}</button>`).join('')}</div>
+            <div class="sc-pills sub">${tipos.map((t) => `<button type="button" class="${U.scTipo === t ? 'on' : ''}" onclick="UNI.scFilter('tipo','${escAttr(t)}')">${esc(t)}</button>`).join('')}</div>
+          </div>
+          <button type="button" class="btn ${U.drillMode ? 'btn-p' : 'btn-f'} btn-sm" onclick="UNI.toggleDrill(${!U.drillMode})">${I.quiz} ${U.drillMode ? 'Ver lista completa' : 'Modo Desafio Ativo'}</button>
         </div>
-        <div class="sc-grid">
-          ${filtrados.map((s) => {
-            const ok = prog.shortcuts.includes(s.id);
-            return `<article class="sc-card ${ok ? 'done' : ''}">
-              <div class="sc-top"><span class="sc-badge t-${s.tipo.toLowerCase().slice(0, 3)}">${esc(s.tipo)}</span><span class="sc-area">${esc(s.area)}</span></div>
-              <h3>${esc(s.titulo)}</h3>
-              <div class="sc-expr">${esc(s.expr)}</div>
-              <p>${esc(s.dica)}</p>
-              <button type="button" class="btn ${ok ? 'btn-p' : 'btn-o'} btn-sm" onclick="UNI.toggleShortcut('${s.id}')">${ok ? '✓ Dominado' : 'Marcar como dominado'}</button>
-            </article>`;
-          }).join('')}
-        </div>
+        ${U.drillMode ? ruleDrillHTML(filtrados) : `
+          <div class="sc-grid">
+            ${filtrados.map((s) => {
+              const ok = prog.shortcuts.includes(s.id);
+              return `<article class="sc-card ${ok ? 'done' : ''}">
+                <div class="sc-meta-line">${esc(s.tipo)} · ${esc(s.area)}${ok ? ' · <b>Dominada</b>' : ''}</div>
+                <h3>${esc(s.titulo)}</h3>
+                <div class="sc-expr">${esc(s.expr)}</div>
+                <p>${esc(s.dica)}</p>
+                <button type="button" class="btn ${ok ? 'btn-p' : 'btn-o'} btn-sm" onclick="UNI.toggleShortcut('${s.id}')">${ok ? '✓ Dominada' : 'Marcar como dominada'}</button>
+              </article>`;
+            }).join('')}
+          </div>
+        `}
       ` : ''}
 
       ${U.labTab === 'prog' ? `
+        <div class="na-mastery-stats">
+          <div class="card"><span>Conceitos explorados</span><strong>${prog.lessons.length} / ${UNI_AREAS.length}</strong></div>
+          <div class="card"><span>Simuladores testados</span><strong>${prog.sims.length} / ${UNI_SIMS.length}</strong></div>
+          <div class="card"><span>Resumos em Estudar</span><strong>${snap.recs}</strong></div>
+          <div class="card"><span>Cartões SM-2 (${snap.mastered} estáveis)</span><strong>${snap.cards}</strong></div>
+        </div>
         <div class="grid g-2" style="margin-top:18px">
-          ${badges.map((b) => `<article class="card uni-badge-card ${b.ok ? 'on' : ''}">
+          ${marcos.map((b) => `<article class="card uni-badge-card ${b.ok ? 'on' : ''}">
             <span class="ubc-ic">${b.ok ? I.check : I.spark}</span>
             <div><b>${esc(b.nome)}</b><p>${esc(b.desc)}</p></div>
-            <span class="ubc-st">${b.ok ? 'Desbloqueada' : 'Por conquistar'}</span>
+            <span class="ubc-st">${b.ok ? 'Concluído' : 'Em progresso'}</span>
           </article>`).join('')}
         </div>
         <div class="card" style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
-          <div><h3 style="margin:0 0 4px">Perfil local sem conta</h3><p class="muted" style="margin:0;font-size:13px">Todo o progresso visual acima fica apenas neste navegador (localStorage).</p></div>
-          <button type="button" class="btn btn-o btn-sm btn-danger" onclick="UNI.resetProg()">Limpar progresso visual</button>
+          <div><h3 style="margin:0 0 4px">Registo local neste dispositivo</h3><p class="muted" style="margin:0;font-size:13px">Todo o domínio do Laboratório AMA fica guardado apenas neste navegador (localStorage).</p></div>
+          <button type="button" class="btn btn-o btn-sm btn-danger" onclick="UNI.resetProg()">Limpar domínio local</button>
         </div>
       ` : ''}
     </section>
@@ -1029,10 +1354,10 @@
     const d = load();
     const mats = (t.materiais || []).slice().sort((a, b) => String(b.enviadoEm || '').localeCompare(String(a.enviadoEm || '')));
     return `<div class="uc-panel">
-      <div class="uc-panel-h"><b>Matérias da turma <small class="ing-tag">estudo</small></b><span>${publicadas(t).length} de ${mats.length} publicadas · enviadas pelo docente</span></div>
+      <div class="uc-panel-h"><b>Matérias da turma <small class="na-tag">estudo</small></b><span>${publicadas(t).length} de ${mats.length} publicadas · enviadas pelo docente</span></div>
       <div class="mat-intro">${doc
-        ? 'Publique o texto da matéria, anexe um ficheiro pequeno e envie para a turma. Os estudantes abrem a matéria e transformam-na em cartões e perguntas no espaço de estudo.'
-        : 'Material enviado pelo docente para esta turma. Abra uma matéria e leve o texto para o espaço de estudo — o Ingenium cria cartões e perguntas a partir dele.'}</div>
+        ? 'Publique o texto da matéria, anexe um ficheiro pequeno e envie para a turma. Os estudantes abrem a matéria e transformam-na em mapas de conceitos, cartões e perguntas no estúdio de estudo.'
+        : 'Material enviado pelo docente para esta turma. Abra uma matéria e leve o texto para o estúdio — o Núcleo AMA cria mapas de conceitos, cartões e perguntas a partir dele.'}</div>
       ${doc ? `<div class="mat-tools"><button class="btn btn-p btn-sm" onclick="UNI.addMaterial('${t.id}')">${I.plus} Nova matéria</button><span class="muted">Texto e ficheiro até 180 KB · guardado neste navegador</span></div>
       <div id="uni-mat-form" hidden>${formMaterial(t)}</div>` : ''}
       <div class="mat-grid">${mats.map((m) => {
@@ -1070,16 +1395,16 @@
     </div>`;
   }
 
-  /* Prática: cada sessão da turma pode virar ficha de estudo com o motor do
-     Ingenium. A posse dos dados continua no espaço de estudo (AMAStudy.ingest
-     / kit) — a turma só pede e mostra, nunca escreve no store alheio. */
+  /* Prática: cada sessão da turma pode virar ficha de estudo com o Núcleo AMA.
+     A posse dos dados continua no espaço de estudo (AMAStudy.ingest / kit) —
+     a turma só pede e mostra, nunca escreve no store alheio. */
   function praticaTurma(t, doc) {
     const lista = sessoesOrd(t);
     const feitas = lista.filter((s) => praticaDe(t, s)).length;
     const comTexto = (s) => textoPratica(s).length >= 120;
     return `<div class="uc-panel">
-      <div class="uc-panel-h"><b>Prática da turma <small class="ing-tag">com Ingenium</small></b><span>${feitas} de ${lista.length} sessões com ficha · gerada neste dispositivo</span></div>
-      <div class="ing-steps"><span><b>01</b> Sumário da sessão</span><i></i><span><b>02</b> Motor Ingenium</span><i></i><span><b>03</b> Cartões e revisão</span>${seloMotor()}</div>
+      <div class="uc-panel-h"><b>Prática da turma <small class="na-tag">Núcleo AMA</small></b><span>${feitas} de ${lista.length} sessões com ficha · gerada neste dispositivo</span></div>
+      <div class="na-steps"><span><b>01</b> Sumário da sessão</span><i></i><span><b>02</b> Núcleo AMA</span><i></i><span><b>03</b> Cartões e revisão</span>${seloMotor()}</div>
       ${lista.length ? `<div class="uc-pratica-bar">
         <button class="btn btn-p btn-sm" onclick="UNI.praticaToda('${t.id}')">${I.spark} Gerar prática de todas</button>
         <a class="btn btn-o btn-sm" href="#/revisao">${I.clock} Rever os cartões</a>
@@ -1257,56 +1582,140 @@
   }
 
   /* ============================================================ estado UI */
-  const U = { tab: 'visao', turma: null, timerId: null, running: false, left: 0, timerSess: null, lec: null, aberta: null, triSel: {}, labTab: 'tri', scArea: 'Tudo', scTipo: 'Todos' };
+  const U = { tab: 'visao', turma: null, timerId: null, running: false, left: 0, timerSess: null, lec: null, aberta: null, eqState: {}, labTab: 'sim', scArea: 'Tudo', scTipo: 'Todos', drillMode: false, drill: null };
 
   const UNI = {
-    /* Ingenium 2.0 visual lab & modais */
-    labTab(k) { U.labTab = k; render(); },
+    /* Núcleo AMA: laboratório interativo, simuladores e modais */
+    labTab(k) { U.labTab = k; U.drill = null; render(); },
     scFilter(kind, val) {
       if (kind === 'area') U.scArea = val; else U.scTipo = val;
+      U.drill = null;
       render();
     },
-    pickTri(id, part) {
-      U.triSel[id] = part;
+    toggleDrill(on) {
+      U.drillMode = !!on;
+      U.drill = null;
+      render();
+    },
+    drillStart() {
+      U.drill = { idx: 0, score: 0, done: 0, answered: false, pick: -1, opts: null };
+      render();
+    },
+    drillPick(pickIdx, rightId) {
+      if (!U.drill || U.drill.answered) return;
+      U.drill.answered = true;
+      U.drill.pick = pickIdx;
+      U.drill.done += 1;
+      const picked = U.drill.opts && U.drill.opts[pickIdx];
+      if (picked && picked.id === rightId) {
+        U.drill.score += 1;
+        const p = loadProg();
+        if (!p.shortcuts.includes(rightId)) { p.shortcuts.push(rightId); saveProg(p); }
+      }
+      render();
+    },
+    drillNext() {
+      if (!U.drill) return;
+      U.drill.idx += 1;
+      U.drill.answered = false;
+      U.drill.pick = -1;
+      U.drill.opts = null;
+      render();
+    },
+    _markSim(id) {
       const p = loadProg();
-      if (!p.triangles.includes(id)) { p.triangles.push(id); saveProg(p); }
-      const tr = UNI_TRIANGLES.find((x) => x.id === id);
-      const card = document.querySelector(`.tri-card[data-tri="${id}"]`);
-      if (tr && card) {
-        card.outerHTML = triangleCardHTML(tr, part);
+      if (!p.sims.includes(id)) {
+        p.sims.push(id);
+        saveProg(p);
         document.querySelectorAll('.upp-ring').forEach((r) => { const pc = progPct(); r.style.setProperty('--p', pc); r.textContent = pc + '%'; });
-      } else { render(); }
+      }
+    },
+    eqPick(id, varKey) {
+      const sim = UNI_SIMS.find((x) => x.id === id);
+      if (!sim) return;
+      const st = simState(sim);
+      st.target = varKey;
+      this._markSim(id);
+      const card = document.querySelector(`.eq-card[data-eq="${id}"]`);
+      if (card) card.outerHTML = eqCardHTML(sim);
+      else render();
+    },
+    eqSlide(id, slot, val) {
+      const sim = UNI_SIMS.find((x) => x.id === id);
+      if (!sim) return;
+      const st = simState(sim);
+      st[slot] = Number(val);
+      this._markSim(id);
+      const card = document.querySelector(`.eq-card[data-eq="${id}"]`);
+      if (!card) return;
+      const res = simCompute(sim, st);
+      const v = sim.vars[slot];
+      const lbl = card.querySelector(`[data-eq-val="${slot}"]`);
+      if (lbl) lbl.textContent = `${fmtNum(st[slot], v.step < 1 ? 1 : 0)} ${v.unit}`;
+      const num = card.querySelector('.eq-num');
+      if (num) num.innerHTML = `${fmtNum(res.value, res.value >= 100 ? 0 : 2)} <small>${esc(res.targetVar.unit)}</small>`;
+      const bar = card.querySelector('.eq-meter i');
+      if (bar) bar.style.width = `${res.pct}%`;
+      card.classList.add('done');
+    },
+    simConcept(id, val) {
+      const a = UNI_AREAS.find((x) => x.id === id);
+      if (!a || !a.sim) return;
+      const n = Number(val);
+      const out = a.sim.eval(n);
+      const vEl = $('#na-sim-val'); if (vEl) vEl.textContent = `${fmtNum(n, 0)}${a.sim.unit}`;
+      const rEl = $('#na-sim-readout'); if (rEl) rEl.textContent = out.readout;
+      const eEl = $('#na-sim-expr'); if (eEl) eEl.textContent = out.expr;
+      const nEl = $('#na-sim-note'); if (nEl) nEl.textContent = out.note;
+      const bEl = $('#na-sim-bar'); if (bEl) bEl.style.width = `${out.pct}%`;
     },
     toggleShortcut(id) {
       const p = loadProg();
       const i = p.shortcuts.indexOf(id);
       if (i >= 0) p.shortcuts.splice(i, 1); else p.shortcuts.push(id);
       saveProg(p);
-      toast(i >= 0 ? 'Atalho desmarcado.' : 'Atalho marcado como dominado!');
+      toast(i >= 0 ? 'Regra desmarcada.' : 'Regra marcada como dominada!');
       render();
     },
     openArea(id) {
       const a = UNI_AREAS.find((x) => x.id === id);
       if (!a) return;
       const done = loadProg().lessons.includes(a.id);
+      const s = a.sim;
+      const init = s.eval(s.val);
       showModal(`<div class="uni-vis-modal">
-        <div class="uvm-top"><span class="eyebrow-t">LIÇÃO VISUAL · INGENIUM 2.0</span><button type="button" class="uvm-x" onclick="UNI.closeModal()" aria-label="Fechar">✕</button></div>
+        <div class="uvm-top"><span class="eyebrow-t">NÚCLEO AMA · EXPLORADOR INTERATIVO</span><button type="button" class="uvm-x" onclick="UNI.closeModal()" aria-label="Fechar">✕</button></div>
         <h2 style="margin:6px 0 4px">${esc(a.titulo)}</h2>
         <p class="muted" style="margin:0 0 14px;font-size:13.5px">${esc(a.sub)}</p>
-        <div class="uvm-art tone-${a.tone}">${a.svg}</div>
-        <div class="uvm-box"><b>Intuição</b><p>${esc(a.analogia)}</p></div>
-        <div class="uvm-formula"><span>A EXPRESSÃO</span><strong>${esc(a.formula)}</strong></div>
-        <div class="uvm-box"><b>Exemplo resolvido</b><p>${esc(a.exemplo)}</p></div>
-        <div class="uvm-sum"><b>Resumo numa linha:</b> ${esc(a.resumo)}</div>
+        <div class="uvm-art">${a.svg}</div>
+        <div class="uvm-box"><b>1 · Cenário real</b><p>${esc(a.analogia)}</p></div>
+        <div class="na-sim-box">
+          <div class="na-sim-head">
+            <span>2 · SIMULADOR MANIPULÁVEL</span>
+            <strong>${esc(a.formula)}</strong>
+          </div>
+          <label class="na-sim-ctrl">
+            <span>${esc(s.label)}</span>
+            <em id="na-sim-val">${fmtNum(s.val, 0)}${esc(s.unit)}</em>
+            <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.val}" oninput="UNI.simConcept('${a.id}',this.value)">
+          </label>
+          <div class="na-sim-out">
+            <strong id="na-sim-readout">${esc(init.readout)}</strong>
+            <span id="na-sim-expr">${esc(init.expr)}</span>
+            <div class="eq-meter"><i id="na-sim-bar" style="width:${init.pct}%"></i></div>
+            <small id="na-sim-note">${esc(init.note)}</small>
+          </div>
+        </div>
+        <div class="uvm-sum"><b>Síntese:</b> ${esc(a.resumo)}</div>
         <div class="uvm-check">
-          <span class="eyebrow-t">VERIFICAÇÃO RÁPIDA</span>
+          <span class="eyebrow-t">3 · DESAFIO RELÂMPAGO</span>
           <p class="uvm-q">${esc(a.pergunta)}</p>
           <div class="uvm-opts">${a.opcoes.map((o, idx) => `<button type="button" onclick="UNI.checkAreaAns('${a.id}',${idx},${a.certa},this)"><span>${'ABC'[idx]}</span>${esc(o)}</button>`).join('')}</div>
           <p class="uvm-exp" id="uvm-exp" hidden>${esc(a.exp)}</p>
         </div>
         <div class="flex" style="gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:16px">
           <button type="button" class="btn btn-o btn-sm" onclick="UNI.closeModal()">Fechar</button>
-          <button type="button" class="btn ${done ? 'btn-o' : 'btn-p'} btn-sm" id="uvm-done-btn" onclick="UNI.markAreaDone('${a.id}')">${done ? '✓ Lição concluída' : 'Marcar lição como concluída'}</button>
+          <button type="button" class="btn ${done ? 'btn-o' : 'btn-p'} btn-sm" id="uvm-done-btn" onclick="UNI.markAreaDone('${a.id}')">${done ? '✓ Conceito concluído' : 'Marcar como concluído'}</button>
         </div>
       </div>`);
     },
@@ -1321,8 +1730,8 @@
       if (pick === right) {
         const p = loadProg();
         if (!p.lessons.includes(id)) { p.lessons.push(id); saveProg(p); }
-        const db = $('#uvm-done-btn'); if (db) { db.textContent = '✓ Lição concluída'; db.className = 'btn btn-p btn-sm'; }
-        toast('Correto! Progresso visual atualizado neste navegador.');
+        const db = $('#uvm-done-btn'); if (db) { db.textContent = '✓ Conceito concluído'; db.className = 'btn btn-p btn-sm'; }
+        toast('Correto! Domínio local atualizado neste navegador.');
       }
     },
     markAreaDone(id) {
@@ -1330,13 +1739,13 @@
       if (!p.lessons.includes(id)) p.lessons.push(id);
       saveProg(p);
       this.closeModal();
-      toast('Lição marcada como concluída!');
+      toast('Conceito marcado como concluído!');
       render();
     },
     resetProg() {
-      if (!confirm('Limpar todo o progresso visual da Universidade neste dispositivo?')) return;
-      saveProg({ lessons: [], shortcuts: [], triangles: [] });
-      toast('Progresso visual limpo.');
+      if (!confirm('Limpar todo o domínio local do Laboratório AMA neste dispositivo?')) return;
+      saveProg({ lessons: [], shortcuts: [], sims: [] });
+      toast('Domínio local limpo.');
       render();
     },
     closeModal() {
@@ -1420,11 +1829,12 @@
       const hits = [];
       UNI_AREAS.forEach((a) => {
         if (!term || norm(a.titulo + ' ' + a.sub + ' ' + a.formula).includes(term))
-          hits.push({ kind: 'Estudo Visual', titulo: a.titulo, sub: a.formula, act: `UNI.closeModal();UNI.openArea('${a.id}')` });
+          hits.push({ kind: 'Conceito', titulo: a.titulo, sub: a.formula, act: `UNI.closeModal();UNI.openArea('${a.id}')` });
       });
-      UNI_TRIANGLES.forEach((tr) => {
-        if (!term || norm(tr.titulo + ' ' + tr.area + ' ' + tr.top.name + ' ' + tr.left.name + ' ' + tr.right.name).includes(term))
-          hits.push({ kind: 'Triângulo', titulo: tr.titulo, sub: `${tr.top.sym} = ${tr.left.sym} × ${tr.right.sym} · ${tr.area}`, act: `UNI.closeModal();UNI.labTab('tri');go('/universidade/ferramentas')` });
+      UNI_SIMS.forEach((sim) => {
+        const v = sim.vars;
+        if (!term || norm(sim.titulo + ' ' + sim.area + ' ' + v.a.name + ' ' + v.b.name + ' ' + v.c.name).includes(term))
+          hits.push({ kind: 'Simulador', titulo: sim.titulo, sub: `${v.a.sym} = ${v.b.sym} × ${v.c.sym} · ${sim.area}`, act: `UNI.closeModal();UNI.labTab('sim');go('/universidade/ferramentas')` });
       });
       UNI_SHORTCUTS.forEach((sc) => {
         if (!term || norm(sc.titulo + ' ' + sc.expr + ' ' + sc.area).includes(term))
@@ -1595,11 +2005,11 @@
       save(d); toast('Turma apagada.'); go('/turmas');
     },
 
-    /* prática Ingenium por sessão */
+    /* prática Núcleo AMA por sessão */
     async praticaGerar(tid, sid) {
       const t = turma(tid); const s = t && t.sessoes.find((x) => x.id === sid); if (!s) return;
       const pronto = await esperarMotor();
-      if (!pronto) return toast('O motor Ingenium ainda não carregou. Recarregue a página e tente outra vez.');
+      if (!pronto) return toast('O Núcleo AMA ainda não carregou. Recarregue a página e tente outra vez.');
       const A = window.AMAStudy;
       const d = load();
       const id = A.ingest({ title: s.tema, src: 'turma ' + t.codigo, subject: assuntoDe(disc(d, t.disciplinaId)), text: textoPratica(s) });
@@ -1611,12 +2021,12 @@
       /* a consola de lecionação não tem separadores: depois de gerar, voltamos
          à turma para a prática ficar mesmo visível */
       if (location.hash.indexOf('#/lecionar/') === 0) go('/turma/' + tid); else render();
-      toast(k ? `Ingenium preparou ${k.cartões} cartões e ${k.perguntas} perguntas para esta sessão.` : 'Prática criada.');
+      toast(k ? `Núcleo AMA preparou ${k.cartões} cartões e ${k.perguntas} perguntas para esta sessão.` : 'Prática criada.');
     },
     async praticaToda(tid) {
       const t = turma(tid); if (!t) return;
       const pronto = await esperarMotor();
-      if (!pronto) return toast('O motor Ingenium ainda não carregou. Recarregue a página e tente outra vez.');
+      if (!pronto) return toast('O Núcleo AMA ainda não carregou. Recarregue a página e tente outra vez.');
       const A = window.AMAStudy;
       const d = load(); const assunto = assuntoDe(disc(d, t.disciplinaId));
       let n = 0; let ultima = null;
@@ -1626,7 +2036,7 @@
       if (!n) return toast('Nenhuma sessão tem sumário suficiente para gerar prática.');
       U.tab = 'pratica'; U.aberta = ultima; render();
       const elegiveis = sessoesOrd(t).filter((s) => textoPratica(s).length >= 120).length;
-      toast(n === 1 ? '1 ficha gerada pelo Ingenium.' : `${n} fichas geradas pelo Ingenium${elegiveis > n ? ` · ${elegiveis - n} sem texto suficiente` : ''}.`);
+      toast(n === 1 ? '1 ficha gerada pelo Núcleo AMA.' : `${n} fichas geradas pelo Núcleo AMA${elegiveis > n ? ` · ${elegiveis - n} sem texto suficiente` : ''}.`);
     },
     praticaVer(sid) { U.aberta = U.aberta === sid ? null : sid; render(); },
     verPratica(tid) { U.turma = tid; U.tab = 'pratica'; go('/turma/' + tid); },
@@ -1719,7 +2129,7 @@
     },
     doc(tipo, tid, sid) {
       const t = turma(tid); const s = t && t.sessoes.find((x) => x.id === sid); if (!s) return;
-      if (!window.Study) return toast('O motor Ingenium ainda está a carregar — tente outra vez.');
+      if (!window.Study) return toast('O Núcleo AMA ainda está a carregar — tente outra vez.');
       const a = analiseDe(t, s);
       if (!a || a.insufficient) return toast('O sumário é curto para gerar o documento. Acrescente texto à sessão.');
       const S_ = window.Study;
@@ -1772,6 +2182,68 @@
       if (!ics) return toast('O motor de calendário ainda está a carregar — tente novamente.');
       descarregar('AMA-' + t.codigo + '.ics', ics, 'text/calendar');
       toast('Calendário .ics gerado.');
+    },
+
+    /* palco 3D interativo do Núcleo AMA */
+    _n3d: null,
+    sync3D() {
+      const cv = document.getElementById('nucleo-3d-canvas');
+      if (!cv) {
+        if (this._n3d) { try { this._n3d.destroy(); } catch { } this._n3d = null; }
+        return;
+      }
+      if (this._n3d && this._n3d._canvas === cv) return;
+      if (this._n3d) { try { this._n3d.destroy(); } catch { } this._n3d = null; }
+      const mountNow = () => {
+        const liveCv = document.getElementById('nucleo-3d-canvas');
+        if (!liveCv || !window.Study || !window.Study.mountNucleo3D) return;
+        const ctrl = window.Study.mountNucleo3D(liveCv, {
+          initialMode: 'core',
+          onSelectNode: (nodeId) => {
+            const map = { matematica: 'mat', fisica: 'fis', algebra: 'alga', programacao: 'prog', financas: 'fin', comunicacao: 'com' };
+            UNI.focus3DNode(map[nodeId] || 'mat');
+          },
+        });
+        if (ctrl) { ctrl._canvas = liveCv; this._n3d = ctrl; }
+      };
+      if (window.Study && window.Study.mountNucleo3D) mountNow();
+      else window.addEventListener('study-ready', mountNow, { once: true });
+    },
+    set3DMode(mode) {
+      if (this._n3d) this._n3d.setMode(mode);
+      document.querySelectorAll('[data-n3d-mode]').forEach((b) => b.classList.toggle('on', b.dataset.n3dMode === mode));
+    },
+    set3DExplode(val) {
+      if (this._n3d) this._n3d.setExplode((Number(val) || 0) / 100);
+    },
+    set3DPreset(preset) {
+      if (this._n3d) this._n3d.setPreset(preset);
+    },
+    toggle3DSpin() {
+      if (!this._n3d) return;
+      const spinning = this._n3d.toggleSpin();
+      const btn = document.getElementById('n3d-spin-btn');
+      if (btn) btn.classList.toggle('on', spinning);
+    },
+    focus3DNode(areaId) {
+      const a = UNI_AREAS.find((x) => x.id === areaId) || UNI_AREAS[0];
+      if (!a) return;
+      const modeMap = { mat: 'wave', fis: 'gyro', alga: 'core', prog: 'matrix', fin: 'matrix', com: 'core' };
+      if (this._n3d && modeMap[a.id]) this.set3DMode(modeMap[a.id]);
+      const box = document.getElementById('n3d-inspector');
+      if (!box) return;
+      box.innerHTML = `<span class="eyebrow-t">NÓ SELECIONADO · ${esc(a.tag)}</span>
+        <h3>${esc(a.titulo)}</h3>
+        <p>${esc(a.analogia)}</p>
+        <div class="n3d-formula">${esc(a.formula)}</div>
+        <div class="n3d-node-picks">
+          ${UNI_AREAS.map((x) => `<button type="button" class="${x.id === a.id ? 'on' : ''}" onclick="UNI.focus3DNode('${x.id}')">${esc(x.titulo)}</button>`).join('')}
+        </div>
+        <div class="n3d-insp-visual"><img src="${escAttr(a.img || 'media/nucleo-3d-hero.jpg?v=71')}" alt="${escAttr(a.titulo)}"></div>
+        <div class="n3d-insp-foot">
+          <button type="button" class="btn btn-p btn-sm" onclick="UNI.openArea('${a.id}')">Abrir Simulador</button>
+          <a class="btn btn-o btn-sm" href="#/quiz">Quiz da Área</a>
+        </div>`;
     },
   };
 

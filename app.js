@@ -210,6 +210,7 @@ function afterRender() {
   addEventListener('scroll', revealNow, { passive: true });
   window.__revealOff = () => removeEventListener('scroll', revealNow);
   enhanceFun();
+  if (window.UNI && typeof window.UNI.sync3D === 'function') window.UNI.sync3D();
 }
 /* Camada lúdica: marcador de caneta, números que contam, luz/inclinação do herói.
    Sob prefers-reduced-motion tudo aparece já pintado. */
@@ -291,7 +292,7 @@ function shellPublic(content, active = '') {
       <span class="lnk-wrap"><button class="lnk ${active == 'catalogo' ? 'on' : ''}" onclick="toggleMega(event)" aria-haspopup="true" aria-expanded="false">Cursos ${I.chev}</button>
         <div class="mega" id="mega"><div class="mega-in">
           <div class="mega-grid">${megaCats.map(([c]) => `<a class="mega-card" href="#/catalogo" onclick="setCat('${escAttr(c)}')">
-            <img src="media/${CAT_MEGA[c]}.jpg?v=60" alt="" loading="lazy" decoding="async" onerror="this.remove()">
+            <img src="media/${CAT_MEGA[c]}.jpg?v=70" alt="" loading="lazy" decoding="async" onerror="this.remove()">
             <span class="mc-shade"></span>
             <span class="mc-cap"><b>${esc(c)}</b><small><span class="mega-n" data-cat="${escAttr(c)}"></span></small></span></a>`).join('')}
           </div>
@@ -430,12 +431,12 @@ function panelShell(active, content, items, opts = {}) {
   </div>`;
 }
 const MENU = {
-  aluno: [{ h: 'Aprendizagem', i: [['aluno', 'home', 'Painel'], ['turmas', 'users', 'Turmas'], ['estudar', 'spark', 'Estudar'], ['revisao', 'quiz', 'Revisão'], ['catalogo', 'book', 'Explorar cursos'], ['workshops', 'mega', 'Workshops e eventos'], ['meus-bilhetes', 'cert', 'Os meus bilhetes'], ['certificados', 'cert', 'Certificados'], ['ao-vivo', 'live', 'Aulas ao vivo']] },
+  aluno: [{ h: 'Aprendizagem', i: [['aluno', 'home', 'Painel'], ['turmas', 'users', 'Turmas'], ['estudar', 'spark', 'Estudar'], ['quiz', 'quiz', 'Modo Quiz'], ['revisao', 'clock', 'Revisão SM-2'], ['projetor', 'play', 'Projetor de Aulas'], ['catalogo', 'book', 'Explorar cursos'], ['workshops', 'mega', 'Workshops e eventos'], ['meus-bilhetes', 'cert', 'Os meus bilhetes'], ['certificados', 'cert', 'Certificados'], ['ao-vivo', 'live', 'Aulas ao vivo']] },
   { h: 'Ensinar e Publicar', i: [['publicar', 'plus', 'Estúdio de publicação'], ['instrutor/criar', 'book', 'Publicar curso'], ['workshops/criar', 'mega', 'Publicar workshop']] }],
-  instrutor: [{ h: 'Ensino', i: [['instrutor', 'home', 'Painel'], ['publicar', 'plus', 'Estúdio de publicação'], ['turmas', 'users', 'Turmas'], ['instrutor/cursos', 'book', 'Meus cursos'], ['instrutor/criar', 'plus', 'Criar curso'], ['workshops/criar', 'mega', 'Publicar workshop'], ['professor', 'grad', 'Ferramentas'], ['workshops', 'mega', 'Workshops e eventos'], ['ao-vivo', 'live', 'Aulas ao vivo']] },
+  instrutor: [{ h: 'Ensino', i: [['instrutor', 'home', 'Painel'], ['projetor', 'play', 'Projetor PDF'], ['professor', 'grad', 'Oficina Docente'], ['turmas', 'users', 'Turmas'], ['publicar', 'plus', 'Estúdio de publicação'], ['instrutor/cursos', 'book', 'Meus cursos'], ['instrutor/criar', 'plus', 'Criar curso'], ['workshops/criar', 'mega', 'Publicar workshop'], ['quiz', 'quiz', 'Modo Quiz'], ['workshops', 'mega', 'Workshops e eventos'], ['ao-vivo', 'live', 'Aulas ao vivo']] },
   { h: 'Conta', i: [['instrutor/financeiro', 'money', 'Financeiro'], ['aluno', 'chart', 'Modo aluno']] }],
   admin: [{ h: 'Gestão', i: [['admin', 'home', 'Painel'], ['publicar', 'plus', 'Estúdio de publicação'], ['turmas', 'users', 'Turmas'], ['admin/cursos', 'book', 'Gestão de cursos'], ['admin/utilizadores', 'users', 'Utilizadores'], ['admin/financeiro', 'money', 'Financeiro']] },
-  { h: 'Plataforma', i: [['estudar', 'spark', 'Estudar'], ['professor', 'grad', 'Ferramentas'], ['workshops', 'mega', 'Workshops e eventos'], ['workshops/criar', 'plus', 'Publicar workshop'], ['admin/auditoria', 'shield', 'Auditoria'], ['ao-vivo', 'live', 'Aulas ao vivo'], ['instrutor/criar', 'plus', 'Criar curso']] }],
+  { h: 'Plataforma', i: [['estudar', 'spark', 'Estudar'], ['quiz', 'quiz', 'Modo Quiz'], ['projetor', 'play', 'Projetor PDF'], ['professor', 'grad', 'Oficina Docente'], ['workshops', 'mega', 'Workshops e eventos'], ['workshops/criar', 'plus', 'Publicar workshop'], ['admin/auditoria', 'shield', 'Auditoria'], ['ao-vivo', 'live', 'Aulas ao vivo'], ['instrutor/criar', 'plus', 'Criar curso']] }],
 };
 
 /* ================================ charts ================================= */
@@ -568,9 +569,9 @@ on('/', async () => {
   <main class="academy-home ama-studio">
     <section class="ama-hero-stage" aria-labelledby="home-title">
       <div class="ama-hero-center">
-        <span class="ama-pill-kicker"><i></i>Academia Prática de Angola · Cursos, Universidade &amp; Workshops</span>
+        <span class="ama-pill-kicker">Academia Prática de Angola · Cursos, Universidade &amp; Workshops</span>
         <h1 id="home-title">Conhecimento real.<br>Evolução <span class="ama-accent-word">ao seu ritmo.<svg viewBox="0 0 360 18" preserveAspectRatio="none" aria-hidden="true"><path d="M4 13 Q180 2 356 12"/></svg></span></h1>
-        <p class="ama-hero-lead">Cursos gravados em kwanzas, turmas universitárias com estudo visual Ingenium, workshops presenciais e um tutor IA que cita as suas aulas.</p>
+        <p class="ama-hero-lead">Cursos gravados em kwanzas, turmas universitárias com o Núcleo AMA de aprendizagem ativa, workshops presenciais e um tutor que cita as suas aulas.</p>
         <div class="ama-hero-ctas">
           <a class="btn btn-p btn-lg" href="${dest}">${S.user ? 'Abrir o meu painel' : 'Começar agora'} ${I.arrow}</a>
           <a class="btn btn-o btn-lg" href="#/catalogo">${I.book} Explorar catálogo</a>
@@ -590,7 +591,7 @@ on('/', async () => {
       <div class="ama-bento-hero">
         <article class="bento-tile bento-mentor">
           <div class="bt-mentor-copy">
-            <span class="bt-live-tag"><i class="dot"></i>${aoVivo ? 'Ao vivo agora' : 'Mentoria prática'}</span>
+            <span class="bt-live-tag">${aoVivo ? '<i class="dot"></i>Ao vivo agora' : 'Mentoria prática'}</span>
             <h2>Aprender com quem vive o mercado todos os dias.</h2>
             <p>${aoVivo ? esc(aoVivo.titulo) : 'Salas interativas, mentores em Luanda e material guardado neste navegador.'}</p>
             <div class="bt-mentor-acts">
@@ -599,38 +600,42 @@ on('/', async () => {
             </div>
           </div>
           <figure class="bt-mentor-photo">
-            <img src="media/hero-mentor-v3.jpg?v=59" alt="Mentor AMA" fetchpriority="high" decoding="async">
+            <img src="media/hero-mentor-v3.jpg?v=70" alt="Mentor AMA" fetchpriority="high" decoding="async">
           </figure>
         </article>
 
         <a class="bento-tile bento-uni" href="#/universidade">
-          <div class="bt-top"><span class="bt-badge lime">INGENIUM 2.0</span><span class="bt-go">${I.arrow}</span></div>
+          <div class="bt-top"><span class="bt-badge lime">NÚCLEO AMA</span><span class="bt-go">${I.arrow}</span></div>
           <div class="bt-uni-svg" aria-hidden="true">
-            <svg viewBox="0 0 200 72" fill="none">
-              <path d="M18 58 H182 M18 58 V12" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
-              <path d="M24 54 Q96 4 176 52" stroke="#b9f257" stroke-width="2.5" stroke-dasharray="5 4"/>
-              <circle cx="98" cy="28" r="6" fill="#10b981" stroke="#fff" stroke-width="2"/>
-              <text x="112" y="24" font-size="10" font-weight="700" fill="#d4fa8a">P(x, y)</text>
+            <svg viewBox="0 0 210 74" fill="none">
+              <path d="M18 56 H192" stroke="rgba(255,255,255,.16)" stroke-width="1.5"/>
+              <path d="M24 52 C68 50, 96 14, 146 22 S182 14, 192 10" stroke="#b9f257" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="120" y1="16" x2="120" y2="56" stroke="rgba(185,242,87,.45)" stroke-width="1.2" stroke-dasharray="3 3"/>
+              <circle cx="120" cy="23" r="5.5" fill="#10b981" stroke="#fff" stroke-width="2"/>
+              <rect x="24" y="61" width="162" height="4" rx="2" fill="rgba(255,255,255,.18)"/>
+              <rect x="24" y="61" width="96" height="4" rx="2" fill="#b9f257"/>
+              <circle cx="120" cy="63" r="4.5" fill="#fff"/>
+              <text x="132" y="21" font-size="9.5" font-weight="700" fill="#d4fa8a" font-family="monospace">Δy / Δx</text>
             </svg>
           </div>
-          <h3>Universidade &amp; Estudo Visual</h3>
-          <p>Turmas, horário semanal, provas e triângulos de fórmulas interativos.</p>
+          <h3>Universidade &amp; Núcleo AMA</h3>
+          <p>Turmas, simulador de grandezas em tempo real, mapas de conceitos e revisão.</p>
         </a>
 
         ${featured ? `<a class="bento-tile bento-course" href="#/curso/${featured.id}">
-          <div class="bt-top"><span class="bt-badge soft">${esc(featured.categoria)}</span><span class="bt-rate">★ ${featured.rating.toFixed(1).replace('.', ',')}</span></div>
-          <div class="bt-course-thumb"><img src="media/${escAttr(courseArt(featured))}.jpg?v=60" alt="${escAttr(featured.titulo)}" decoding="async"></div>
+          <div class="bt-top"><span class="bt-meta-k">${esc(featured.categoria)}</span><span class="bt-rate">★ ${featured.rating.toFixed(1).replace('.', ',')}</span></div>
+          <div class="bt-course-thumb"><img src="media/${escAttr(courseArt(featured))}.jpg?v=70" alt="${escAttr(featured.titulo)}" decoding="async"></div>
           <h3>${esc(featured.titulo)}</h3>
           <div class="bt-course-foot"><b>${kz(featured.preco_kz)}</b><span>${nAulas(featured.aulas)} ${I.arrow}</span></div>
         </a>` : ''}
 
         <a class="bento-tile bento-ws" href="#/workshops">
-          <div class="bt-top"><span class="bt-badge dark">PRESENCIAL &amp; ONLINE</span><span class="bt-go">${I.arrow}</span></div>
+          <div class="bt-top"><span class="bt-meta-k">Presencial &amp; online</span><span class="bt-go">${I.arrow}</span></div>
           <div class="bt-ws-row">
             <span class="bt-ws-ic">${I.users}</span>
             <div><h3>Workshops &amp; Networking</h3><p>Reserve lugar, troque contactos e transforme notas em cartões.</p></div>
           </div>
-          <div class="bt-ws-chips"><span>Luanda</span><span>Bilhete digital</span><span>Estudo local</span></div>
+          <div class="bt-ws-meta">Luanda · Bilhete digital · Estudo local</div>
         </a>
       </div>
     </section>
@@ -654,20 +659,20 @@ on('/', async () => {
 
     <section class="academy-campus ama-uni-showcase" aria-labelledby="home-campus">
       <div class="academy-campus-copy">
-        <span class="bt-badge lime" style="margin-bottom:16px">UNIVERSIDADE · MOTOR INGENIUM 2.0</span>
+        <span class="bt-badge lime" style="margin-bottom:16px">UNIVERSIDADE · NÚCLEO AMA</span>
         <h2 id="home-campus">A sua turma.<br>A sua matéria.<br><span class="hl">Tudo ligado.</span></h2>
-        <p>Da sala de aula à revisão espaçada: escolas, horário semanal, calendário de provas, triângulos de fórmulas interativos e flashcards gerados neste navegador.</p>
+        <p>Da sala de aula à retenção duradoura: escolas, horário semanal, simuladores de grandezas em tempo real, mapas de conceitos, prática Feynman e revisão espaçada neste navegador.</p>
         <div class="flex" style="gap:10px;flex-wrap:wrap;margin-top:24px">
           <a class="btn btn-p btn-lg" href="#/universidade">Abrir Universidade ${I.arrow}</a>
-          <a class="btn btn-o btn-ghost-d btn-lg" href="#/universidade/ferramentas">${I.spark} Triângulos &amp; Fórmulas</a>
+          <a class="btn btn-o btn-ghost-d btn-lg" href="#/universidade/ferramentas">${I.spark} Laboratório Interativo</a>
         </div>
         <small>Guardado neste navegador. A chamada local não substitui o registo oficial da secretaria.</small>
       </div>
       <div class="academy-campus-links">
         <a href="#/turmas"><span>${I.users}</span><div><h3>Escolas e Turmas</h3><p>Disciplina, horário, sala, docente e código de entrada.</p></div>${I.arrow}</a>
-        <a href="#/universidade/ferramentas"><span>${I.spark}</span><div><h3>Triângulos de Fórmulas &amp; Atalhos</h3><p>Toque na grandeza para isolar a fórmula e praticar antes da prova.</p></div>${I.arrow}</a>
-        <a href="#/estudar"><span>${I.book}</span><div><h3>Dê vida à matéria</h3><p>Cole apontamentos e gere resumos, cartões e quizzes locais.</p></div>${I.arrow}</a>
-        <a href="#/revisao"><span>${I.quiz}</span><div><h3>Revisão espaçada</h3><p>Cartões inteligentes que voltam exatamente quando precisa.</p></div>${I.arrow}</a>
+        <a href="#/universidade/ferramentas"><span>${I.spark}</span><div><h3>Simulador de Grandezas &amp; Regras</h3><p>Isole qualquer variável, ajuste valores em direto e treine no modo desafio.</p></div>${I.arrow}</a>
+        <a href="#/estudar"><span>${I.book}</span><div><h3>Dê vida à matéria</h3><p>Cole apontamentos e gere síntese, mapa de conceitos, cartões e espaço Feynman.</p></div>${I.arrow}</a>
+        <a href="#/revisao"><span>${I.quiz}</span><div><h3>Revisão espaçada</h3><p>Previsão de carga de 7 dias e cartões que voltam no momento certo.</p></div>${I.arrow}</a>
       </div>
     </section>
 
@@ -682,28 +687,28 @@ on('/', async () => {
       </div>
       <div class="ama-mentor-grid">
         ${MENTORS.map(m => `<a class="ama-mentor-row" href="#/mentor/${m.id}">
-          <span class="amr-face"><img src="media/${m.img}.jpg?v=14" alt="${escAttr(m.nome)}" loading="lazy" decoding="async"></span>
+          <span class="amr-face"><img src="media/${m.img}.jpg?v=70" alt="${escAttr(m.nome)}" loading="lazy" decoding="async"></span>
           <div class="amr-body">
             <b>${esc(m.nome)}</b>
             <span class="amr-role">${esc(m.role)}</span>
             <p>${esc(m.bio)}</p>
-            <div class="amr-tags">${m.tags.map(t => `<i>${esc(t)}</i>`).join('')}</div>
+            <div class="amr-meta">${m.tags.map(t => esc(t)).join(' · ')}</div>
           </div>
           <span class="amr-go" aria-hidden="true">${I.arrow}</span>
         </a>`).join('')}
       </div>
     </section>
 
-    <section class="ama-dual-cta" aria-label="Workshops e Tutor IA">
+    <section class="ama-dual-cta" aria-label="Workshops e Tutor AMA">
       <article class="ama-split-card light">
         <div class="asc-top">
-          <span class="bt-badge soft">WORKSHOPS &amp; EVENTOS</span>
+          <span class="eyebrow-t">WORKSHOPS &amp; EVENTOS</span>
           <h2>Aprender também é encontrar pessoas.</h2>
           <p>Agenda de workshops em Luanda e online, lista de participantes e networking preparado antes do evento.</p>
           <a class="btn btn-o" href="#/workshops">Explorar workshops ${I.arrow}</a>
           <small>Inscrições, pagamentos e networking de demonstração local.</small>
         </div>
-        <div class="asc-img"><img src="media/live-host-v2.jpg" alt="Apresentador de workshop AMA" loading="lazy" decoding="async"></div>
+        <div class="asc-img"><img src="media/live-host-v2.jpg?v=70" alt="Apresentador de workshop AMA" loading="lazy" decoding="async"></div>
       </article>
       <article class="ama-split-card dark">
         <span class="asc-ic">${I.spark}</span>
@@ -725,7 +730,7 @@ const courseArt = (c) => CARD_BY_ID[c.id] || c.poster;
 function courseCardHTML(c, rank) {
   const art = courseArt(c);
   return `<a class="course" href="#/curso/${c.id}" aria-label="Curso ${escAttr(c.titulo)}">
-    <div class="thumb"><img src="media/${escAttr(art)}.jpg?v=60" alt="" loading="lazy" decoding="async">${rank ? `<span class="rank r${rank}">${rank}</span>` : ''}</div>
+    <div class="thumb"><img src="media/${escAttr(art)}.jpg?v=70" alt="" loading="lazy" decoding="async">${rank ? `<span class="rank r${rank}">${rank}</span>` : ''}</div>
     <div class="body">
       <h3>${esc(c.titulo)}</h3>
       <div class="crow"><span class="lvl">${esc(c.nivel)}</span><span class="rate">${c.rating ? `★ ${c.rating.toFixed(1).replace('.', ',')} <small>(${c.alunos.toLocaleString('pt-PT').replace(/ /g, '.')})</small>` : '<small>Novo</small>'}</span><span class="ls">${I.play} ${nAulas(c.aulas)}</span></div>
@@ -744,7 +749,7 @@ function nextStepHTML(cursos, live, cont) {
 
   const c1 = cont ? {
     ic: I.book, k: 'Continuar a aprender', t: cont.titulo,
-    fig: `<figure class="ns-fig"><img src="media/${escAttr(courseArt(cont))}.jpg?v=60" alt="" loading="lazy" decoding="async"><span class="ns-tag ns-tag-p">O seu curso</span></figure>`,
+    fig: `<figure class="ns-fig"><img src="media/${escAttr(courseArt(cont))}.jpg?v=70" alt="" loading="lazy" decoding="async"><span class="ns-tag ns-tag-p">O seu curso</span></figure>`,
     m: `<div class="ns-prog"><i><b style="width:${cont.pct}%"></b></i><span>${cont.pct}% · ${cont.concluidas} de ${cont.aulas} aulas concluídas</span></div>`,
     btn: `<a class="btn btn-p" href="#/aprender/${cont.id}">Continuar curso ${I.arrow}</a>`
   } : {
@@ -756,19 +761,19 @@ function nextStepHTML(cursos, live, cont) {
 
   const c2 = room ? {
     ic: I.video, k: 'Aprender ao vivo', t: room.titulo || room.curso || 'Aula ao vivo',
-    fig: `<figure class="ns-fig ns-fig-live">${mm ? `<img src="media/${escAttr(mm.img)}.jpg?v=60" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}<span class="ns-tag ${room.estado === 'AO_VIVO' ? 'ns-tag-live' : 'ns-tag-i'}">${room.estado === 'AO_VIVO' ? '● Ao vivo agora' : esc(fmtAgenda(room.agenda_em))}</span></figure>`,
+    fig: `<figure class="ns-fig ns-fig-live">${mm ? `<img src="media/${escAttr(mm.img)}.jpg?v=70" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}<span class="ns-tag ${room.estado === 'AO_VIVO' ? 'ns-tag-live' : 'ns-tag-i'}">${room.estado === 'AO_VIVO' ? '● Ao vivo agora' : esc(fmtAgenda(room.agenda_em))}</span></figure>`,
     m: `<div class="ns-facts"><span>${esc(room.instrutor || '')}</span><span>${room.inscritos || 0} inscritos</span><span>${room.duracao_min || 60} min</span></div>`,
     btn: `<a class="btn btn-f" href="#/sala/${room.id}">${room.estado === 'AO_VIVO' ? 'Entrar na sala' : 'Reservar lugar'} ${I.arrow}</a>`
   } : {
     ic: I.video, k: 'Aprender ao vivo', t: 'Aulas ao vivo com mentores',
-    fig: `<figure class="ns-fig ns-fig-live"><img src="media/mentor-1.jpg?v=60" alt="Instrutora AMA a conduzir uma aula ao vivo" loading="lazy" decoding="async"><span class="ns-tag ns-tag-i">Toda a semana</span></figure>`,
+    fig: `<figure class="ns-fig ns-fig-live"><img src="media/mentor-1.jpg?v=70" alt="Instrutora AMA a conduzir uma aula ao vivo" loading="lazy" decoding="async"><span class="ns-tag ns-tag-i">Toda a semana</span></figure>`,
     m: `<div class="ns-facts"><span>Pergunte em direto</span><span>Fica gravada</span></div>`,
     btn: `<a class="btn btn-f" href="#/ao-vivo">Ver a agenda ${I.arrow}</a>`
   };
 
   const c3 = {
     ic: I.target, k: 'Descobrir um curso', t: disc ? disc.titulo : 'Explorar o catálogo',
-    fig: `<figure class="ns-fig"><img src="media/${escAttr(courseArt(disc))}.jpg?v=60" alt="" loading="lazy" decoding="async"><span class="ns-tag ns-tag-n">${esc(disc ? disc.nivel : '')}</span></figure>`,
+    fig: `<figure class="ns-fig"><img src="media/${escAttr(courseArt(disc))}.jpg?v=70" alt="" loading="lazy" decoding="async"><span class="ns-tag ns-tag-n">${esc(disc ? disc.nivel : '')}</span></figure>`,
     m: `<div class="ns-facts"><span>${disc ? kz(disc.preco_kz) : 'Grátis'}</span><span>${nAulas(disc ? disc.aulas : 0)}</span><span>${stars(disc)}</span></div>`,
     btn: `<a class="btn btn-o" href="#/curso/${disc ? disc.id : 1}">Explorar ${I.arrow}</a>`
   };
@@ -837,7 +842,7 @@ on('/catalogo', async ({ q }) => {
   const grid = rows.map(c => courseCardHTML(c)).join('') || `<div class="empty">${I.search}<h2>Nenhum curso encontrado</h2><p>Tente outra categoria ou termo de pesquisa.</p></div>`;
   const bn = CAT_BANNER[S.filters.cat];
   const head = bn
-    ? `<div class="cat-banner rv"><img src="media/${bn}.jpg?v=17" alt="" decoding="async"><div class="cb-o"><h1>${esc(S.filters.cat)}</h1><p>${rows.length} cursos${q0 ? ` para “${esc(S.filters.q)}”` : ''} · nível: ${esc(S.filters.nivel)}</p></div></div>`
+    ? `<div class="cat-banner rv"><img src="media/${bn}.jpg?v=70" alt="" decoding="async"><div class="cb-o"><h1>${esc(S.filters.cat)}</h1><p>${rows.length} cursos${q0 ? ` para “${esc(S.filters.q)}”` : ''} · nível: ${esc(S.filters.nivel)}</p></div></div>`
     : filtered
       ? `<div class="cat-head"><div><span class="eyebrow-pill">${I.book} CATÁLOGO DE CURSOS</span><h1>${q0 ? `Resultados para “${esc(S.filters.q)}”` : 'Cursos filtrados'}</h1>
         <p>${rows.length} cursos${q0 ? '' : ' · '} ${q0 ? '' : esc(S.filters.nivel)}</p></div></div>`
@@ -847,7 +852,7 @@ on('/catalogo', async ({ q }) => {
           <p>Aprende ao teu ritmo com cursos práticos, mentoria e certificado. Investe em ti, transforma o teu futuro.</p>
           <div class="ch-stats"><b>${cursos.length}</b><span>cursos</span><i></i><b>${Object.keys(counts).length}</b><span>áreas</span><i></i><b>Kz</b><span>pagamento local</span></div>
         </div>
-        <div class="ch-v"><img src="media/catalog-student-v2.jpg?v=60" alt="Estudante a explorar o catálogo da AMA" decoding="async">
+        <div class="ch-v"><img src="media/catalog-student-v2.jpg?v=70" alt="Estudante a explorar o catálogo da AMA" decoding="async">
           <svg class="rays" viewBox="0 0 44 44" aria-hidden="true"><path d="M22 4v9M8.5 9.5l6 6.5M35.5 9.5l-6 6.5M4 24h9M31 24h9"/></svg></div>
         </div>`;
   return shellPublic(`<div class="cat-layout">
@@ -935,11 +940,11 @@ on('/curso/:id', async ({ args }) => {
         <div class="arch-stack">
           <div class="arch-back" aria-hidden="true"></div>
           <div class="arch-ring" aria-hidden="true"></div>
-          <div class="arch-photo"><img src="media/${heroMentor}.jpg?v=14" alt="${escAttr(instrutor.nome)} a apresentar a aula" decoding="async"></div>
+          <div class="arch-photo"><img src="media/${heroMentor}.jpg?v=70" alt="${escAttr(instrutor.nome)} a apresentar a aula" decoding="async"></div>
           <div class="cover-card">
             <span class="cc-head">${I.brand}<b>AMA<i>Academy</i></b></span>
             <h4 class="cc-title">${esc(curso.titulo)}</h4>
-            <div class="cc-art"><i class="cc-crescent" aria-hidden="true"></i><span class="cc-bubble">${objImg ? `<img src="media/${objImg}.jpg?v=14" alt="" decoding="async">` : objIcon}</span><i class="cc-bubble2" aria-hidden="true"></i></div>
+            <div class="cc-art"><i class="cc-crescent" aria-hidden="true"></i><span class="cc-bubble">${objImg ? `<img src="media/${objImg}.jpg?v=70" alt="" decoding="async">` : objIcon}</span><i class="cc-bubble2" aria-hidden="true"></i></div>
             <span class="cc-foot"><em>${esc(copy.promise || curso.aprendizagens[0])}</em><i class="cc-bar" aria-hidden="true"></i></span>
           </div>
         </div>
@@ -994,7 +999,7 @@ on('/curso/:id', async ({ args }) => {
           <span>${I.grad}<b>${fmtH(curso.duracaoH)}</b> de conteúdo</span>
         </div>
         <a class="see-all" href="#/mentor/${instrutor.id}">Ver perfil do mentor ${I.arrow}</a>
-        <img class="ip-face" src="media/${m.img}.jpg?v=14" alt="" loading="lazy" decoding="async">
+        <img class="ip-face" src="media/${m.img}.jpg?v=70" alt="" loading="lazy" decoding="async">
       </div>
       <div class="testi-card rv">
         <div class="tc-main"><span class="tc-q">&ldquo;&rdquo;</span>
@@ -1030,7 +1035,7 @@ on('/mentor/:id', async ({ args }) => {
       </div>
       <div class="mp-right rv">
         <div class="mp-frame"><i class="ring r1" aria-hidden="true"></i><i class="ring r2" aria-hidden="true"></i>
-          <img src="media/${m.img}.jpg?v=14" alt="${escAttr(m.nome)}" decoding="async"></div>
+          <img src="media/${m.img}.jpg?v=70" alt="${escAttr(m.nome)}" decoding="async"></div>
         <div class="mp-card">
           <h2>${esc(m.nome)}</h2>
           <p class="mp-role">${esc(m.role)}</p><span class="mp-dash o"></span>
@@ -1172,7 +1177,7 @@ on('/biblioteca', async () => {
     ${meus.length ? `<div class="sec-head"><div><span class="eyebrow-t">${I.play} RETOMAR</span><h2 class="section-title" style="margin:6px 0 0">Continue onde parou</h2></div>
       <a class="see-all" href="#/aluno">Meu painel ${I.arrow}</a></div>
     <div class="bib-resume rv">${meus.map(c => `<button class="bib-rs" onclick="go('/aprender/${c.id}')">
-      <img src="media/${escAttr(courseArt(c))}.jpg?v=60" alt="" loading="lazy">
+      <img src="media/${escAttr(courseArt(c))}.jpg?v=70" alt="" loading="lazy">
       <div><b>${esc(c.titulo)}</b><div class="bar"><i style="width:${c.pct}%"></i></div><small>${c.pct}% concluído · ${c.concluidas} aulas feitas</small></div>
       <span class="bib-go">${I.play}</span></button>`).join('')}</div>` : ''}
     <div class="sec-head rv" style="margin-top:38px"><div><span class="eyebrow-t">${I.doc} MATERIAIS</span><h2 class="section-title" style="margin:6px 0 0">Guias e modelos dos mentores</h2></div>
@@ -1255,7 +1260,7 @@ on('/aluno', async () => {
     <div class="grid g-3 dash-feat">
       <div class="card feat">
         <h3>Continuar a aprender</h3>
-        ${cur ? `<div class="feat-cont"><img src="media/${escAttr(courseArt(cur))}.jpg?v=60" alt="">
+        ${cur ? `<div class="feat-cont"><img src="media/${escAttr(courseArt(cur))}.jpg?v=70" alt="">
           <div><b>${esc(cur.titulo)}</b><small>${cur.concluidas}/${cur.aulas} aulas concluídas</small>
             <div class="prog-bar" style="margin-top:8px"><i style="width:${cur.pct}%"></i></div><small class="pct">${cur.pct}%</small></div></div>
           <button class="btn btn-f feat-pill" onclick="go('/aprender/${cur.id}')">${I.play} Continuar curso</button>
@@ -1282,9 +1287,9 @@ on('/aluno', async () => {
       <div class="card feat">
         <h3>Próxima aula ao vivo <span class="chip chip-g">Ao vivo</span></h3>
         ${next ? `<b class="feat-titulo">${esc(next.titulo)}</b>
-          <p class="feat-mentor"><img src="media/${mm.img}.jpg?v=14" alt="" onerror="this.remove()">${esc(next.instrutor)}</p>
+          <p class="feat-mentor"><img src="media/${mm.img}.jpg?v=70" alt="" onerror="this.remove()">${esc(next.instrutor)}</p>
           <p class="feat-quando">${I.calendar} ${esc(fmtAgenda(next.estado === 'AO_VIVO' ? new Date().toISOString() : next.agenda_em))}</p>
-          ${mm ? `<img class="feat-face" src="media/${mm.img}.jpg?v=14" alt="" loading="lazy">` : ''}
+          ${mm ? `<img class="feat-face" src="media/${mm.img}.jpg?v=70" alt="" loading="lazy">` : ''}
           <button class="btn btn-o feat-enter" onclick="go('/sala/${next.id}')">Entrar na sala</button>
           <a class="see-all" href="#/ao-vivo">Ver todas as aulas ao vivo ${I.arrow}</a>`
         : '<p class="muted" style="font-size:14px">Sem salas agendadas — veja a agenda da semana.</p><a class="see-all" href="#/ao-vivo">Ver agenda ${I.arrow}</a>'}
@@ -1294,7 +1299,7 @@ on('/aluno', async () => {
       <div class="card">
         <h3>Cursos inscritos <a href="#/catalogo">Ver todos</a></h3>
         <div class="enr-strip">
-          ${d.cursos.slice(0, 3).map(c => `<div class="enr" onclick="go('/curso/${c.id}')"><img src="media/${escAttr(courseArt(c))}.jpg?v=60" alt="">
+          ${d.cursos.slice(0, 3).map(c => `<div class="enr" onclick="go('/curso/${c.id}')"><img src="media/${escAttr(courseArt(c))}.jpg?v=70" alt="">
             <b>${esc(c.titulo)}</b><div class="prog-bar"><i style="width:${c.pct}%"></i></div><small>${c.pct}%</small></div>`).join('')}
           <div class="enr more" onclick="go('/catalogo')"><span>${I.plus}</span><b>Explorar mais cursos</b></div>
         </div>
@@ -1630,7 +1635,7 @@ on('/instrutor', async () => {
     </div>
     <div class="grid i-duo" style="margin-top:18px">
       <div class="card"><div class="card-h"><h3>Seus cursos</h3><a class="see-all" href="#/instrutor/cursos" style="font-size:13px">Ver todos</a></div><div class="list">
-        ${d.cursos.map(c => `<div class="list-row"><img src="media/${escAttr(courseArt(c))}.jpg?v=14" style="width:56px;height:40px;border-radius:8px;object-fit:cover">
+        ${d.cursos.map(c => `<div class="list-row"><img src="media/${escAttr(courseArt(c))}.jpg?v=70" style="width:56px;height:40px;border-radius:8px;object-fit:cover">
           <div class="t"><b>${esc(c.titulo)}</b><small>${c.alunos} alunos · ★ ${c.rating.toFixed(1)} · ${c.aulas} aulas</small></div>
           <span class="pill ${c.estado === 'PUBLIC' ? 'pill-p' : 'pill-w'}">${esc(c.estado)}</span></div>`).join('')}</div></div>
       <div class="card"><h3>Últimas atividades</h3><div class="list">
@@ -1743,10 +1748,10 @@ on('/publicar', async () => {
 
       <article class="pub-card">
         <span class="pub-ic">${I.grad}</span>
-        <span class="bt-badge soft">UNIVERSIDADE · INGENIUM</span>
+        <span class="bt-badge soft">UNIVERSIDADE · NÚCLEO AMA</span>
         <h2>Criar turma e enviar matérias</h2>
-        <p>Organize disciplinas, horário semanal, chamada local, fichas imprimíveis e cartões de estudo gerados pelo motor Ingenium.</p>
-        <ul class="pub-list"><li>Código partilhável para estudantes</li><li>Consola de lecionação com cronómetro</li><li>Triângulos de fórmulas e revisão</li></ul>
+        <p>Organize disciplinas, horário semanal, chamada local, fichas imprimíveis e kits interativos gerados pelo Núcleo AMA.</p>
+        <ul class="pub-list"><li>Código partilhável para estudantes</li><li>Consola de lecionação com cronómetro</li><li>Simuladores de grandezas e revisão</li></ul>
         <a class="btn btn-o" href="${user ? '#/turmas' : '#/universidade'}">Abrir Universidade ${I.arrow}</a>
       </article>
     </section>
@@ -1784,7 +1789,7 @@ on('/instrutor/cursos', async () => {
   const m = S.user.papel === 'ADMIN' ? MENU.admin : S.user.papel === 'INSTRUCTOR' ? MENU.instrutor : MENU.aluno;
   return panelShell('instrutor/cursos', `<div class="page-h"><div><h1>Meus cursos</h1><p>${d.cursos.length} cursos · publique, partilhe e dê aulas ao vivo com um clique.</p></div>
     <div class="flex" style="gap:8px;flex-wrap:wrap"><a class="btn btn-o btn-sm" href="#/workshops/criar">${I.mega} Publicar workshop</a><a class="btn btn-p" href="#/instrutor/criar">${I.plus} Novo curso</a></div></div>
-    ${d.cursos.length ? `<div class="grid g-3">${d.cursos.map(c => `<div class="course" style="cursor:default"><div class="thumb"><img src="media/${escAttr(courseArt(c))}.jpg?v=60"><span class="cat chip ${c.estado === 'PUBLIC' ? 'chip-g' : 'chip-f'}">${esc(c.estado)}</span></div>
+    ${d.cursos.length ? `<div class="grid g-3">${d.cursos.map(c => `<div class="course" style="cursor:default"><div class="thumb"><img src="media/${escAttr(courseArt(c))}.jpg?v=70"><span class="cat chip ${c.estado === 'PUBLIC' ? 'chip-g' : 'chip-f'}">${esc(c.estado)}</span></div>
       <div class="body"><h4>${esc(c.titulo)}</h4><div class="meta"><span>★ ${(c.rating || 5).toFixed(1)}</span><span>${c.alunos} alunos</span><span>${c.aulas} aulas</span></div>
       <div class="price"><b>${c.preco_kz ? kz(c.preco_kz) : 'Grátis'}</b></div>
       <div class="flex" style="gap:6px;flex-wrap:wrap;margin-top:10px">
@@ -1801,7 +1806,7 @@ function crPreviewHTML() {
   return `<div class="cr-preview-card">
     <span class="cr-prev-lbl">PRÉ-VISUALIZAÇÃO NO CATÁLOGO</span>
     <div class="course" style="pointer-events:none">
-      <div class="thumb"><img src="media/${escAttr(CR.poster)}.jpg?v=60" alt=""><span class="cat chip chip-g">${esc(CR.categoria)}</span></div>
+      <div class="thumb"><img src="media/${escAttr(CR.poster)}.jpg?v=70" alt=""><span class="cat chip chip-g">${esc(CR.categoria)}</span></div>
       <div class="body">
         <h3>${esc(CR.titulo || 'Título do seu curso aparece aqui')}</h3>
         <div class="crow"><span class="lvl">${esc(CR.nivel)}</span><span class="rate">★ 5,0 <small>(Novo)</small></span><span class="ls">${I.play} ${nAulas(totalAulas)}</span></div>
@@ -1908,7 +1913,7 @@ on('/instrutor/criar', async () => {
 
           <div class="field"><label>Capa do curso</label>
             <div class="cr-covers">
-              ${COURSE_COVERS.map(([img, lbl]) => `<button type="button" class="cr-cov ${CR.poster === img ? 'on' : ''}" onclick="crPickCover('${img}')"><img src="media/${img}.jpg?v=60" alt="${lbl}"><span>${lbl}</span></button>`).join('')}
+              ${COURSE_COVERS.map(([img, lbl]) => `<button type="button" class="cr-cov ${CR.poster === img ? 'on' : ''}" onclick="crPickCover('${img}')"><img src="media/${img}.jpg?v=70" alt="${lbl}"><span>${lbl}</span></button>`).join('')}
             </div>
           </div>
         </div>
@@ -1930,7 +1935,7 @@ on('/instrutor/criar', async () => {
                     <input class="cr-dur" type="number" min="2" max="180" value="${a.duracao_min || 10}" oninput="crSetLesson(${mi},${ai},'duracao_min',this.value)" title="Duração (min)">
                     <button type="button" class="cr-del" onclick="crDelLesson(${mi},${ai})" title="Remover aula">✕</button>
                   </div>
-                  <textarea rows="2" oninput="crSetLesson(${mi},${ai},'transcript',this.value)" placeholder="Texto/guião da aula (usado pelo aluno, pelo Tutor AMA e pelo Ingenium)…">${esc(a.transcript || '')}</textarea>
+                  <textarea rows="2" oninput="crSetLesson(${mi},${ai},'transcript',this.value)" placeholder="Texto/guião da aula (usado pelo aluno, pelo Tutor AMA e pelo Núcleo AMA)…">${esc(a.transcript || '')}</textarea>
                 </div>`).join('')}
               </div>
             </div>`).join('')}
@@ -2002,7 +2007,7 @@ on('/admin', async () => {
       <div class="card"><div class="card-h"><h3>Crescimento de utilizadores</h3><span class="flex" style="gap:12px;font-size:12px;font-weight:400;color:var(--muted)"><span><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green)"></i> Alunos</span><span><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--blue)"></i> Professores</span><span><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--teal)"></i> Admins</span><select class="mini-sel"><option>Mensal</option></select></span></div>
         <canvas data-chart="bars" data-h="230" data-data='${JSON.stringify(meses.map(m => ({ l: MES3[Number(m.slice(5, 7)) - 1] || m, s: [cres[m].STUDENT || 0, cres[m].INSTRUCTOR || 0, cres[m].ADMIN || 0] })))}'></canvas></div>
       <div class="card"><div class="card-h"><h3>Aprovações pendentes</h3><a class="see-all" href="#/admin/cursos" style="font-size:13px">Ver todas</a></div>
-        ${pend.length ? pend.slice(0, 3).map(c => `<div class="appr"><img src="media/${escAttr(courseArt(c))}.jpg?v=14" alt=""><div class="t"><b>${esc(c.titulo)}</b><small>por ${esc(c.instrutor || 'instrutor')}</small></div>
+        ${pend.length ? pend.slice(0, 3).map(c => `<div class="appr"><img src="media/${escAttr(courseArt(c))}.jpg?v=70" alt=""><div class="t"><b>${esc(c.titulo)}</b><small>por ${esc(c.instrutor || 'instrutor')}</small></div>
           <div class="appr-btns"><button class="btn btn-p btn-sm" onclick="aprovCurso(${c.id},'PUBLIC')">Aprovar</button><button class="btn btn-o btn-sm" onclick="aprovCurso(${c.id},'RASCUNHO')">Rejeitar</button></div></div>`).join('')
         : '<div class="appr-empty">' + I.shield + '<b>Fila limpa</b><small>Nenhum curso à espera de aprovação.</small></div>'}
         <a class="see-all" href="#/admin/cursos" style="font-size:13px;margin-top:auto;padding-top:10px">Ver todas as pendências ${I.arrow}</a></div>
@@ -2088,7 +2093,7 @@ on('/ao-vivo', async () => {
   const nowPanel = featured ? `<div class="lv-grid">
       <section class="lv-room rv">
         <div class="lv-video">
-          <img src="media/live-host-v2.jpg?v=14" alt="Sala ao vivo: ${escAttr(featured.titulo)}" decoding="async">
+          <img src="media/live-host-v2.jpg?v=70" alt="Sala ao vivo: ${escAttr(featured.titulo)}" decoding="async">
           <span class="lv-chip ${live.length ? 'on' : ''}"><i></i>${live.length ? 'Ao vivo agora' : 'Começa em ' + quandoLabel(featured.agenda_em).toLowerCase()}</span>
           <span class="lv-viewers">${I.users} ${live.length ? featured.presenca : featured.inscritos}</span>
           <div class="lv-cap"><h2>${esc(featured.titulo)}</h2><p><i class="dot-t"></i>${esc(featured.instrutor)} ${TIPO_PILL[featured.tipo] || ''}</p></div>
@@ -2107,7 +2112,7 @@ on('/ao-vivo', async () => {
           return `<div class="lv-row ${lv ? 'now' : ''}" onclick="go('/sala/${r.id}')">
             <span class="lv-ri">${lv ? '<i class="d"></i>' : I.calendar}</span>
             <div><small>${lv ? '<b class="lv-live-t">Ao vivo agora</b>' : esc(quandoLabel(r.agenda_em))}</small><b>${esc(r.titulo)}</b>
-              <p><img src="media/${mm.img}.jpg?v=14" alt="" onerror="this.style.display='none'">${esc(r.instrutor)} · ${lv ? r.presenca : r.inscritos} ${lv ? 'a assistir' : 'inscritos'}</p></div>
+              <p><img src="media/${mm.img}.jpg?v=70" alt="" onerror="this.style.display='none'">${esc(r.instrutor)} · ${lv ? r.presenca : r.inscritos} ${lv ? 'a assistir' : 'inscritos'}</p></div>
             ${lv ? `<span class="lv-flame">${I.spark}</span>` : ''}</div>`; }).join('') || '<p class="muted" style="padding:10px 4px">Sem salas no ar esta semana.</p>'}
         <button class="btn lv-pill" onclick="go('/catalogo')">Explorar os cursos ${I.arrow}</button>
         ${S.user && S.user.papel !== 'STUDENT' ? '<button class="btn btn-o lv-pill" style="margin-top:8px" onclick="novaSala()">Agendar nova sala</button>' : ''}
@@ -2118,14 +2123,14 @@ on('/ao-vivo', async () => {
       <div class="up-top"><span class="up-when">${I.calendar} ${esc(quandoLabel(r.agenda_em))}</span>${TIPO_PILL[r.tipo] || ''}</div>
       <h3>${esc(r.titulo)}</h3>
       <p>${esc((r.descricao || '').slice(0, 120))}${(r.descricao || '').length > 120 ? '…' : ''}</p>
-      <div class="up-prof"><img src="media/${mm.img}.jpg?v=14" alt="" onerror="this.style.display='none'"><span>${esc(r.instrutor)}</span><small>${r.duracao_min || 60} min · ${r.inscritos} inscritos${r.curso ? ' · ' + esc(r.curso) : ''}</small></div>
+      <div class="up-prof"><img src="media/${mm.img}.jpg?v=70" alt="" onerror="this.style.display='none'"><span>${esc(r.instrutor)}</span><small>${r.duracao_min || 60} min · ${r.inscritos} inscritos${r.curso ? ' · ' + esc(r.curso) : ''}</small></div>
       <div class="up-act">
         ${r.inscrito || r.acesso.ok ? `<button class="btn btn-f btn-sm" onclick="go('/sala/${r.id}')">${I.video} Ver a sala</button>`
           : `<button class="btn btn-f btn-sm" onclick="lvInscriver(${r.id})">Inscrever-me ${I.arrow}</button>`}
         <button class="btn btn-o btn-sm ${r.lembrou ? 'on' : ''}" onclick="lvLembre(${r.id})">${r.lembrou ? I.check + ' Lembrete activo' : I.bell + ' Lembrar-me'}</button>
       </div></div>`; }).join('') || '<div class="empty">Sem aulas agendadas — volta amanhã.</div>'}</div>`;
   const gravPanel = `<div class="up-grid rv">${grav.map(r => `<div class="up-card rec">
-      <div class="up-thumb" onclick="go('/sala/${r.id}')"><img src="media/live-host-v2.jpg?v=14" alt="" loading="lazy"><span class="up-play">${I.play}</span><small>${r.duracao_min || 60} min</small></div>
+      <div class="up-thumb" onclick="go('/sala/${r.id}')"><img src="media/live-host-v2.jpg?v=70" alt="" loading="lazy"><span class="up-play">${I.play}</span><small>${r.duracao_min || 60} min</small></div>
       <h3>${esc(r.titulo)}</h3>
       <p>${esc((r.resumo || '').slice(0, 120))}…</p>
       <div class="up-prof"><span>${esc(r.instrutor)}</span><small>${esc(fmtAgenda(r.agenda_em))}${r.curso ? ' · ' + esc(r.curso) : ''}</small></div>
@@ -2186,7 +2191,7 @@ function salaLobby(r, host) {
   return `<div class="sala-wrap lobby">
     <a class="sala-back" href="#/ao-vivo">${I.arrow} Voltar à agenda</a>
     <div class="lb-card rv">
-      <div class="lb-stage"><img src="media/live-host-v2.jpg?v=14" alt="" decoding="async"><div class="lb-veil" aria-hidden="true"></div>
+      <div class="lb-stage"><img src="media/live-host-v2.jpg?v=70" alt="" decoding="async"><div class="lb-veil" aria-hidden="true"></div>
         <span class="lb-sched">${I.calendar} ${esc(quandoLabel(r.agenda_em))} · ${r.duracao_min || 60} min</span>
         <div class="lb-count"><small>A aula começa em</small><b id="cd">--:--</b><span id="cd-day"></span></div>
         <div class="lb-pi"><span class="pi-label">Câmara desligada</span></div>
@@ -2204,7 +2209,7 @@ function salaLobby(r, host) {
       <div class="lb-main">
         <h1>${esc(r.titulo)}</h1>
         <p class="lb-desc">${esc(r.descricao || '')}</p>
-        <div class="lb-prof"><img src="media/${mm.img}.jpg?v=14" alt="" onerror="this.style.display='none'"><div><b>${esc(r.instrutor)}</b><small>${esc(r.curso || 'Sessão aberta a toda a academia')}</small></div></div>
+        <div class="lb-prof"><img src="media/${mm.img}.jpg?v=70" alt="" onerror="this.style.display='none'"><div><b>${esc(r.instrutor)}</b><small>${esc(r.curso || 'Sessão aberta a toda a academia')}</small></div></div>
         <div class="lb-block"><h3>${I.target} O que vai aprender</h3><ul class="lb-objs">${objs}</ul></div>
         <div class="lb-block"><h3>${I.doc} Materiais da aula</h3><div class="lb-files">${mats}</div></div>
       </div>
@@ -2232,7 +2237,7 @@ function salaEnd(r) {
     <div class="end-grid">
       <section class="end-player rv">
         ${r.gravacao ? `<div class="end-poster" id="end-poster" onclick="playReplay('${escAttr(r.gravacao)}')">
-          <img src="media/live-host-v2.jpg?v=14" alt=""><span class="end-bigplay">${I.play}</span><b>Gravação disponível</b></div>` : '<div class="empty">Sem gravação para esta sessão.</div>'}
+          <img src="media/live-host-v2.jpg?v=70" alt=""><span class="end-bigplay">${I.play}</span><b>Gravação disponível</b></div>` : '<div class="empty">Sem gravação para esta sessão.</div>'}
         <div class="end-block"><h3>${I.spark} Resumo da aula</h3><p>${esc(r.resumo || 'O resumo fica disponível assim que o professor publicar as notas da sessão.')}</p></div>
         <div class="end-block"><h3>${I.quiz} Depois da aula</h3>
           <div class="end-next">
@@ -2256,7 +2261,7 @@ function salaRoom(r, host) {
     <div class="sala-grid v14">
       <div class="sala-main">
         <div class="live-stage" id="stage">
-          <img class="stage-cam" src="media/live-host-v2.jpg?v=14" alt="Transmissão do professor" decoding="async">
+          <img class="stage-cam" src="media/live-host-v2.jpg?v=70" alt="Transmissão do professor" decoding="async">
           <div class="stage-veil" aria-hidden="true"></div>
           <div class="live-badge" id="badge" style="${live ? '' : 'background:#3c443e;box-shadow:none'}"><i></i><span id="badgetxt">${live ? 'AO VIVO' : 'AGUARDANDO'}</span></div>
           <div class="live-viewers" id="viewers">${I.users} ${r.presenca} a assistir</div>
@@ -2725,7 +2730,7 @@ function omaSay(who, html) {
 }
 function omaCourseMini(c) {
   return `<a class="oma-c" href="#/curso/${c.id}" onclick="omaToggle(false)">
-    <img src="media/${escAttr(courseArt(c))}.jpg?v=60" alt="" loading="lazy">
+    <img src="media/${escAttr(courseArt(c))}.jpg?v=70" alt="" loading="lazy">
     <div><b>${esc(c.titulo)}</b><small>★ ${c.rating} · ${c.alunos.toLocaleString('pt-PT').replace(/ /g, '.')} alunos · ${esc(c.nivel)}</small><em>${kz(c.preco_kz)}</em></div>
     ${I.arrow}</a>`;
 }
@@ -2782,7 +2787,7 @@ function notifTile(n) {
   const selo = `<i class="nm-badge t-${t.tone}" aria-hidden="true">${I[t.ic]}</i>`;
   const m = n.meta || {};
   const card = m.curso_id && CARD_BY_ID[m.curso_id];
-  if (card) return `<span class="nm-thumb"><img src="media/${card}.jpg?v=14" alt="" loading="lazy" decoding="async">${selo}</span>`;
+  if (card) return `<span class="nm-thumb"><img src="media/${card}.jpg?v=70" alt="" loading="lazy" decoding="async">${selo}</span>`;
   if (m.actor) return `<span class="nm-av" style="background:${escAttr(m.actor_cor || 'var(--flame-2)')}">${escAttr(String(m.actor).split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase())}${selo}</span>`;
   return `<span class="nm-ic t-${t.tone}">${I[t.ic]}</span>`;
 }
@@ -2981,12 +2986,17 @@ window.themeToggle = () => {
 };
 
 /* ================================ boot ==================================== */
-(async function boot() {
+async function boot() {
   try { const { user } = await api('/api/me'); S.user = user; } catch { }
   render();
   if (S.user) { refreshNotifBadge(); startNotifStream(); }
   if (!window.__omaFab) { window.__omaFab = 1; }
-})();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot, { once: true });
+} else {
+  boot();
+}
 window.S = S;
 
 /* Camada offline: o service worker guarda o que o navegador já pediu e serve

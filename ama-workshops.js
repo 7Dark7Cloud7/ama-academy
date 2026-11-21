@@ -330,7 +330,7 @@
           <a class="btn btn-o btn-ghost-d btn-lg" href="#/meus-bilhetes">Os meus bilhetes</a>
         </div>
       </div>
-      <figure class="hub-art"><img src="media/live-host-v2.jpg" alt="Apresentador numa sessão de aprendizagem" decoding="async"><figcaption>Conhecimento que aproxima pessoas.</figcaption></figure>
+      <figure class="hub-art"><img src="media/live-host-v2.jpg?v=70" alt="Apresentador numa sessão de aprendizagem" decoding="async"><figcaption>Conhecimento que aproxima pessoas.</figcaption></figure>
       <div class="ws-facts">
         <div><b data-count="${d.eventos.length}">${d.eventos.length}</b><span>eventos no calendário</span></div>
         <div><b data-count="${totalLugares}">${totalLugares}</b><span>lugares abertos</span></div>

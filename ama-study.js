@@ -1,7 +1,7 @@
-/* AMA — Aristides Miguel Academy · Estudo, revisão espaçada e ferramentas do professor.
+/* AMA — Aristides Miguel Academy · Núcleo AMA: Estúdio de Estudo, Revisão Espaçada e Oficina Docente.
    Camada clássica carregada depois de app.js: usa os motores determinísticos de
-   engine/ (resumos, SM-2, fichas, planos, rubricas, presenças) e guarda tudo no
-   localStorage, sem enviar texto nem ficheiros para nenhum servidor. */
+   engine/ (resumos, mapa de conceitos, SM-2, fichas, planos, rubricas, presenças)
+   e guarda tudo no localStorage, sem enviar texto nem ficheiros para nenhum servidor. */
 (function () {
   'use strict';
 
@@ -12,6 +12,23 @@
     ['geografia', 'Geografia'], ['ingles', 'Inglês'], ['programacao', 'Programação'],
     ['empreendedorismo', 'Empreendedorismo'], ['financas', 'Finanças'],
   ];
+  const EXAMPLES = {
+    financas: {
+      title: 'Juro Composto e Inflação em Kwanzas',
+      subject: 'financas',
+      text: 'Juro composto é o rendimento calculado sobre o capital inicial somado aos juros acumulados nos períodos anteriores. A inflação é a subida generalizada dos preços que reduz o poder de compra do kwanza ao longo do tempo.\n\nPor exemplo, aplicar 100.000 Kz a 12% ao ano gera 12.000 Kz no primeiro ano, mas 13.440 Kz no segundo ano porque o juro incide sobre 112.000 Kz. Portanto, o tempo amplifica exponencialmente o capital investido.\n\nFundo de emergência é a reserva líquida equivalente a 3 a 6 meses de despesas fixas. Em resumo, só existe ganho real quando a taxa de rendimento supera a inflação anual.',
+    },
+    fisica: {
+      title: 'Leis de Newton e Movimento Uniforme',
+      subject: 'fisica',
+      text: 'Movimento retilíneo uniforme é o deslocamento de um corpo em linha reta com velocidade constante e aceleração nula. A força resultante é a soma vetorial de todas as forças que atuam sobre um objeto.\n\nPela segunda lei de Newton, a força é igual ao produto da massa pela aceleração (F = m × a). Por exemplo, um veículo de 1000 kg que acelera a 2 m/s² requer uma força resultante de 2000 N. Logo, quanto maior a massa de um corpo, maior a sua inércia.\n\nEm resumo, força, massa e aceleração ligam-se diretamente e explicam como qualquer corpo altera o seu estado de movimento.',
+    },
+    programacao: {
+      title: 'Algoritmos, Funções e Pesquisa Binária',
+      subject: 'programacao',
+      text: 'Algoritmo é uma sequência finita e ordenada de passos claros para resolver um problema computacional. Uma função é um bloco reutilizável de código que recebe entradas, processa dados e devolve um resultado.\n\nA pesquisa binária consiste em dividir repetidamente uma lista ordenada ao meio para localizar um elemento. Por exemplo, numa lista ordenada com 1000 registos de estudantes, a pesquisa binária encontra qualquer nome em no máximo 10 comparações porque elimina metade das hipóteses a cada passo.\n\nEm resumo, decompor problemas em funções e escolher algoritmos eficientes reduz erros e acelera qualquer aplicação.',
+    },
+  };
   const subjectLabel = (id) => (SUBJECTS.find((s) => s[0] === id) || ['', id])[1] || 'Geral';
   const uid = () => 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -20,6 +37,13 @@
     const d = new Date(iso + 'T00:00:00');
     if (Number.isNaN(d.getTime())) return iso;
     return d.toLocaleDateString('pt-AO', { weekday: 'short', day: '2-digit', month: 'short' });
+  };
+  const fmtShortDay = (iso, offset) => {
+    if (offset === 0) return 'Hoje';
+    if (offset === 1) return 'Amanhã';
+    const d = new Date(iso + 'T00:00:00');
+    if (Number.isNaN(d.getTime())) return iso.slice(5);
+    return d.toLocaleDateString('pt-AO', { weekday: 'short' }).replace('.', '');
   };
   const fmtWhen = (iso) => {
     if (!iso) return '';
@@ -51,20 +75,78 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Resumo                                                            */
+  /* Estado da vista de detalhe                                         */
   /* ------------------------------------------------------------------ */
+  const VIEW = { recId: null, tab: 'sintese', mapNode: 0 };
+
+  function ensureRichAnalysis(r) {
+    const a = r && r.analysis;
+    if (!a || a.insufficient) return a;
+    if (a.conceptMap && a.activeRecall) return a;
+    const S = S_();
+    if (!S || !r.text) return a;
+    try {
+      const fresh = S.analyzeSummary({ text: r.text, title: r.title, subject: r.subject });
+      if (fresh && !fresh.insufficient) return fresh;
+    } catch { }
+    return a;
+  }
+
   function analyse(text, title, subject) {
     const S = S_();
     if (!S) return null;
     return S.analyzeSummary({ text: text || '', title: title || '', subject: subject || 'geral' });
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Mapa de Conceitos SVG interativo                                   */
+  /* ------------------------------------------------------------------ */
+  function conceptMapBlock(a) {
+    const cm = a.conceptMap || { center: a.title || 'Tema Central', nodes: [] };
+    const nodes = cm.nodes || [];
+    if (!nodes.length) {
+      return '<div class="card st-block"><p class="muted">Sem termos suficientes para desenhar o mapa de conceitos.</p></div>';
+    }
+    const activeIdx = Math.min(VIEW.mapNode || 0, nodes.length - 1);
+    const active = nodes[activeIdx];
+    const cx = 320, cy = 175, rx = 215, ry = 122;
+    const placed = nodes.map((n, i) => {
+      const angle = (-Math.PI / 2) + (i * (Math.PI * 2)) / nodes.length;
+      return { ...n, idx: i, x: Math.round(cx + Math.cos(angle) * rx), y: Math.round(cy + Math.sin(angle) * ry) };
+    });
+    const svg = `<svg class="cmap-svg" viewBox="0 0 640 350" role="img" aria-label="Mapa de conceitos de ${escAttr(cm.center)}">
+      ${placed.map((p) => `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}" class="cmap-edge ${p.idx === activeIdx ? 'on' : ''}"/>`).join('')}
+      <g class="cmap-center">
+        <rect x="${cx - 94}" y="${cy - 26}" width="188" height="52" rx="14"/>
+        <text x="${cx}" y="${cy + 4}" text-anchor="middle">${esc(cm.center.length > 24 ? cm.center.slice(0, 23) + '…' : cm.center)}</text>
+      </g>
+      ${placed.map((p) => {
+        const w = Math.max(108, Math.min(168, p.label.length * 7.6 + 26));
+        return `<g class="cmap-node ${p.kind} ${p.idx === activeIdx ? 'on' : ''}" tabindex="0" role="button" onclick="AMAStudy.mapSelect(${p.idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();AMAStudy.mapSelect(${p.idx})}">
+          <rect x="${p.x - w / 2}" y="${p.y - 19}" width="${w}" height="38" rx="10"/>
+          <text x="${p.x}" y="${p.y + 4}" text-anchor="middle">${esc(p.label.length > 20 ? p.label.slice(0, 19) + '…' : p.label)}</text>
+        </g>`;
+      }).join('')}
+    </svg>`;
+    return `<div class="card st-block">
+      <div class="st-block-head"><h3>Mapa de Conceitos</h3><span class="st-meta-inline">Toque num nó para inspecionar o contexto no texto</span></div>
+      <div class="cmap-wrap">${svg}</div>
+      <div class="cmap-detail" id="cmap-detail">
+        <span class="cmap-kind">${active.kind === 'definition' ? 'Conceito definido' : 'Termo-chave'}</span>
+        <strong>${esc(active.label)}</strong>
+        <p>${esc(active.detail)}</p>
+      </div>
+    </div>`;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Renderização da análise (versão compacta ou caderno com abas)      */
+  /* ------------------------------------------------------------------ */
   function analysisBody(a, opts = {}) {
-    const S = S_();
-    if (!a) return '<p class="muted">O motor de estudo ainda não carregou. Recarregue a página.</p>';
+    if (!a) return '<p class="muted">O Núcleo AMA ainda não carregou. Recarregue a página.</p>';
     if (a.insufficient) {
       return `<div class="card empty">${I.doc}<h3>Texto insuficiente</h3>
-        <p>Preciso de pelo menos 120 caracteres e duas frases para resumir sem inventar. Cole mais conteúdo do material (${a.stats.words} palavras recebidas).</p></div>`;
+        <p>Preciso de pelo menos 120 caracteres e duas frases para analisar sem inventar. Cole mais conteúdo do material (${a.stats.words} palavras recebidas).</p></div>`;
     }
     const outline = (a.outline || []).map((b) => `
       <div class="st-outline-b"><h4>${esc(b.heading || 'Sem título')}</h4>
@@ -76,24 +158,81 @@
       <p class="st-qp">${esc(q.prompt)}</p>
       <div class="st-opts">${q.options.map((o, j) => `<button type="button" onclick="AMAStudy.quizPick(this,${j},${q.correct})" data-i="${j}">${esc(o)}</button>`).join('')}</div>
       <p class="st-exp" hidden>${esc(q.explanation || '')}</p></div>`).join('');
-    return `
-      <div class="study-stats">
-        <span class="chip chip-v">${a.stats.words} palavras</span>
-        <span class="chip">${a.stats.sentences} frases</span>
-        <span class="chip">${a.stats.readingMinutes} min de leitura</span>
-        <span class="chip chip-f">${(a.cards || []).length} cartões</span>
-        <span class="chip chip-g">${(a.quiz || []).length} perguntas</span>
+    const coverage = (a.coverage || []).map((c) => `<div class="st-cov-row ${c.ok ? 'ok' : ''}"><span>${c.ok ? '✓' : '○'}</span><p>${esc(c.hint)}</p></div>`).join('');
+    const diffLabel = a.difficulty ? a.difficulty.label : '';
+    const statsLine = `<div class="st-summary-strip">
+      <span><b>${a.stats.words}</b> palavras</span><i>·</i>
+      <span><b>${a.stats.sentences}</b> frases</span><i>·</i>
+      <span><b>${a.stats.readingMinutes} min</b> leitura</span><i>·</i>
+      ${diffLabel ? `<span>${esc(diffLabel)}</span><i>·</i>` : ''}
+      <span><b>${(a.cards || []).length}</b> cartões</span><i>·</i>
+      <span><b>${(a.quiz || []).length}</b> perguntas</span>
+    </div>`;
+
+    if (!opts.tabbed) {
+      return `${statsLine}
+        <div class="card st-block"><span class="eyebrow-t">${I.bulb} IDEIA CENTRAL</span><p class="st-lead">${esc(a.centralIdea || '')}</p></div>
+        <div class="study-cols">
+          <div class="card st-block"><h3>Pontos-chave</h3><ol class="st-list">${(a.keyIdeas || []).slice(0, 8).map((k) => `<li>${esc(k)}</li>`).join('')}</ol></div>
+          <div class="card st-block"><h3>Definições</h3>${defs || '<p class="muted">O texto não define termos de forma explícita.</p>'}</div>
+        </div>
+        ${cards ? `<div class="card st-block"><h3>Cartões de revisão <small class="muted">· toque para virar</small></h3><div class="st-cards">${cards}</div></div>` : ''}
+        ${quiz ? `<div class="card st-block"><h3>Quiz rápido</h3>${quiz}</div>` : ''}
+        ${opts.extra || ''}`;
+    }
+
+    const tab = VIEW.tab || 'sintese';
+    const rec = opts.record;
+    const recallPrompts = (a.activeRecall || []).map((p) => `<div class="feynman-prompt">
+      <span>${esc(p.stage)}</span>
+      <strong>${esc(p.prompt)}</strong>
+      ${p.hint ? `<details><summary>Ver pista do texto</summary><p>${esc(p.hint)}</p></details>` : ''}
+    </div>`).join('');
+    const feynmanNote = (rec && rec.progress && rec.progress.feynman) || '';
+
+    return `${statsLine}
+      <div class="st-tabs" role="tablist" aria-label="Modos de estudo">
+        <button type="button" class="${tab === 'sintese' ? 'on' : ''}" onclick="AMAStudy.setTab('sintese')">Síntese &amp; Esquema</button>
+        <button type="button" class="${tab === 'mapa' ? 'on' : ''}" onclick="AMAStudy.setTab('mapa')">Mapa de Conceitos <span>${((a.conceptMap && a.conceptMap.nodes) || []).length}</span></button>
+        <button type="button" class="${tab === 'pratica' ? 'on' : ''}" onclick="AMAStudy.setTab('pratica')">Prática Ativa <span>${(a.cards || []).length + (a.quiz || []).length}</span></button>
+        <button type="button" class="${tab === 'quiz' ? 'on' : ''}" onclick="AMAStudy.setTab('quiz')">Modo Quiz <span>${Math.min(8, Math.max(2, (a.quiz || []).length + (a.definitions || []).length))}</span></button>
       </div>
-      <div class="card st-block"><span class="eyebrow-t">${I.bulb} IDEIA CENTRAL</span><p class="st-lead">${esc(a.centralIdea || '')}</p></div>
-      <div class="study-cols">
-        <div class="card st-block"><h3>Pontos-chave</h3><ol class="st-list">${(a.keyIdeas || []).slice(0, 8).map((k) => `<li>${esc(k)}</li>`).join('')}</ol></div>
-        <div class="card st-block"><h3>Definições</h3>${defs || '<p class="muted">O texto não define termos de forma explícita.</p>'}</div>
-      </div>
-      ${outline ? `<div class="card st-block"><h3>Esquema</h3><div class="st-outline">${outline}</div></div>` : ''}
-      <div class="card st-block"><h3>Palavras-chave</h3><div class="flex wrap" style="gap:7px">${(a.keywords || []).map((k) => `<span class="chip">${esc(k.term)} · ${k.count}</span>`).join('')}</div></div>
-      <div class="card st-block"><h3>Perguntas guia</h3><ul class="st-list">${(a.guidingQuestions || []).map((q) => `<li>${esc(q)}</li>`).join('')}</ul></div>
-      ${cards ? `<div class="card st-block"><h3>Cartões de revisão <small class="muted">· toque para virar</small></h3><div class="st-cards">${cards}</div></div>` : ''}
-      ${quiz ? `<div class="card st-block"><h3>Quiz rápido</h3>${quiz}</div>` : ''}
+
+      ${tab === 'sintese' ? `
+        <div class="card st-block"><span class="eyebrow-t">${I.bulb} IDEIA CENTRAL</span><p class="st-lead">${esc(a.centralIdea || '')}</p></div>
+        <div class="study-cols">
+          <div class="card st-block"><h3>Pontos-chave</h3><ol class="st-list">${(a.keyIdeas || []).slice(0, 8).map((k) => `<li>${esc(k)}</li>`).join('')}</ol></div>
+          <div class="card st-block"><h3>Definições extraídas</h3>${defs || '<p class="muted">O texto não define termos de forma explícita.</p>'}</div>
+        </div>
+        ${outline ? `<div class="card st-block"><h3>Esquema estruturado</h3><div class="st-outline">${outline}</div></div>` : ''}
+        <div class="study-cols">
+          <div class="card st-block">
+            <h3>Termos dominantes</h3>
+            <div class="st-kw-list">${(a.keywords || []).map((k) => `<span class="st-kw"><b>${esc(k.term)}</b><em>${k.count}×</em></span>`).join('')}</div>
+          </div>
+          <div class="card st-block">
+            <h3>Diagnóstico do apontamento</h3>
+            <div class="st-cov">${coverage}</div>
+          </div>
+        </div>
+      ` : ''}
+
+      ${tab === 'mapa' ? conceptMapBlock(a) : ''}
+
+      ${tab === 'pratica' ? `
+        ${cards ? `<div class="card st-block"><h3>Cartões de memória <small class="muted">· toque para virar</small></h3><div class="st-cards">${cards}</div></div>` : ''}
+        ${quiz ? `<div class="card st-block"><div class="st-block-head"><h3>Verificação rápida</h3><span id="st-quiz-score" class="st-meta-inline">0 / ${(a.quiz || []).length} respondidas</span></div>${quiz}</div>` : ''}
+        <div class="card st-block feynman-box">
+          <div class="st-block-head"><h3>Espaço Feynman · Explique sem consultar</h3><span class="st-meta-inline" id="st-feynman-st">${feynmanNote ? 'Guardado localmente' : 'Auto-avaliação ativa'}</span></div>
+          ${recallPrompts ? `<div class="feynman-prompts">${recallPrompts}</div>` : ''}
+          <div class="field" style="margin-top:12px">
+            <label for="st-feynman-ta">A sua explicação por palavras próprias</label>
+            <textarea id="st-feynman-ta" rows="4" placeholder="Escreva aqui a sua explicação simples do tema sem olhar às notas…" oninput="AMAStudy.saveFeynman('${escAttr(rec ? rec.id : '')}',this.value)">${esc(feynmanNote)}</textarea>
+          </div>
+        </div>
+      ` : ''}
+
+      ${tab === 'quiz' ? (window.AMAQuiz ? window.AMAQuiz.inlineTabHtml(rec) : '<div class="card st-block"><p class="muted">A carregar Modo Quiz…</p></div>') : ''}
       ${opts.extra || ''}`;
   }
 
@@ -119,6 +258,18 @@
   /* ------------------------------------------------------------------ */
   /* Página /estudar                                                    */
   /* ------------------------------------------------------------------ */
+  function meterText(text) {
+    const len = String(text || '').trim().length;
+    const words = (String(text || '').trim().match(/[\p{L}\p{N}]+/gu) || []).length;
+    const ready = len >= 120;
+    return {
+      ready,
+      text: ready
+        ? `Pronto para análise · ${words} palavras · ${len} caracteres`
+        : `${len}/120 caracteres mínimos · ${words} palavras`,
+    };
+  }
+
   function estudarView() {
     const d = store();
     let pre = null;
@@ -127,40 +278,58 @@
       sessionStorage.removeItem('ama-uni-prefill');
     } catch (e) { pre = null; }
     const cards = d.recs.reduce((n, r) => n + ((r.analysis && r.analysis.cards) || []).length, 0);
+    const m = meterText(pre ? pre.text : '');
     const list = d.recs.length ? d.recs.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((r) => {
       const a = r.analysis || {};
       return `<div class="list-row st-row">
         <span class="st-ico">${I.doc}</span>
         <div class="t"><b>${esc(r.title)}</b><small>${esc(subjectLabel(r.subject))} · ${a.stats ? a.stats.words + ' palavras · ' : ''}${fmtWhen(r.createdAt)}</small></div>
+        <button type="button" class="btn btn-f btn-sm" onclick="window.AMAQuiz?AMAQuiz.startNotebook('${r.id}'):go('/quiz?rec=${r.id}')">${I.quiz} Quiz</button>
         <a class="btn btn-o btn-sm" href="#/estudar/${r.id}">Abrir</a>
         <button class="icon-btn" title="Apagar resumo" onclick="AMAStudy.apagar('${r.id}')">${I.close}</button>
       </div>`;
-    }).join('') : `<div class="card empty">${I.spark}<h3>Ainda sem resumos</h3><p>Cole o texto de uma aula, de um capítulo ou importe um PDF. O resumo, os cartões e o quiz são gerados neste navegador.</p></div>`;
+    }).join('') : `<div class="card empty">${I.spark}<h3>Ainda sem apontamentos</h3><p>Cole o texto de uma aula, importe um PDF ou carregue um dos exemplos prontos à esquerda. O Núcleo AMA cria síntese, mapa de conceitos, cartões e quiz neste navegador.</p></div>`;
 
     return panelShell('estudar', `
-      <div class="page-h"><div><h1>Estudar</h1><p>Transforme texto em resumo, cartões de revisão e quiz — sem enviar nada para fora deste navegador.</p></div>
-        <a class="btn btn-o" href="#/revisao">${I.quiz} Ir para a revisão</a></div>
-      <div class="study-stats" style="margin-bottom:16px">
-        <span class="chip chip-v"><b data-count="${d.recs.length}">${d.recs.length}</b> resumo${d.recs.length === 1 ? '' : 's'}</span>
-        <span class="chip"><b data-count="${cards}">${cards}</b> cartões</span>
-        <span class="chip chip-f">dados locais</span>
+      <div class="page-h"><div><h1>Estúdio de Estudo</h1><p>Núcleo AMA · transforme apontamentos em mapa de conceitos, cartões SM-2, Modo Quiz interativo e espaço Feynman — sem sair deste navegador.</p></div>
+        <div class="flex wrap" style="gap:8px">
+          <a class="btn btn-f" href="#/quiz">${I.quiz} Modo Quiz</a>
+          <a class="btn btn-o" href="#/projetor">${I.play} Projetor</a>
+          <a class="btn btn-o" href="#/revisao">${I.clock || I.quiz} Revisão SM-2</a>
+        </div></div>
+      <div class="st-summary-strip" style="margin-bottom:18px">
+        <span><b data-count="${d.recs.length}">${d.recs.length}</b> caderno${d.recs.length === 1 ? '' : 's'}</span><i>·</i>
+        <span><b data-count="${cards}">${cards}</b> cartões no baralho</span><i>·</i>
+        <span>Processamento local determinístico</span>
       </div>
       <div class="st-grid">
         <div class="card st-form">
-          <h3>Novo resumo</h3>
-          ${pre ? `<p class="st-prefill">${I.users} Conteúdo da sessão carregado. Reveja e gere o resumo.</p>` : ''}
-          <div class="field"><label>Título</label><input id="st-title" maxlength="90" placeholder="Ex.: Fotossíntese — 10.º ano" value="${pre ? esc(pre.title || '') : ''}"></div>
+          <div class="st-form-head">
+            <h3>Novo caderno de estudo</h3>
+            <div class="st-examples">
+              <span>Exemplos:</span>
+              <button type="button" onclick="AMAStudy.loadExample('financas')">Finanças</button>
+              <button type="button" onclick="AMAStudy.loadExample('fisica')">Física</button>
+              <button type="button" onclick="AMAStudy.loadExample('programacao')">Programação</button>
+            </div>
+          </div>
+          ${pre ? `<p class="st-prefill">${I.users} Conteúdo da sessão carregado. Reveja e gere o caderno.</p>` : ''}
+          <div class="field"><label>Título</label><input id="st-title" maxlength="90" placeholder="Ex.: Juro Composto e Inflação" value="${pre ? esc(pre.title || '') : ''}"></div>
           <div class="field"><label>Matéria</label><select id="st-subject">${subjectOptions(pre ? pre.subject : 'geral')}</select></div>
-          <div class="field"><label>Texto do material</label><textarea id="st-text" rows="9" placeholder="Cole aqui o texto da aula, do manual ou das suas notas (mínimo 120 caracteres).">${pre ? esc(pre.text || '') : ''}</textarea></div>
+          <div class="field">
+            <label>Texto do material</label>
+            <textarea id="st-text" rows="9" oninput="AMAStudy.updateMeter(this.value)" placeholder="Cole aqui o texto da aula, do manual ou das suas notas (mínimo 120 caracteres).">${pre ? esc(pre.text || '') : ''}</textarea>
+            <div class="st-meter ${m.ready ? 'ok' : ''}" id="st-meter">${esc(m.text)}</div>
+          </div>
           <div class="flex wrap" style="gap:8px;align-items:center">
-            <button class="btn btn-p" onclick="AMAStudy.analisar()">${I.spark} Gerar resumo</button>
+            <button class="btn btn-p" onclick="AMAStudy.analisar()">${I.spark} Analisar no Núcleo AMA</button>
             <label class="btn btn-o btn-sm" style="cursor:pointer">${I.doc} Importar PDF/imagem<input type="file" accept=".pdf,image/png,image/jpeg,image/webp" hidden onchange="AMAStudy.importFile(this)"></label>
             <span id="st-file-st" class="muted" style="font-size:12.5px"></span>
           </div>
-          <p class="muted" style="font-size:11.5px;margin-top:10px">A importação de PDFs e imagens usa OCR no seu dispositivo (carrega a biblioteca na primeira utilização) e pode demorar. O texto nunca sai deste navegador.</p>
+          <p class="muted" style="font-size:11.5px;margin-top:10px">A importação de PDFs e imagens usa OCR no seu dispositivo (carrega a biblioteca na primeira utilização). O texto nunca sai deste navegador.</p>
         </div>
         <div>
-          <div class="card st-list-card"><h3>Os meus resumos</h3>${list}</div>
+          <div class="card st-list-card"><h3>Os meus cadernos</h3>${list}</div>
           ${planHtml()}
         </div>
       </div>`, MENU.aluno);
@@ -169,23 +338,30 @@
   async function estudarDetail(id) {
     const d = store();
     const r = d.recs.find((x) => x.id === id);
-    if (!r) { toast('Resumo não encontrado.'); return go('/estudar'); }
+    if (!r) { toast('Caderno não encontrado.'); return go('/estudar'); }
+    if (VIEW.recId !== id) { VIEW.recId = id; VIEW.tab = 'sintese'; VIEW.mapNode = 0; }
     const S = S_();
-    const body = analysisBody(r.analysis, {
-      extra: `<div class="card st-block st-actions"><button class="btn btn-f" onclick="go('/revisao')">${I.quiz} Rever cartões</button>
+    const rich = ensureRichAnalysis(r);
+    if (rich && rich !== r.analysis) { r.analysis = rich; save(d); }
+    const body = analysisBody(rich, {
+      tabbed: true,
+      record: r,
+      extra: `<div class="card st-block st-actions"><button class="btn btn-p" onclick="AMAStudy.setTab('quiz')">${I.quiz} Iniciar Modo Quiz</button>
+        <button class="btn btn-f" onclick="window.AMAProjector?AMAProjector.openFromNotebook('${r.id}'):go('/projetor?rec=${r.id}')">${I.play} Projetar como Slides</button>
+        <button class="btn btn-o" onclick="go('/revisao')">${I.clock || I.quiz} Rever cartões</button>
         <button class="btn btn-o" onclick="AMAStudy.exportSheet('${r.id}')">${I.doc} Exportar ficha</button>
         <button class="btn btn-o" onclick="AMAStudy.reanalisar('${r.id}')">${I.spark} Recalcular</button></div>`,
     });
     return panelShell('estudar', `
-      <div class="page-h"><div><a class="lh-back" href="#/estudar" style="color:var(--muted)"><span class="lh-arr">${I.chev}</span> Estudar</a>
+      <div class="page-h"><div><a class="lh-back" href="#/estudar" style="color:var(--muted)"><span class="lh-arr">${I.chev}</span> Estúdio de Estudo</a>
         <h1 style="margin-top:8px">${esc(r.title)}</h1>
-        <p>${esc(subjectLabel(r.subject))} · ${fmtWhen(r.createdAt)} · ${S ? 'motor local determinístico' : 'motor a carregar'}</p></div>
-        <div class="flex" style="gap:8px"><a class="btn btn-o btn-sm" href="#/estudar">Novo resumo</a></div></div>
+        <p>${esc(subjectLabel(r.subject))} · ${fmtWhen(r.createdAt)} · ${S ? 'Núcleo AMA · análise local' : 'Núcleo AMA a carregar'}</p></div>
+        <div class="flex wrap" style="gap:8px"><button class="btn btn-f btn-sm" onclick="AMAStudy.setTab('quiz')">${I.quiz} Modo Quiz</button><button class="btn btn-o btn-sm" onclick="window.AMAProjector?AMAProjector.openFromNotebook('${r.id}'):go('/projetor?rec=${r.id}')">${I.play} Projetar</button><a class="btn btn-o btn-sm" href="#/estudar">Novo caderno</a></div></div>
       ${body}`, MENU.aluno);
   }
 
   /* ------------------------------------------------------------------ */
-  /* Revisão espaçada                                                   */
+  /* Revisão espaçada SM-2 + Previsão 7 dias                            */
   /* ------------------------------------------------------------------ */
   let RV = null;
   function queueFor(subject) {
@@ -195,20 +371,40 @@
     try { return S.buildReviewQueue(entries, { subject: subject || 'all', limit: 20 }); }
     catch { return null; }
   }
+  function forecastFor(subject) {
+    const S = S_();
+    if (!S || !S.reviewForecast) return null;
+    const d = store();
+    const entries = d.recs.map((r) => ({ record: r, analysis: r.analysis }));
+    try { return S.reviewForecast(entries, { subject: subject || 'all', days: 7 }); }
+    catch { return null; }
+  }
 
   function revisaoView() {
     const S = S_();
     const q = queueFor(RV && RV.subject);
     if (!S || !q) return panelShell('revisao', '<div class="spinner"></div>', MENU.aluno);
     RV = { subject: (RV && RV.subject) || 'all', q, i: 0, revealed: false, done: 0 };
-    const filt = `<div class="flex wrap" style="gap:7px;margin-bottom:14px">
-      <button class="chip ${RV.subject === 'all' ? 'chip-v' : ''}" onclick="AMAStudy.rvFilter('all')">Todas</button>
+    const fc = forecastFor(RV.subject);
+    const filt = `<div class="sc-pills" style="margin-bottom:16px">
+      <button type="button" class="${RV.subject === 'all' ? 'on' : ''}" onclick="AMAStudy.rvFilter('all')">Todas</button>
       ${SUBJECTS.filter(([id]) => q.bySubject.some((b) => b.subject === id)).map(([id, label]) =>
-      `<button class="chip ${RV.subject === id ? 'chip-v' : ''}" onclick="AMAStudy.rvFilter('${id}')">${esc(label)}</button>`).join('')}</div>`;
-    /* A sessão de um cartão deixava meia página vazia. Os números que faltam
-       estão no próprio baralho: quantos cartões, de que resumo, e o que está a
-       rever agora. Tudo contado pelo motor, nada inventado. */
+      `<button type="button" class="${RV.subject === id ? 'on' : ''}" onclick="AMAStudy.rvFilter('${id}')">${esc(label)}</button>`).join('')}</div>`;
     const origens = q.records.slice(0, 6);
+    const maxDay = fc ? Math.max(1, ...fc.days.map((d) => d.count)) : 1;
+    const forecastHtml = fc && fc.total ? `<div class="rv-forecast card">
+      <div class="rv-fc-head">
+        <h3>Previsão de carga · 7 dias</h3>
+        <span class="st-meta-inline">Dominados: <b>${fc.tiers.mastered}</b> · Estáveis: <b>${fc.tiers.steady}</b> · A consolidar: <b>${fc.tiers.learning}</b> · Novos: <b>${fc.tiers.new}</b></span>
+      </div>
+      <div class="rv-bars">
+        ${fc.days.map((day) => `<div class="rv-bar-col">
+          <span class="rv-bar-n">${day.count || ''}</span>
+          <div class="rv-bar-track"><i style="height:${day.count ? Math.max(12, Math.round((day.count / maxDay) * 100)) : 4}%"></i></div>
+          <small>${esc(fmtShortDay(day.date, day.offset))}</small>
+        </div>`).join('')}
+      </div>
+    </div>` : '';
     const painel = origens.length ? `<div class="rv-side">
       <h2 class="rv-side-h">${I.book} De onde vêm estes cartões</h2>
       <div class="rv-orgs">${origens.map((r) => `<a class="rv-org" href="#/estudar/${escAttr(r.id)}">
@@ -218,38 +414,40 @@
       <p class="rv-teclas"><span>Teclado</span><kbd>Espaço</kbd> mostra a resposta<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> avaliam — outra vez, difícil, bom, fácil</p>
     </div>` : '';
     return panelShell('revisao', `
-      <div class="page-h"><div><h1>Revisão espaçada</h1><p>Cartões dos seus resumos, agendados pelo método SM-2. A sessão fica guardada neste navegador.</p></div>
-        <a class="btn btn-o" href="#/estudar">${I.spark} Estudar</a></div>
-      <div class="study-stats" style="margin-bottom:14px">
-        <span class="chip chip-f">${q.dueCount} para rever</span>
-        <span class="chip chip-v">${q.newCount} novos</span>
-        <span class="chip">${q.scheduledCount} agendados</span>
-        <span class="chip chip-g">${q.learned} já estudados</span>
-        ${q.nextDue ? `<span class="chip">Próximo: ${esc(fmtDay(q.nextDue))}</span>` : ''}
+      <div class="page-h"><div><h1>Revisão espaçada</h1><p>Núcleo AMA · cartões agendados pelo método SM-2 com previsão semanal de carga.</p></div>
+        <a class="btn btn-o" href="#/estudar">${I.spark} Estúdio de Estudo</a></div>
+      <div class="st-summary-strip" style="margin-bottom:14px">
+        <span><b>${q.dueCount}</b> para rever</span><i>·</i>
+        <span><b>${q.newCount}</b> novos</span><i>·</i>
+        <span><b>${q.scheduledCount}</b> agendados</span><i>·</i>
+        <span><b>${q.learned}</b> já estudados</span>
+        ${q.nextDue ? `<i>·</i><span>Próximo: <b>${esc(fmtDay(q.nextDue))}</b></span>` : ''}
       </div>
       ${filt}
-      <div id="rv-stage">${rvStageHtml()}</div>${painel}`, MENU.aluno);
+      <div id="rv-stage">${rvStageHtml()}</div>
+      ${forecastHtml}
+      ${painel}`, MENU.aluno);
   }
 
   function rvStageHtml() {
     const q = RV.q;
     if (!q.items.length) {
       return `<div class="card empty">${I.check}<h3>Nada para rever agora</h3>
-        <p>${q.totalCards ? 'Todos os cartões estão agendados para os próximos dias.' : 'Gere um resumo em <b>Estudar</b> para criar os primeiros cartões.'}</p>
-        <a class="btn btn-f" style="margin-top:14px" href="#/estudar">Gerar resumo</a></div>`;
+        <p>${q.totalCards ? 'Todos os cartões estão agendados para os próximos dias.' : 'Crie um caderno em <b>Estudar</b> para gerar os primeiros cartões.'}</p>
+        <a class="btn btn-f" style="margin-top:14px" href="#/estudar">Criar caderno</a></div>`;
     }
     if (RV.i >= q.items.length) {
       return `<div class="card empty">${I.check}<h3>Sessão concluída</h3>
-        <p>Reviseu ${RV.done} cartão${RV.done === 1 ? '' : 'ões'} nesta sessão. Os próximos ficam agendados automaticamente.</p>
+        <p>Reviu ${RV.done} cartão${RV.done === 1 ? '' : 'ões'} nesta sessão. Os próximos ficam agendados automaticamente.</p>
         <div class="flex" style="gap:8px;justify-content:center;margin-top:14px"><button class="btn btn-p" onclick="AMAStudy.rvRestart()">Nova sessão</button><a class="btn btn-o" href="#/estudar">Estudar mais</a></div></div>`;
     }
     const it = q.items[RV.i];
     const iv = it.intervals || {};
-    const pill = it.status === 'due' ? `<span class="chip chip-f">Em atraso · ${esc(fmtDay(it.due))}</span>` : `<span class="chip chip-v">Novo cartão</span>`;
+    const statusLabel = it.status === 'due' ? `Em atraso · ${fmtDay(it.due)}` : 'Novo cartão';
     return `<div class="rv-wrap">
       <div class="rv-bar"><span class="muted">${RV.i + 1} de ${q.items.length}</span><span class="muted">${esc(it.recordTitle)}</span></div>
       <div class="card rv-card${RV.revealed ? ' revealed' : ''}">
-        <div class="flex" style="justify-content:space-between;margin-bottom:10px">${pill}<span class="chip">${esc(subjectLabel(it.subject))}</span></div>
+        <div class="rv-card-meta"><span>${esc(statusLabel)}</span><i>·</i><span>${esc(subjectLabel(it.subject))}</span></div>
         <p class="rv-q">${esc(it.card.front)}</p>
         ${RV.revealed ? `<div class="rv-a"><h4>Resposta</h4><p>${esc(it.card.back)}</p></div>
           <div class="rv-rate">
@@ -270,7 +468,7 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Ferramentas do professor                                           */
+  /* Oficina do professor                                               */
   /* ------------------------------------------------------------------ */
   function professorView() {
     const d = store();
@@ -278,27 +476,48 @@
     const opts = d.recs.map((r) => `<option value="${r.id}">${esc(r.title)}</option>`).join('');
     const attendance = attendanceSection(d);
     return panelShell('professor', `
-      <div class="page-h"><div><h1>Ferramentas do professor</h1><p>Fichas, planos de aula, rubricas e presenças — gerados a partir do texto, neste dispositivo.</p></div></div>
-      <div class="card st-block">
-        <h3>1 · Fonte do conteúdo</h3>
-        <div class="st-grid-in">
-          <div class="field"><label>Resumo guardado</label><select id="pf-rec"><option value="">— usar texto colado —</option>${opts}</select></div>
-          <div class="field"><label>Título do documento</label><input id="pf-title" maxlength="90" placeholder="Ex.: Ficha de exercícios — Fotossíntese"></div>
+      <div class="page-h"><div><h1>Oficina Docente</h1><p>Núcleo AMA · projetor PDF→Slides com Modo Leitura, fichas imprimíveis, planos de aula, rubricas e presenças locais.</p></div>
+        <a class="btn btn-f" href="#/projetor">${I.play} Abrir Projetor de Aulas</a></div>
+      <div class="card st-block pj-prof-banner">
+        <div class="pj-pb-copy">
+          <span class="eyebrow-t">${I.play} NOVO · PROJETOR PDF → SLIDES + MODO LEITURA</span>
+          <h3>Envie um PDF e transforme-o em apresentação visual de sala</h3>
+          <p class="muted">Cada página do PDF vira um slide 16:9 organizado com destaques técnicos, notas do docente, temas de projeção e Modo Leitura configurável.</p>
+          <div class="flex wrap" style="gap:8px;margin-top:12px">
+            <a class="btn btn-p" href="#/projetor">${I.play} Abrir Projetor PDF</a>
+            <button type="button" class="btn btn-o" onclick="window.AMAProjector&&AMAProjector.loadSample('fisica')">Ver aula exemplo (Física)</button>
+          </div>
         </div>
-        <div class="field"><label>Texto (se não escolher um resumo)</label><textarea id="pf-text" rows="5" placeholder="Cole o texto base para a ficha, o plano ou a rubrica."></textarea></div>
+        <figure class="pj-pb-art"><img src="media/nucleo-3d-hero.jpg?v=71" alt="Pré-visualização visual do Projetor AMA" loading="lazy" decoding="async"></figure>
+      </div>
+      <div class="card st-block">
+        <h3>1 · Fonte do conteúdo e documentos</h3>
+        <div class="st-grid-in">
+          <div class="field"><label>Caderno guardado</label><select id="pf-rec"><option value="">— usar texto colado —</option>${opts}</select></div>
+          <div class="field"><label>Título do documento</label><input id="pf-title" maxlength="90" placeholder="Ex.: Ficha de exercícios — Leis de Newton"></div>
+        </div>
+        <div class="field"><label>Texto base (se não escolher um caderno)</label><textarea id="pf-text" rows="5" placeholder="Cole o texto base para a ficha ou o plano de aula."></textarea></div>
+        <div class="st-grid-in" style="margin-bottom:12px">
+          <div class="field"><label>Modelo de rubrica</label><select id="pf-rubric-kind">
+            <option value="lab">Laboratório / Relatório prático</option>
+            <option value="project">Projeto aplicado</option>
+            <option value="presentation">Apresentação oral</option>
+          </select></div>
+        </div>
         <div class="flex wrap" style="gap:8px">
           <button class="btn btn-p" onclick="AMAStudy.makeWorksheet()">${I.doc} Ficha de exercícios</button>
           <button class="btn btn-o" onclick="AMAStudy.makePlan()">${I.calendar} Plano de aula</button>
-          <button class="btn btn-o" onclick="AMAStudy.makeRubric()">${I.check} Rubrica</button>
+          <button class="btn btn-o" onclick="AMAStudy.makeRubric()">${I.check} Gerar rubrica</button>
+          <a class="btn btn-f" href="#/projetor">${I.play} Transformar em Slides</a>
         </div>
-        <p class="muted" style="font-size:11.5px;margin-top:10px">Os documentos abrem numa janela de impressão. Nada é enviado para fora deste navegador e nenhum resultado é publicado automaticamente.</p>
+        <p class="muted" style="font-size:11.5px;margin-top:10px">Os documentos abrem prontos a imprimir com identidade AMA. Nada é enviado para fora deste navegador.</p>
       </div>
-      ${attendance}` , menu);
+      ${attendance}`, menu);
   }
 
   let AT = null;
   function attendanceSection(d) {
-    if (!S_()) return '<div class="card">A carregar o motor de estudo…</div>';
+    if (!S_()) return '<div class="card">A carregar o Núcleo AMA…</div>';
     const sessions = d.attendance || [];
     const roster = (AT && AT.roster) || d.roster || [];
     const summary = (() => { try { return S_().attendanceSummary(sessions); } catch { return null; } })();
@@ -320,7 +539,7 @@
     }).join('')}</div>` : '';
 
     return `<div class="card st-block" id="att-card">
-      <h3>2 · Presenças <span class="chip chip-f">registo local</span></h3>
+      <div class="st-block-head"><h3>2 · Presenças em sala</h3><span class="st-meta-inline">Registo local de apoio</span></div>
       <p class="muted" style="font-size:12.5px">Este registo é uma ajuda de sala de aula e <b>não substitui o registo oficial da escola</b>. Fica apenas neste navegador.</p>
       <div class="st-grid-in">
         <div class="field"><label>Data</label><input type="date" id="att-date" value="${AT.date}" onchange="AMAStudy.attDate(this.value)"></div>
@@ -357,10 +576,9 @@
     <div class="teacher-sheet-title"><h1>${esc(title)}</h1><div class="teacher-sheet-meta">${meta}</div></div>
     <div class="teacher-sheet-id"><span>Nome:</span><i></i><span>Turma:</span><i></i><span>Data:</span><i></i></div>
   </header>`;
-  const sheetFoot = (note) => `<footer class="teacher-sheet-foot"><span>${esc(note)}</span><span>Gerado localmente · AMA</span></footer></div>`;
+  const sheetFoot = (note) => `<footer class="teacher-sheet-foot"><span>${esc(note)}</span><span>Gerado localmente · Núcleo AMA</span></footer></div>`;
 
   function worksheetDoc(w) {
-    const S = S_();
     const body = sheetHead(w.title, `<span>${esc(subjectLabel(w.subject))}</span><span>${w.total} perguntas</span><span>${w.points} pontos</span>`) +
       `<p class="teacher-sheet-instructions">${esc(w.instructions)}</p>` +
       w.sections.map((sec) => `<section class="teacher-sheet-section"><h2>${esc(sec.title)}</h2><p class="teacher-sheet-section-note">${esc(sec.instructions)}</p>
@@ -401,22 +619,58 @@
   /* ------------------------------------------------------------------ */
   /* API pública da camada                                              */
   /* ------------------------------------------------------------------ */
-  let pending = null;
-
   const AMAStudy = {
-    /* --- resumo --- */
+    /* --- caderno & síntese --- */
+    loadExample(key) {
+      const ex = EXAMPLES[key];
+      if (!ex) return;
+      const ti = document.getElementById('st-title');
+      const se = document.getElementById('st-subject');
+      const ta = document.getElementById('st-text');
+      if (ti) ti.value = ex.title;
+      if (se) se.value = ex.subject;
+      if (ta) ta.value = ex.text;
+      this.updateMeter(ex.text);
+      toast('Exemplo carregado. Clique em «Analisar no Núcleo AMA».');
+    },
+    updateMeter(val) {
+      const el = document.getElementById('st-meter');
+      if (!el) return;
+      const m = meterText(val);
+      el.textContent = m.text;
+      el.classList.toggle('ok', m.ready);
+    },
+    setTab(tab) {
+      VIEW.tab = tab;
+      render();
+    },
+    mapSelect(idx) {
+      VIEW.mapNode = Number(idx) || 0;
+      render();
+    },
+    saveFeynman(id, val) {
+      if (!id) return;
+      const d = store();
+      const rec = d.recs.find((r) => r.id === id);
+      if (!rec) return;
+      rec.progress = rec.progress || { cards: {}, studied: false };
+      rec.progress.feynman = String(val || '').slice(0, 4000);
+      save(d);
+      const st = document.getElementById('st-feynman-st');
+      if (st) st.textContent = rec.progress.feynman.trim() ? 'Guardado localmente' : 'Auto-avaliação ativa';
+    },
     analisar() {
       const title = (document.getElementById('st-title') || {}).value || '';
       const subject = (document.getElementById('st-subject') || {}).value || 'geral';
       const text = (document.getElementById('st-text') || {}).value || '';
       const a = analyse(text, title, subject);
-      if (!a) return toast('O motor ainda está a carregar — tente novamente.');
-      if (a.insufficient) return toast('Texto demasiado curto: cole pelo menos 120 caracteres.');
+      if (!a) return toast('O Núcleo AMA ainda está a carregar — tente novamente.');
+      if (a.insufficient) return toast('Texto demasiado curto: cole pelo menos 120 caracteres e duas frases.');
       const d = store();
-      const rec = { id: uid(), title: a.title, subject, text: a.text, analysis: a, createdAt: new Date().toISOString(), progress: { cards: {}, studied: false } };
+      const rec = { id: uid(), title: a.title, subject, text: a.text, analysis: a, createdAt: new Date().toISOString(), progress: { cards: {}, studied: false, feynman: '' } };
       d.recs.unshift(rec);
       save(d);
-      toast('Resumo criado · ' + (a.cards || []).length + ' cartões');
+      toast('Caderno criado · ' + (a.cards || []).length + ' cartões e mapa de conceitos');
       go('/estudar/' + rec.id);
     },
     async importFile(input) {
@@ -432,7 +686,7 @@
         say('A ler ' + file.name + ' (' + mod.formatFileSize(file.size) + ')…');
         const r = await mod.extractFileText(file, { onProgress: (p) => say('A extrair texto… ' + Math.round((p.progress || 0) * 100) + '%') });
         const ta = document.getElementById('st-text');
-        if (ta) ta.value = r.text || '';
+        if (ta) { ta.value = r.text || ''; this.updateMeter(ta.value); }
         const ti = document.getElementById('st-title');
         if (ti && !ti.value) ti.value = r.title || mod.filenameToTitle(file.name);
         say('Texto extraído · ' + (r.pages || 1) + ' pág. (' + mod.sourceLabel(r.method || (r.ocrPages ? 'image-ocr' : 'pdf-text'), 'pt') + ')');
@@ -446,8 +700,8 @@
       const a = analyse(ctx.resumo || '', ctx.titulo || '', 'geral');
       el.innerHTML = `<div class="quick-sum">${analysisBody(a)}
         <div class="flex wrap" style="gap:8px;margin-bottom:14px">
-          <button class="btn btn-p btn-sm" onclick="AMAStudy.saveLesson()">${I.plus} Guardar nos meus resumos</button>
-          <a class="btn btn-o btn-sm" href="#/estudar?aula=${ctx.id || ''}">${I.spark} Abrir em Estudar</a>
+          <button class="btn btn-p btn-sm" onclick="AMAStudy.saveLesson()">${I.plus} Guardar nos meus cadernos</button>
+          <a class="btn btn-o btn-sm" href="#/estudar?aula=${ctx.id || ''}">${I.spark} Abrir no Estúdio</a>
         </div></div>`;
     },
     saveLesson() {
@@ -456,16 +710,12 @@
       if (!a || a.insufficient) return toast('Esta aula ainda não tem texto suficiente para resumir.');
       const d = store();
       const ja = d.recs.find((r) => r.title === a.title);
-      if (ja) { toast('Já tem um resumo desta aula.'); return go('/estudar/' + ja.id); }
-      const rec = { id: uid(), title: a.title, subject: 'geral', text: a.text, analysis: a, createdAt: new Date().toISOString(), progress: { cards: {}, studied: false } };
+      if (ja) { toast('Já tem um caderno desta aula.'); return go('/estudar/' + ja.id); }
+      const rec = { id: uid(), title: a.title, subject: 'geral', text: a.text, analysis: a, createdAt: new Date().toISOString(), progress: { cards: {}, studied: false, feynman: '' } };
       d.recs.unshift(rec); save(d);
       toast('Guardado · ' + (a.cards || []).length + ' cartões criados');
       go('/estudar/' + rec.id);
     },
-    /* Entrada programática (workshops, turmas, aulas): manda texto para o motor sem
-       passar pelo formulário. Devolve false quando há texto a mais curto e o id do
-       registo quando há — quem chama precisa do id para apontar para a ficha.
-       Reenviar o mesmo título atualiza a análise e preserva o progresso. */
     ingest({ title = '', subject = 'geral', text = '', src = '' } = {}) {
       const t = String(text || '').trim();
       if (t.length < 120) return false;
@@ -478,15 +728,12 @@
         rec.text = a.text; rec.analysis = a; rec.updatedAt = new Date().toISOString();
         d.recs.unshift(d.recs.splice(d.recs.indexOf(rec), 1)[0]);
       } else {
-        rec = { id: uid(), title: full, subject, text: a.text, analysis: a, createdAt: new Date().toISOString(), progress: { cards: {}, studied: false } };
+        rec = { id: uid(), title: full, subject, text: a.text, analysis: a, createdAt: new Date().toISOString(), progress: { cards: {}, studied: false, feynman: '' } };
         d.recs.unshift(rec);
       }
       save(d);
       return rec.id;
     },
-    /* Ficha do material de um tema, pelo título exacto que ingest constrói.
-       É assim que a universidade mostra a prática de uma sessão sem ler o
-       store de estudo à mão — a posse dos dados continua aqui. */
     kit(titulo) {
       const r = store().recs.find((x) => x.title === titulo);
       if (!r) return false;
@@ -505,24 +752,24 @@
         const { aula, curso } = await api('/api/aulas/' + id);
         const ti = document.getElementById('st-title'); const ta = document.getElementById('st-text'); const se = document.getElementById('st-subject');
         if (ti && !ti.value) ti.value = aula.titulo + ' · ' + curso.titulo;
-        if (ta && !ta.value) ta.value = aula.resumo || '';
+        if (ta && !ta.value) { ta.value = aula.resumo || ''; this.updateMeter(ta.value); }
         if (se && curso.categoria) {
           const map = { 'Desenvolvimento Pessoal': 'geral', 'Tecnologia': 'programacao', 'Negócios': 'empreendedorismo', 'Finanças': 'financas' };
           se.value = map[curso.categoria] || 'geral';
         }
-        if (ta && ta.value) toast('Texto da aula carregado. Reveja e gere o resumo.');
+        if (ta && ta.value) toast('Texto da aula carregado. Reveja e analise no Núcleo AMA.');
       } catch (e) { toast(e.message); }
     },
     apagar(id) {
-      if (!confirm('Apagar este resumo e os cartões associados?')) return;
+      if (!confirm('Apagar este caderno e os cartões associados?')) return;
       const d = store(); d.recs = d.recs.filter((r) => r.id !== id); save(d);
-      toast('Resumo apagado.');
+      toast('Caderno apagado.');
       RV = null; render();
     },
     reanalisar(id) {
       const d = store(); const r = d.recs.find((x) => x.id === id); if (!r) return;
       r.analysis = analyse(r.text, r.title, r.subject);
-      save(d); toast('Resumo recalculado.'); render();
+      save(d); toast('Caderno recalculado pelo Núcleo AMA.'); render();
     },
     exportSheet(id) {
       const d = store(); const r = d.recs.find((x) => x.id === id); if (!r) return;
@@ -535,8 +782,6 @@
       const box = btn.closest('.st-quiz');
       if (!box || box.dataset.answered) return;
       box.dataset.answered = '1';
-      /* .right/.wrong existem no CSS (marcador de caneta na pergunta certa,
-         tremer na errada) mas só são pintados se alguém os pôr aqui. */
       box.classList.add(chosen === correct ? 'right' : 'wrong');
       [...box.querySelectorAll('.st-opts button')].forEach((b, i) => {
         b.disabled = true;
@@ -544,6 +789,14 @@
         else if (i === chosen) b.classList.add('bad');
       });
       const exp = box.querySelector('.st-exp'); if (exp) exp.hidden = false;
+      const parent = box.closest('.st-block');
+      const scoreEl = parent && parent.querySelector('#st-quiz-score');
+      if (scoreEl && parent) {
+        const all = parent.querySelectorAll('.st-quiz').length;
+        const ans = parent.querySelectorAll('.st-quiz[data-answered]').length;
+        const ok = parent.querySelectorAll('.st-quiz.right').length;
+        scoreEl.textContent = `${ok} certas · ${ans}/${all} respondidas`;
+      }
     },
 
     /* --- revisão --- */
@@ -557,8 +810,8 @@
       RV.i += 1; RV.done += 1; RV.revealed = false;
       rvRefresh();
       if (RV.i >= RV.q.items.length) {
-        const st = document.getElementById('rv-stage');
-        if (st) { /* reconstrói com os novos números */ const q = queueFor(RV.subject); if (q) { RV.q = q; } }
+        const q = queueFor(RV.subject);
+        if (q) RV.q = q;
       }
     },
     rvFilter(subject) { RV = { subject }; render(); },
@@ -574,8 +827,8 @@
     },
     makeWorksheet() {
       const S = S_(); const a = this._analysis();
-      if (!a) return toast('O motor ainda está a carregar.');
-      if (a.insufficient) return toast('Precisa de mais texto: cole pelo menos 120 caracteres ou escolha um resumo.');
+      if (!a) return toast('O Núcleo AMA ainda está a carregar.');
+      if (a.insufficient) return toast('Precisa de mais texto: cole pelo menos 120 caracteres ou escolha um caderno.');
       const title = (document.getElementById('pf-title') || {}).value || '';
       const w = S.worksheetFromAnalysis(a, { title, subject: a.subject, count: 8, lang: 'pt' });
       if (!w) return toast('Não foi possível criar perguntas a partir deste texto.');
@@ -592,7 +845,8 @@
     makeRubric() {
       const S = S_();
       const title = (document.getElementById('pf-title') || {}).value || '';
-      const r = S.buildRubric('lab', { lang: 'pt', title });
+      const kind = (document.getElementById('pf-rubric-kind') || {}).value || 'lab';
+      const r = S.buildRubric(kind, { lang: 'pt', title });
       rubricDoc(r);
     },
 
@@ -649,17 +903,13 @@
   on('/revisao', revisaoView);
   on('/professor', professorView);
 
-  /* Ligação direta (#/estudar...) antes das rotas existirem: re-renderiza. */
   if (/^#\/(estudar|revisao|professor)/.test(location.hash)) setTimeout(() => render(), 0);
 
-  /* Preenche o formulário a partir de ?aula=ID */
   if (/^#\/estudar\?/.test(location.hash)) {
     const aula = new URLSearchParams(location.hash.split('?')[1] || '').get('aula');
     if (aula) setTimeout(() => AMAStudy.fromLesson(aula), 60);
   }
 
-  /* Num baralho o rato é o atraso: Espaço vira a carta e 1-4 avaliam. O
-     listener vive no documento porque cada resposta substitui o HTML da etapa. */
   document.addEventListener('keydown', (ev) => {
     if (!RV || !RV.q || !/^#\/revisao/.test(location.hash)) return;
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
@@ -675,6 +925,5 @@
     ev.preventDefault(); AMAStudy.rvRate(nota);
   });
 
-  /* Estado de presença sobrevive a refreshAtt() dentro da mesma página */
-  window.__amaStudyReset = () => { RV = null; AT = null; };
+  window.__amaStudyReset = () => { RV = null; AT = null; VIEW.recId = null; };
 })();

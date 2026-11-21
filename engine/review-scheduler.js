@@ -237,3 +237,50 @@ export function buildReviewQueue(entries, { now = new Date(), subject = 'all', l
     records: records.sort((a, b) => (b.due + b.new) - (a.due + a.new) || a.title.localeCompare(b.title)),
   };
 }
+
+export function cardMasteryTier(state, hasState) {
+  if (!hasState) return 'new';
+  const clean = normalizeCardState(state);
+  if (clean.reps === 0 || clean.interval < 3) return 'learning';
+  if (clean.interval < 14) return 'steady';
+  return 'mastered';
+}
+
+export function reviewForecast(entries, { now = new Date(), days = 7, subject = 'all' } = {}) {
+  const countDays = Math.max(1, Math.min(30, int(days, 7)));
+  const today = isoDay(now);
+  const timeline = [];
+  const dayIndex = new Map();
+  for (let offset = 0; offset < countDays; offset += 1) {
+    const date = addDays(now, offset);
+    const slot = { date, offset, count: 0 };
+    timeline.push(slot);
+    dayIndex.set(date, slot);
+  }
+  const tiers = { new: 0, learning: 0, steady: 0, mastered: 0 };
+  let total = 0;
+
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const record = entry?.record;
+    const cards = Array.isArray(entry?.analysis?.cards) ? entry.analysis.cards : [];
+    if (!record?.id || !cards.length) continue;
+    if (subject !== 'all' && record.subject !== subject) continue;
+    const states = normalizeReviewCards(record.progress?.cards);
+    for (const card of cards) {
+      if (!card?.front || !card?.back) continue;
+      const key = cardKey(card);
+      const hasState = Object.prototype.hasOwnProperty.call(states, key);
+      const state = hasState ? states[key] : newCardState();
+      const tier = cardMasteryTier(state, hasState);
+      tiers[tier] += 1;
+      total += 1;
+      if (!hasState || !state.due || state.due <= today) {
+        timeline[0].count += 1;
+      } else if (dayIndex.has(state.due)) {
+        dayIndex.get(state.due).count += 1;
+      }
+    }
+  }
+
+  return { days: timeline, tiers, total };
+}
