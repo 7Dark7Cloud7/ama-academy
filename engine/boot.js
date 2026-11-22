@@ -13,7 +13,7 @@ import * as nucleo3d from './nucleo-3d.js?v=6';
 import * as slideSpec from './slide-spec.js?v=4';
 import * as slideStudio from './slide-studio-engine.js?v=10';
 // Camada de investigação aberta na web (Openverse, NASA, OpenAlex, DuckDuckGo, Wikipédia/Wikimedia/YouTube)
-import * as slideWeb from './web-enrichment.js?v=13';
+import * as slideWeb from './web-enrichment.js?v=14';
 import * as aiEngine from './ai-engine.js?v=7';
 import * as quality from './quality-engine.js?v=12';
 import * as pdfEngine from './pdf-engine.js?v=1';

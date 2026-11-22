@@ -119,6 +119,39 @@
   let classTimerId = null;
   let activeSpeechRec = null;
   let tour3DId = null;
+  const syncChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('ceu-projector-sync') : null;
+  function broadcastPresenterState() {
+    if (!syncChannel || !P.deck) return;
+    const sl = P.deck.slides[P.slideIdx] || {};
+    const nxt = P.deck.slides[P.slideIdx + 1] || null;
+    try {
+      syncChannel.postMessage({
+        type: 'state',
+        deckTitle: P.deck.title,
+        idx: P.slideIdx,
+        total: P.deck.slides.length,
+        title: sl.title || '',
+        kicker: sl.kicker || '',
+        notes: sl.notes || sl.narration || sl.subtitle || 'Sem notas para este slide.',
+        nextTitle: nxt ? nxt.title : 'Fim da apresentação',
+        nextSub: nxt ? (nxt.subtitle || (nxt.bullets && nxt.bullets[0]) || '') : '',
+        blackout: !!P.blackout,
+        narrating: !!P.narrating,
+      });
+    } catch { }
+  }
+  if (syncChannel) {
+    syncChannel.onmessage = (ev) => {
+      const msg = ev && ev.data;
+      if (!msg || !msg.cmd || !window.AMAProjector) return;
+      if (msg.cmd === 'next') window.AMAProjector.step(1);
+      else if (msg.cmd === 'prev') window.AMAProjector.step(-1);
+      else if (msg.cmd === 'blackout') window.AMAProjector.toggleBlackout();
+      else if (msg.cmd === 'pulse') window.AMAProjector.togglePulse();
+      else if (msg.cmd === 'narrate') window.AMAProjector.toggleNarrate();
+      else if (msg.cmd === 'sync') broadcastPresenterState();
+    };
+  }
   function destroyActive3D() {
     if (tour3DId) { clearInterval(tour3DId); tour3DId = null; }
     if (active3DCtrl && typeof active3DCtrl.destroy === 'function') {
@@ -182,6 +215,8 @@
     pulseVotes: { ok: 0, mid: 0, rev: 0 },
     creatorTab: 'direct', // 'direct' | 'chatgpt'
     tour3DRunning: false,
+    imgGallery: [],
+    imgGalleryBusy: false,
   };
 
   function getSlideRevealTotal(slide) {
@@ -1146,9 +1181,10 @@
               <b>Copie o Prompt Profissional CEU-3D</b>
               <p>Este prompt pede ao ChatGPT, Gemini ou Claude para analisar o seu PDF e devolver instruções estruturadas com layouts, imagens e cena 3D volátil à medida.</p>
               <div class="flex wrap" style="gap:8px;margin-top:8px">
-                <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.copyExternalPrompt()">📋 Copiar Prompt CEU-3D</button>
-                <a class="btn btn-o btn-sm" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Abrir ChatGPT ↗</a>
-                <a class="btn btn-o btn-sm" href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">Abrir Gemini ↗</a>
+                <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.copyExternalPrompt(false)">📋 Copiar Prompt CEU-3D</button>
+                <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.copyExternalPrompt(true)">📋 Prompt + Meu Texto/PDF</button>
+                <a class="btn btn-o btn-sm" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT ↗</a>
+                <a class="btn btn-o btn-sm" href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">Gemini ↗</a>
               </div>
               <details class="pj-adv-opts" style="margin-top:10px">
                 <summary>Ver texto completo do prompt pré-definido</summary>
@@ -1163,6 +1199,7 @@
               <textarea id="pj-ext-json" rows="7" style="width:100%;margin-top:8px" placeholder='Cole aqui o bloco JSON (ou guião) devolvido pelo ChatGPT / Gemini…'></textarea>
               <div class="flex wrap" style="gap:10px;margin-top:10px;align-items:center">
                 <button type="button" class="btn btn-p" onclick="AMAProjector.importExternalBlueprint()">✦ Construir Slides Super-IA + 3D + Imagens</button>
+                <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSuperIADemo()">▶ Testar exemplo Super-IA</button>
                 ${P.deck ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleCreator(false)">Voltar aos slides</button>` : ''}
               </div>
             </div>
@@ -1365,6 +1402,7 @@
       <div class="pj-mp-sec">
         <span class="pj-mp-h">Sala de Aula (atalhos)</span>
         <div class="pj-mp-row">
+          <button type="button" onclick="AMAProjector.openPresenterWindow()">🖥 Janela do Docente</button>
           <button type="button" class="${P.narrating ? 'on' : ''}" onclick="AMAProjector.toggleNarrate()">${P.narrating ? '⏹ Parar Voz' : '🔊 Narrar Aula (V)'}</button>
           <button type="button" class="${P.pulseOpen ? 'on' : ''}" onclick="AMAProjector.togglePulse()">⚡ Pulso Turma (P)</button>
           <button type="button" class="${P.showNotes ? 'on' : ''}" onclick="AMAProjector.toggleNotes()">Notas (N)</button>
@@ -1492,13 +1530,20 @@
         </div>
         <label style="display:block;margin-top:8px">Intuição / Subtítulo <input id="pj-ed-sub" value="${escAttr(slide.intuition || slide.subtitle || '')}" onchange="AMAProjector.saveInlineEdit()"></label>
         <div style="margin-top:8px">
-          <label for="pj-ed-imgq">Descrição da imagem deste slide (escreva ou fale por áudio)</label>
+          <label for="pj-ed-imgq">Descrição da imagem deste slide (escreva ou fale por áudio · busca em toda a web)</label>
           <div class="pj-voice-row" style="margin-top:4px">
-            <input id="pj-ed-imgq" placeholder="Ex.: foguetão espacial, diagrama de forças, floresta do Maiombe, sala de reunião…" value="${escAttr(slide.visualPrompt || '')}">
+            <input id="pj-ed-imgq" placeholder="Ex.: foguetão espacial, sala de reunião, energia solar, floresta do Maiombe…" value="${escAttr(slide.visualPrompt || '')}">
             <button type="button" class="btn btn-o btn-sm pj-mic-btn ${P.voiceListening && P.voiceTarget === 'slideImg' ? 'is-rec' : ''}" onclick="AMAProjector.toggleVoice('slideImg')">${P.voiceListening && P.voiceTarget === 'slideImg' ? '● Ouvir' : '🎙'}</button>
-            <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.searchSlideImage()">↻ Buscar imagem</button>
+            <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.searchSlideImage()">${P.imgGalleryBusy ? 'A procurar…' : '↻ Galeria Web'}</button>
+            <label class="btn btn-o btn-sm" style="margin:0;cursor:pointer">📷 Foto PC<input type="file" accept="image/*" hidden onchange="AMAProjector.uploadSlideImage(this)"></label>
             <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.useSlide3D()">Usar 3D</button>
           </div>
+          ${(Array.isArray(P.imgGallery) && P.imgGallery.length) ? `<div class="pj-img-gallery" aria-label="Escolha uma imagem coerente">
+            ${P.imgGallery.map((im, gi) => `<button type="button" class="pj-ig-thumb ${slide.visual === im.url ? 'on' : ''}" title="${escAttr(im.alt || im.credit)}" onclick="AMAProjector.pickGalleryImage(${gi})">
+              <img src="${escAttr(im.url)}" alt="${escAttr(im.alt || '')}" loading="lazy" referrerpolicy="no-referrer">
+              <span>${esc((im.credit || 'Web').split('·')[0].trim())}</span>
+            </button>`).join('')}
+          </div>` : ''}
         </div>
         <label style="display:block;margin-top:8px">Pontos do slide (1 por linha, máx. 4) <textarea id="pj-ed-bullets" rows="4" onchange="AMAProjector.saveInlineEdit()">${esc(((slide.steps && slide.steps.length ? slide.steps : slide.bullets) || []).join('\n'))}</textarea></label>
         <label style="display:block;margin-top:8px">Notas do Docente <textarea id="pj-ed-notes" rows="2" onchange="AMAProjector.saveInlineEdit()">${esc(slide.notes || slide.teacherNote || '')}</textarea></label>
@@ -1723,24 +1768,119 @@
       if (!P.deck) return;
       const slide = P.deck.slides[P.slideIdx];
       const web = window.Study && window.Study.SlideStudioWeb;
-      const q = String((document.getElementById('pj-ed-imgq') || {}).value || '').trim();
+      const q = String((document.getElementById('pj-ed-imgq') || {}).value || slide?.title || '').trim();
       if (!q) return toast('Escreva ou fale o que quer ver na imagem deste slide.');
-      if (!web || typeof web.searchCoherentImage !== 'function') return toast('Motor de imagens a carregar…');
+      if (!web || (typeof web.searchCoherentImages !== 'function' && typeof web.searchCoherentImage !== 'function')) return toast('Motor de imagens a carregar…');
       slide.visualPrompt = q;
-      toast(`A procurar imagem coerente para «${q}»…`);
+      P.imgGalleryBusy = true;
+      render();
       try {
-        const img = await web.searchCoherentImage(q);
-        if (!img || !img.url) return toast('Nenhuma foto adequada encontrada — tente palavras mais concretas ou clique em «Usar 3D».');
+        const list = typeof web.searchCoherentImages === 'function'
+          ? await web.searchCoherentImages(q, { limit: 6 })
+          : [await web.searchCoherentImage(q)].filter(Boolean);
+        P.imgGalleryBusy = false;
+        P.imgGallery = list;
+        if (!list.length) {
+          toast('Nenhuma foto adequada encontrada — tente outras palavras ou clique em «Usar 3D».');
+          return render();
+        }
+        const img = list[0];
         slide.visual = img.url;
         slide.visualAlt = img.alt || q;
-        slide.visualCredit = { text: `Pedido visual · ${q}`, url: img.page || '' };
-        if (slide.layout === 'cover') slide.webHero = { url: img.url, credit: `Pedido visual · ${q}` };
+        slide.visualCredit = { text: img.credit || `Web · ${q}`, url: img.page || '' };
+        if (slide.layout === 'cover') slide.webHero = { url: img.url, credit: img.credit || q };
         saveDeck(P.deck);
-        toast(`Imagem atualizada para «${q}»!`);
+        toast(`${list.length} imagem(ns) encontrada(s) na web — clique em qualquer miniatura para trocar!`);
         render();
       } catch {
-        toast('Sem ligação para pesquisar imagem neste momento.');
+        P.imgGalleryBusy = false;
+        toast('Sem ligação para pesquisar imagens neste momento.');
+        render();
       }
+    },
+    pickGalleryImage(gi) {
+      if (!P.deck || !Array.isArray(P.imgGallery)) return;
+      const img = P.imgGallery[Number(gi) || 0];
+      const slide = P.deck.slides[P.slideIdx];
+      if (!img || !slide) return;
+      slide.visual = img.url;
+      slide.visualAlt = img.alt || slide.title;
+      slide.visualCredit = { text: img.credit || 'Web Educativa', url: img.page || '' };
+      if (slide.layout === 'cover') slide.webHero = { url: img.url, credit: img.credit || 'Web Educativa' };
+      saveDeck(P.deck);
+      toast('Imagem do slide atualizada!');
+      render();
+    },
+    uploadSlideImage(input) {
+      const file = input && input.files && input.files[0];
+      if (!file || !P.deck) return;
+      const slide = P.deck.slides[P.slideIdx];
+      if (!slide) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = String(reader.result || '');
+        if (!dataUrl) return;
+        slide.visual = dataUrl;
+        slide.visualAlt = file.name;
+        slide.visualCredit = { text: `Imagem local · ${file.name}`, url: '' };
+        if (slide.layout === 'cover') slide.webHero = { url: dataUrl, credit: file.name };
+        saveDeck(P.deck);
+        toast(`Foto «${file.name}» aplicada ao slide!`);
+        render();
+      };
+      reader.readAsDataURL(file);
+    },
+    openPresenterWindow() {
+      P.moreOpen = false;
+      if (!P.deck) return toast('Abra uma apresentação primeiro.');
+      const win = window.open('', 'ceu-presenter-view', 'width=900,height=640');
+      if (!win) return toast('Permita pop-ups para abrir a Janela do Docente (ecrã secundário).');
+      win.document.open();
+      win.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>Janela do Docente · CEU Academy</title>
+        <style>
+          *{box-sizing:border-box}body{margin:0;background:#071226;color:#eef6ff;font-family:system-ui,-apple-system,sans-serif;padding:22px;display:flex;flex-direction:column;gap:16px;min-height:100vh}
+          header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(142,200,255,.22);padding-bottom:12px}
+          .pos{font:800 18px monospace;color:#7ee0ff}.clk{font:700 16px monospace;color:#b8f36b}
+          main{display:grid;grid-template-columns:1.35fr .85fr;gap:16px;flex:1}
+          .box{background:#0e2042;border:1px solid rgba(142,200,255,.24);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px}
+          .tag{font:800 10px monospace;letter-spacing:.12em;color:#7ee0ff;text-transform:uppercase}
+          h1{margin:0;font-size:22px;line-height:1.25}.notes{font-size:18px;line-height:1.65;color:#dcecff;white-space:pre-wrap}
+          .nxt b{font-size:16px;display:block;margin-top:4px}.nxt small{color:#9fb6d4;font-size:13px}
+          footer{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding-top:8px}
+          button{padding:11px 18px;border-radius:12px;border:1px solid rgba(255,255,255,.22);background:#122b59;color:#fff;font:700 14px system-ui;cursor:pointer}
+          button.pri{background:#00a4dc;color:#041638;border-color:#00a4dc}button:hover{filter:brightness(1.12)}
+        </style></head><body>
+        <header><span class="pos" id="p-pos">Slide 1</span><b id="p-deck">${esc(P.deck.title)}</b><span class="clk" id="p-clk">00:00</span></header>
+        <main>
+          <section class="box"><span class="tag" id="p-kick">NOTAS DO DOCENTE</span><h1 id="p-title">—</h1><div class="notes" id="p-notes">A sincronizar…</div></section>
+          <aside class="box nxt"><span class="tag">PRÓXIMO SLIDE</span><b id="p-nt">—</b><small id="p-ns"></small></aside>
+        </main>
+        <footer>
+          <button onclick="send('prev')">← Anterior</button>
+          <button class="pri" onclick="send('next')">Próximo Slide →</button>
+          <button onclick="send('narrate')">🔊 Voz</button>
+          <button onclick="send('pulse')">⚡ Pulso</button>
+          <button onclick="send('blackout')">■ Cortina</button>
+        </footer>
+        <script>
+          const ch = new BroadcastChannel('ceu-projector-sync');
+          function send(cmd){ ch.postMessage({ cmd }); }
+          ch.onmessage = (e) => {
+            const d = e.data || {}; if (d.type !== 'state') return;
+            document.getElementById('p-pos').textContent = 'Slide ' + (d.idx + 1) + ' / ' + d.total;
+            document.getElementById('p-deck').textContent = d.deckTitle || '';
+            document.getElementById('p-kick').textContent = d.kicker || 'SLIDE ACTUAL';
+            document.getElementById('p-title').textContent = d.title || '';
+            document.getElementById('p-notes').textContent = d.notes || '';
+            document.getElementById('p-nt').textContent = d.nextTitle || '';
+            document.getElementById('p-ns').textContent = d.nextSub || '';
+          };
+          let sec = 0; setInterval(() => { sec++; const m = String(Math.floor(sec/60)).padStart(2,'0'); const s = String(sec%60).padStart(2,'0'); document.getElementById('p-clk').textContent = m+':'+s; }, 1000);
+          send('sync');
+        </script></body></html>`);
+      win.document.close();
+      setTimeout(broadcastPresenterState, 250);
+      toast('🖥 Janela do Docente aberta e sincronizada em tempo real!');
     },
     useSlide3D() {
       if (!P.deck) return;
@@ -1950,17 +2090,42 @@
       document.body.classList.remove('pj-is-fs');
       render();
     },
-    async copyExternalPrompt() {
+    async copyExternalPrompt(includeText = false) {
       const ai = window.Study && window.Study.AI;
-      const promptText = ai && typeof ai.getExternalAIPrompt === 'function' ? ai.getExternalAIPrompt(P.brief) : '';
+      let promptText = ai && typeof ai.getExternalAIPrompt === 'function' ? ai.getExternalAIPrompt(P.brief) : '';
       if (!promptText) return toast('Motor de IA a carregar…');
+      if (includeText) {
+        const rawSrc = (Array.isArray(P.pendingPages) && P.pendingPages.length ? P.pendingPages.map((p) => p.text).join('\n\n') : '')
+          || (P.deck && P.deck.reading && P.deck.reading.fullText) || '';
+        if (rawSrc.trim()) {
+          promptText += `\n\n--- CONTEÚDO DO MEU FICHEIRO ---\n${rawSrc.trim().slice(0, 7500)}`;
+        }
+      }
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(promptText);
-          return toast('📋 Prompt CEU-3D copiado! Cole no ChatGPT/Gemini juntamente com o seu PDF.');
+          return toast(includeText ? '📋 Prompt + texto do ficheiro copiados! Cole directamente no ChatGPT/Gemini.' : '📋 Prompt CEU-3D copiado! Cole no ChatGPT/Gemini juntamente com o seu PDF.');
         }
       } catch { }
       window.prompt('Copie o prompt pré-definido:', promptText);
+    },
+    loadSuperIADemo() {
+      const sample = JSON.stringify({
+        title: 'Energia Solar & Transição Energética em Angola',
+        subject: 'fisica',
+        docType: 'aula',
+        theme: 'ceu',
+        slides: [
+          { layout: 'cover', kicker: 'SUPER-IA · CEU ACADEMY', title: 'Energia Solar em Angola', subtitle: 'Como a radiação solar abundante transforma escolas, hospitais e indústria em energia limpa.', imageQuery: 'solar energy space sunlight' },
+          { layout: 'stat-spotlight', kicker: 'POTENCIAL NACIONAL', title: 'Um dos maiores potenciais solares de África', heroStat: { value: '2.200 h/ano', label: 'Insolação Média', context: 'Angola recebe radiação solar intensa praticamente todo o ano, reduzindo custos com geradores.' }, bullets: ['Autonomia energética: ideal para polos universitários e zonas rurais', 'Sustentabilidade: zero emissões durante a produção eléctrica'] },
+          { layout: 'bento-grid', kicker: 'COMO FUNCIONA', title: 'Do fotão à tomada em 4 ideias simples', bullets: ['Efeito fotovoltaico: a luz liberta electrões nas placas de silício', 'Inversor inteligente: transforma corrente contínua (DC) em alternada (AC)', 'Armazenamento: baterias garantem energia estável durante a noite', 'Atenção técnica: a inclinação e limpeza dos painéis elevam o rendimento até 20%'], imageQuery: 'solar panels electricity' },
+          { layout: 'scene-3d', kicker: 'MODELO 3D VOLÁTIL', title: 'Fluxo Fotovoltaico Interactivo em 3D', subtitle: 'Clique em «▶ Explicar 3D» para a câmara percorrer automaticamente cada etapa do sistema.', scene3d: { shape: 'flow', centerLabel: 'SOLAR', nodes: [{ label: 'Fotões', short: 'hν', note: 'A radiação solar atinge a superfície semicondutora do painel.' }, { label: 'Silício', short: 'Si', note: 'Os electrões saltam de banda e criam corrente contínua (DC).' }, { label: 'Inversor', short: 'AC', note: 'Converte DC em corrente alternada compatível com a rede.' }, { label: 'Bateria', short: 'kWh', note: 'Armazena excedente diurno para uso nocturno contínuo.' }, { label: 'Campus', short: 'CEU', note: 'Alimenta salas digitais, projetores e laboratórios em Angola.' }], links: [[0, 1], [1, 2], [2, 3], [2, 4], [3, 4]] } },
+          { layout: 'closing', kicker: 'SÍNTESE', title: 'O que levar desta aula', bullets: ['A energia solar é modular, escalável e ideal para o clima angolano', 'Dominar fotões → silício → inversor → rede resolve qualquer exercício base'], checkQuestions: ['Qual é a função exacta do inversor num sistema fotovoltaico?', 'Por que motivo o dimensionamento da bateria é decisivo para escolas?'] },
+        ],
+      }, null, 2);
+      const ta = document.getElementById('pj-ext-json');
+      if (ta) ta.value = sample;
+      this.importExternalBlueprint();
     },
     async importExternalBlueprint() {
       const ai = window.Study && window.Study.AI;
@@ -2623,7 +2788,9 @@
         P.slideIdx = nextIdx;
         P.revealStep = P.revealMode ? 1 : 99;
         P.blackout = false;
+        P.imgGallery = [];
       }
+      broadcastPresenterState();
       render();
     },
     jumpSlide(i) {
@@ -2631,7 +2798,9 @@
       P.slideIdx = Math.max(0, Math.min(P.deck.slides.length - 1, Number(i) || 0));
       P.revealStep = P.revealMode ? 1 : 99;
       P.blackout = false;
+      P.imgGallery = [];
       P.mode = 'slides';
+      broadcastPresenterState();
       render();
     },
     toggleFullscreen() {

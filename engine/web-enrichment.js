@@ -324,26 +324,39 @@ export async function openWebSearch(term, { kind = 'all', signal } = {}) {
   return { images, items };
 }
 
-/* Pesquisa directa de 1 imagem coerente em TODA A WEB (Openverse + NASA + Wikimedia Commons) */
-export async function searchCoherentImage(query, signal) {
+/* Pesquisa múltipla de até 6 imagens coerentes em TODA A WEB (NASA + Flickr Web + Wikimedia Commons) para galeria de escolha rápida */
+export async function searchCoherentImages(query, { signal, limit = 6 } = {}) {
   const qList = buildCoherentImageQueries({ briefQueries: [query] });
   const target = qList[0]?.query || clean(query, 64);
-  if (!target) return null;
+  if (!target) return [];
   const [openRes, wikiImgs] = await Promise.all([
     openWebSearch(target, { kind: 'images', signal }).catch(() => ({ images: [] })),
     commonsImageSearch(target, signal, 4).catch(() => []),
   ]);
-  if (openRes.images && openRes.images.length) return openRes.images[0];
-  if (wikiImgs.length) return wikiImgs[0];
-  if (target !== query) {
+  const seen = new Set();
+  const out = [];
+  const push = (im) => {
+    if (!im || !im.url || seen.has(im.url)) return;
+    seen.add(im.url);
+    out.push(im);
+  };
+  (openRes.images || []).forEach(push);
+  (wikiImgs || []).forEach(push);
+  if (out.length < 3 && target !== query) {
     const [openFb, wikiFb] = await Promise.all([
       openWebSearch(clean(query, 64), { kind: 'images', signal }).catch(() => ({ images: [] })),
       commonsImageSearch(clean(query, 64), signal, 3).catch(() => []),
     ]);
-    if (openFb.images && openFb.images.length) return openFb.images[0];
-    if (wikiFb.length) return wikiFb[0];
+    (openFb.images || []).forEach(push);
+    (wikiFb || []).forEach(push);
   }
-  return null;
+  return out.slice(0, limit);
+}
+
+/* Pesquisa directa de 1 imagem coerente em TODA A WEB (NASA + Flickr Web + Wikimedia Commons) */
+export async function searchCoherentImage(query, signal) {
+  const list = await searchCoherentImages(query, { signal, limit: 3 });
+  return list[0] || null;
 }
 
 /* Imagens e diagramas educacionais reais da Wikimedia Commons (sem API key). */

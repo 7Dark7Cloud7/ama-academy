@@ -930,6 +930,23 @@ function reviewsHTML(curso) {
     <div class="grid g-2 rv">${[0, 1].map(k => { const [n, t] = pick(k); return `<figure class="quote"><div class="q-stars">${'★'.repeat(5 - k)}${'☆'.repeat(k)}</div><p>“${esc(t)}”</p><figcaption><span class="av" style="background:var(--green)">${esc(n.split(' ').map(w => w[0]).slice(0, 2).join(''))}</span><div><b>${esc(n)}</b><small>Aluno verificado</small></div></figcaption></figure>`; }).join('')}</div>`;
 }
 
+window.projectCourse = async (courseId) => {
+  try {
+    const { curso, seccoes } = await api('/api/cursos/' + courseId);
+    const subjMap = { 'Matemática': 'matematica', 'Física': 'fisica', 'Tecnologia': 'programacao', 'Finanças': 'financas', 'Biologia': 'biologia', 'História': 'historia', 'Negócios': 'empreendedorismo' };
+    const lessonsText = (seccoes || []).flatMap((s) => (s.aulas || []).map((a) => `${a.titulo}\n${a.resumo || ''}`)).join('\n\n');
+    const fullText = `${curso.titulo}\n${curso.resumo || ''}\n\n${(curso.aprendizagens || []).join('. ')}\n\n${lessonsText}`;
+    sessionStorage.setItem('ama-pj-prefill', JSON.stringify({
+      title: curso.titulo,
+      subject: subjMap[curso.categoria] || 'geral',
+      sourceName: `Curso ${curso.titulo}`,
+      text: fullText.slice(0, 6000),
+    }));
+    go('/projetor');
+    toast('Curso enviado para o Projetor — clique em «Gerar slides» ou ajuste à vontade!');
+  } catch { go('/projetor'); }
+};
+
 on('/curso/:id', async ({ args }) => {
   const { curso, seccoes, instrutor, inscrito, progresso, proximaAula } = await api('/api/cursos/' + args.id);
   const done = new Set(progresso.filter(p => p.concluido).map(p => p.lesson_id));
@@ -958,9 +975,9 @@ on('/curso/:id', async ({ args }) => {
         <div class="cta-row">
           ${inscrito
             ? `<button class="btn btn-f btn-lg" onclick="go('/aprender/${curso.id}')">Continuar a aprender <span class="btn-arr">${I.arrow}</span></button>
-               <button class="btn btn-prog btn-lg" onclick="document.getElementById('programa').scrollIntoView({behavior:'smooth'})">${I.doc} Ver programa</button>`
+               <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">✦ Abrir em Slides 3D</button>`
             : `<button class="btn btn-f btn-lg" onclick="openCheckout(${curso.id})">Começar agora <span class="btn-arr">${I.arrow}</span></button>
-               <button class="btn btn-prog btn-lg" onclick="document.getElementById('programa').scrollIntoView({behavior:'smooth'})">${I.doc} Ver programa</button>`}
+               <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">✦ Abrir em Slides 3D</button>`}
         </div>
       </div>
       <div class="dh-right">
