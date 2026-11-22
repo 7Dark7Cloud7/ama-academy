@@ -10,3 +10,6 @@ tools/
 Thumbs.db
 node_modules/
 .vercel/
+data/
+.env
+.env.local

@@ -1,6 +1,6 @@
 /* AMA / CEU — duas marcas, uma aplicação.
-   / (ou ?marca=ama)  → AMA — Aristides Miguel Academy (verde, identidade completa)
-   /ceu (ou ?marca=ceu) → CEU · Universidade (azul, foco universitário, link ceu.ao) */
+   / (ou ?marca=ama)  → AMA — Aristides Miguel Academy (verde esmeralda)
+   /ceu (ou ?marca=ceu) → CEU Academy (azul universitário #00217E + #00A4DC, alinhado com ceu.ao) */
 (function () {
   'use strict';
   var qs = new URLSearchParams(location.search);
@@ -18,9 +18,9 @@
 
   document.title = 'CEU Academy — Cursos para universitários';
   var metaDesc = document.querySelector('meta[name="description"]');
-  if (metaDesc) metaDesc.setAttribute('content', 'CEU Academy: cursos de Matemática, Física e estudo para universitários, cartão de estudante digital e slides com IA. https://ceu.ao/');
+  if (metaDesc) metaDesc.setAttribute('content', 'CEU Academy: cursos universitários, cartão de estudante digital e projetor PDF para slides com IA e 3D. https://ceu.ao/');
   var metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.setAttribute('content', '#0b1f44');
+  if (metaTheme) metaTheme.setAttribute('content', '#00217e');
   var appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (appleTitle) appleTitle.setAttribute('content', 'CEU');
 
@@ -29,9 +29,16 @@
   corner.href = 'https://ceu.ao/';
   corner.target = '_blank';
   corner.rel = 'noopener noreferrer';
-  corner.textContent = 'CEU Academy ↗';
-  corner.setAttribute('aria-label', 'Abrir o site da CEU Academy');
+  corner.textContent = 'ceu.ao ↗';
+  corner.setAttribute('aria-label', 'Abrir o portal oficial CEU em ceu.ao');
   document.body.appendChild(corner);
+
+  function syncChromeVisibility() {
+    var onProjector = /^#\/projetor/.test(location.hash || '');
+    var inFs = !!document.querySelector('.pj-workspace.is-fs-overlay');
+    corner.hidden = onProjector || inFs;
+    credit.hidden = inFs;
+  }
 
   function rewriteText(node) {
     if (!node) return;
@@ -40,10 +47,14 @@
     while (walker.nextNode()) seen.push(walker.currentNode);
     seen.forEach(function (n) {
       var v = n.nodeValue || '';
-      if (v.indexOf('Aristides Miguel Academy') >= 0) n.nodeValue = v.replace('Aristides Miguel Academy', 'Universidade CEU');
-      if (/N[úu]cleo\s+AMA/i.test(v)) n.nodeValue = v.replace(/N[úu]cleo\s+AMA/gi, 'Núcleo CEU');
-      if (v.indexOf('ola@ama.ao') >= 0) n.nodeValue = v.replace(/ola@ama\.ao/g, 'geral@ceu.ao');
-      if (v.indexOf('AMA') >= 0) n.nodeValue = v.replace(/AMA/g, 'CEU');
+      var out = v;
+      if (/Aristides Miguel Academy/i.test(out)) out = out.replace(/Aristides Miguel Academy/gi, 'CEU Academy');
+      if (/ARISTIDES MIGUEL/g.test(out)) out = out.replace(/ARISTIDES MIGUEL/g, 'ACADEMY');
+      if (/N[úu]cleo\s+AMA/i.test(out)) out = out.replace(/N[úu]cleo\s+AMA/gi, 'Núcleo CEU');
+      if (/Kuzaya\s+AI/i.test(out)) out = out.replace(/Kuzaya\s+AI/gi, 'CEU AI');
+      if (/ola@ama\.ao/i.test(out)) out = out.replace(/ola@ama\.ao/gi, 'geral@ceu.ao');
+      if (/\bAMA\b/g.test(out)) out = out.replace(/\bAMA\b/g, 'CEU');
+      if (out !== v) n.nodeValue = out;
     });
   }
 
@@ -54,7 +65,7 @@
       var b = el.querySelector('b');
       if (b) b.textContent = 'ACADEMY';
       Array.from(el.childNodes).forEach(function (n) {
-        if (n.nodeType === 3 && n.nodeValue && n.nodeValue.trim()) n.nodeValue = n.nodeValue.replace(/AMA/g, 'CEU');
+        if (n.nodeType === 3 && n.nodeValue && n.nodeValue.trim()) n.nodeValue = n.nodeValue.replace(/\bAMA\b/g, 'CEU');
       });
       var chip = el.parentElement && el.parentElement.querySelector('.logo-chip');
       if (chip && !chip.querySelector('.ceu-logo-img')) {
@@ -74,12 +85,19 @@
     });
     document.querySelectorAll('[title]').forEach(function (el) {
       var t = el.getAttribute('title');
-      if (t && t.indexOf('AMA') >= 0) el.setAttribute('title', t.replace(/AMA/g, 'CEU'));
+      if (t && /\bAMA\b|Aristides Miguel/i.test(t)) {
+        el.setAttribute('title', t.replace(/Aristides Miguel Academy/gi, 'CEU Academy').replace(/\bAMA\b/g, 'CEU'));
+      }
     });
     document.querySelectorAll('a.logo,a.brand').forEach(function (a) { a.setAttribute('href', '#/ceu-inicio'); });
-    document.querySelectorAll('.pj-foot-brand').forEach(function (el) {
-      el.textContent = el.textContent.replace(/AMA/g, 'CEU');
+    document.querySelectorAll('a[href*="ama.ao"]').forEach(function (a) {
+      a.setAttribute('href', 'mailto:geral@ceu.ao');
+      if (a.textContent && a.textContent.indexOf('ama.ao') >= 0) a.textContent = a.textContent.replace(/ola@ama\.ao/gi, 'geral@ceu.ao');
     });
+    document.querySelectorAll('.pj-foot-brand').forEach(function (el) {
+      el.textContent = el.textContent.replace(/\bAMA\b/g, 'CEU');
+    });
+    syncChromeVisibility();
   }
 
   window.addEventListener('hashchange', function () {
@@ -87,7 +105,6 @@
     if (!h || h === '#/') location.hash = '#/ceu-inicio';
     patchBrand();
   });
-  // A rota /ceu-inicio só existe depois de ama-ceu.js correr: esperar o load.
   window.addEventListener('load', function () {
     var h = location.hash || '';
     if (!h || h === '#/') location.hash = '#/ceu-inicio';

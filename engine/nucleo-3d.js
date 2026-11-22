@@ -57,7 +57,7 @@ function shadeColor(r, g, b, intensity) {
   return `rgb(${Math.min(255, Math.round(r * k))},${Math.min(255, Math.round(g * k))},${Math.min(255, Math.round(b * k))})`;
 }
 
-export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core', customNodes = null, brand = '' } = {}) {
+export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core', customNodes = null, brand = '', mini = false } = {}) {
   if (!canvas || typeof canvas.getContext !== 'function') return null;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
@@ -123,8 +123,10 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
-    const w = Math.max(320, Math.round(rect.width || 640));
-    const h = Math.max(260, Math.round(rect.height || 360));
+    const minW = mini ? 220 : 320;
+    const minH = mini ? 180 : 260;
+    const w = Math.max(minW, Math.round(rect.width || (mini ? 320 : 640)));
+    const h = Math.max(minH, Math.round(rect.height || (mini ? 220 : 360)));
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
       canvas.width = Math.round(w * dpr);
@@ -331,6 +333,201 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
         ctx.stroke();
       }
     }
+    // Exponential compound growth curve floating above 3D bars
+    ctx.save();
+    ctx.beginPath();
+    for (let sIdx = 0; sIdx <= 24; sIdx += 1) {
+      const t = sIdx / 24;
+      const x = -1.25 + t * 2.5;
+      const y = -0.35 + Math.pow(t, 2.2) * 1.75 + Math.sin(state.time * 2 + t * 4) * 0.04;
+      const z = -1.1 + t * 2.2;
+      const p = projectPoint(rotatePoint([x, y, z], state.rx, state.ry), cx, cy, fov, dist);
+      if (sIdx === 0) ctx.moveTo(p[0], p[1]);
+      else ctx.lineTo(p[0], p[1]);
+    }
+    ctx.strokeStyle = '#ff6b57';
+    ctx.lineWidth = 2.8;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw3DArrow(from, to, color, label, cx, cy, fov, dist) {
+    const a = projectPoint(rotatePoint(from, state.rx, state.ry), cx, cy, fov, dist);
+    const b = projectPoint(rotatePoint(to, state.rx, state.ry), cx, cy, fov, dist);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    ctx.beginPath();
+    ctx.moveTo(b[0], b[1]);
+    ctx.lineTo(b[0] - Math.cos(ang - 0.45) * 10, b[1] - Math.sin(ang - 0.45) * 10);
+    ctx.lineTo(b[0] - Math.cos(ang + 0.45) * 10, b[1] - Math.sin(ang + 0.45) * 10);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    if (label) {
+      ctx.fillStyle = color;
+      ctx.font = '800 12px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, b[0] + Math.cos(ang) * 13, b[1] + Math.sin(ang) * 13);
+    }
+    ctx.restore();
+  }
+
+  function drawPhysicsMode(cx, cy, fov, dist) {
+    // Ground trajectory track grid
+    ctx.save();
+    ctx.strokeStyle = 'rgba(142,200,255,0.18)';
+    ctx.lineWidth = 1;
+    for (let g = -2; g <= 2; g += 1) {
+      const p1 = projectPoint(rotatePoint([-2.2, -0.55, g * 0.5], state.rx, state.ry), cx, cy, fov, dist);
+      const p2 = projectPoint(rotatePoint([2.2, -0.55, g * 0.5], state.rx, state.ry), cx, cy, fov, dist);
+      ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
+    }
+    ctx.restore();
+
+    // Animated gliding mass cube (F = m·a impulse)
+    const slideX = Math.sin(state.time * 1.15) * 0.72;
+    const s = 0.48 + state.explode * 0.12;
+    const y0 = -0.55;
+    const y1 = y0 + s * 2;
+    const corners = [
+      [slideX - s, y0, -s], [slideX + s, y0, -s], [slideX + s, y0, s], [slideX - s, y0, s],
+      [slideX - s, y1, -s], [slideX + s, y1, -s], [slideX + s, y1, s], [slideX - s, y1, s],
+    ].map((pt) => projectPoint(rotatePoint(pt, state.rx, state.ry), cx, cy, fov, dist));
+    const cubeFaces = [
+      { ids: [4, 5, 6, 7], col: PAL.barTopHi },
+      { ids: [0, 1, 5, 4], col: PAL.barS1 },
+      { ids: [1, 2, 6, 5], col: PAL.barS2 },
+      { ids: [2, 3, 7, 6], col: PAL.barS3 },
+      { ids: [3, 0, 4, 7], col: PAL.barS4 },
+    ];
+    for (const f of cubeFaces) {
+      ctx.beginPath();
+      ctx.moveTo(corners[f.ids[0]][0], corners[f.ids[0]][1]);
+      for (let k = 1; k < 4; k += 1) ctx.lineTo(corners[f.ids[k]][0], corners[f.ids[k]][1]);
+      ctx.closePath();
+      ctx.fillStyle = f.col;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+    }
+    const midY = (y0 + y1) * 0.5;
+    draw3DArrow([slideX + s, midY, 0], [slideX + s + 1.15, midY, 0], '#ff6b57', 'F', cx, cy, fov, dist);
+    draw3DArrow([slideX, y1, 0], [slideX, y1 + 0.95, 0], PAL.accent, 'N', cx, cy, fov, dist);
+    draw3DArrow([slideX, y0, 0], [slideX, y0 - 0.85, 0], '#fbbf24', 'P', cx, cy, fov, dist);
+    draw3DArrow([slideX - s, midY, 0], [slideX - s - 0.65, midY, 0], '#94a3b8', 'f', cx, cy, fov, dist);
+  }
+
+  function drawCodeMode(cx, cy, fov, dist) {
+    // 3D Binary Search Tree / Algorithm Graph with glowing active path pulse
+    const exp = 1 + state.explode * 0.25;
+    const pts3 = [
+      { id: 0, p: [0, 1.15 * exp, 0], lbl: '50%' },
+      { id: 1, p: [-1.05 * exp, 0.25, 0.35], lbl: '25%' },
+      { id: 2, p: [1.05 * exp, 0.25, -0.35], lbl: '75%' },
+      { id: 3, p: [-1.65 * exp, -0.68, 0.65], lbl: '12%' },
+      { id: 4, p: [-0.48 * exp, -0.68, 0.45], lbl: '37%' },
+      { id: 5, p: [0.48 * exp, -0.68, -0.45], lbl: '62%' },
+      { id: 6, p: [1.65 * exp, -0.68, -0.65], lbl: '88%' },
+    ];
+    const edges = [[0, 1], [0, 2], [1, 3], [1, 4], [2, 5], [2, 6]];
+    const step = Math.floor(state.time * 1.4) % 3;
+    const activePath = [0, 2, 5].slice(0, step + 1);
+    const proj = pts3.map((n) => ({ ...n, pr: projectPoint(rotatePoint(n.p, state.rx, state.ry), cx, cy, fov, dist) }));
+    for (const [u, v] of edges) {
+      const pu = proj[u].pr, pv = proj[v].pr;
+      const hot = activePath.includes(u) && activePath.includes(v);
+      ctx.beginPath();
+      ctx.moveTo(pu[0], pu[1]);
+      ctx.lineTo(pv[0], pv[1]);
+      ctx.strokeStyle = hot ? '#b8f36b' : PAL.edge;
+      ctx.lineWidth = hot ? 3 : 1.4;
+      ctx.stroke();
+    }
+    for (const n of proj.sort((a, b) => a.pr[3] - b.pr[3])) {
+      const hot = activePath.includes(n.id);
+      const r = hot ? 17 : 13;
+      ctx.beginPath();
+      ctx.arc(n.pr[0], n.pr[1], r, 0, TAU);
+      ctx.fillStyle = hot ? '#b8f36b' : PAL.barS1;
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = hot ? 2.2 : 1.1;
+      ctx.stroke();
+      ctx.fillStyle = hot ? '#0a1622' : '#ffffff';
+      ctx.font = '800 9.5px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(n.lbl, n.pr[0], n.pr[1]);
+    }
+  }
+
+  function drawBioMode(cx, cy, fov, dist) {
+    // Rotating 3D Double-Helix / Molecular Energy Lattice
+    const turns = 16;
+    const exp = 0.72 + state.explode * 0.3;
+    const strandA = [];
+    const strandB = [];
+    for (let i = 0; i <= turns; i += 1) {
+      const t = (i / turns) * TAU * 1.65 + state.time * 0.9;
+      const y = (i / turns - 0.5) * 2.5;
+      strandA.push(projectPoint(rotatePoint([Math.cos(t) * exp, y, Math.sin(t) * exp], state.rx, state.ry), cx, cy, fov, dist));
+      strandB.push(projectPoint(rotatePoint([Math.cos(t + Math.PI) * exp, y, Math.sin(t + Math.PI) * exp], state.rx, state.ry), cx, cy, fov, dist));
+    }
+    for (let i = 0; i <= turns; i += 2) {
+      ctx.beginPath();
+      ctx.moveTo(strandA[i][0], strandA[i][1]);
+      ctx.lineTo(strandB[i][0], strandB[i][1]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    }
+    const drawStrand = (arr, col) => {
+      ctx.beginPath();
+      arr.forEach((p, idx) => { if (idx === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      arr.forEach((p, idx) => {
+        if (idx % 2) return;
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 5.5, 0, TAU);
+        ctx.fillStyle = col;
+        ctx.fill();
+      });
+    };
+    drawStrand(strandA, PAL.accent);
+    drawStrand(strandB, '#b8f36b');
+  }
+
+  function drawMeetingMode(cx, cy, fov, dist) {
+    // 3D Executive Decision Hub (layered luminous milestone rings + central beacon)
+    const exp = state.explode * 0.35;
+    drawRing(cx, cy, fov, dist, 1.78 + exp, 0.22, 0.12, PAL.ring1, 2.2);
+    drawRing(cx, cy, fov, dist, 1.32 + exp * 0.6, -0.35, 0.4, '#b8f36b', 2.0, [8, 5]);
+    drawRing(cx, cy, fov, dist, 0.88 + exp * 0.3, 0.55, -0.3, '#ff6b57', 1.8);
+    // Central glowing sphere
+    const center = projectPoint(rotatePoint([0, 0, 0], state.rx, state.ry), cx, cy, fov, dist);
+    const pulse = 26 + Math.sin(state.time * 2.2) * 3;
+    const grad = ctx.createRadialGradient(center[0] - 8, center[1] - 8, 4, center[0], center[1], pulse);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.45, PAL.accent);
+    grad.addColorStop(1, PAL.bg0);
+    ctx.beginPath();
+    ctx.arc(center[0], center[1], pulse, 0, TAU);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.fillStyle = '#061529';
+    ctx.font = '800 10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('DECISÃO', center[0], center[1]);
   }
 
   function renderFrame(dt) {
@@ -372,12 +569,17 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
     // Draw selected 3D model
     if (state.mode === 'wave') drawWaveMode(cx, cy, fov, dist);
     else if (state.mode === 'gyro') drawGyroMode(cx, cy, fov, dist);
+    else if (state.mode === 'physics') drawPhysicsMode(cx, cy, fov, dist);
+    else if (state.mode === 'code') drawCodeMode(cx, cy, fov, dist);
+    else if (state.mode === 'bio') drawBioMode(cx, cy, fov, dist);
+    else if (state.mode === 'meeting') drawMeetingMode(cx, cy, fov, dist);
     else if (state.mode === 'matrix' || state.mode === 'finance') drawMatrixMode(cx, cy, fov, dist);
     else drawCoreMode(cx, cy, fov, dist);
 
-    // Orbiting interactive concept / discipline nodes
+    // Orbiting interactive concept / discipline nodes (fewer & sleeker in mini mode)
+    const nodesList = mini ? activeNodes.slice(0, 3) : activeNodes;
     const orbitBoost = 1 + state.explode * 0.22;
-    const nodes3d = activeNodes.map((n, idx) => {
+    const nodes3d = nodesList.map((n, idx) => {
       const a = n.angle + state.time * 0.16;
       const x = Math.cos(a) * n.r * orbitBoost;
       const z = Math.sin(a) * n.r * orbitBoost;

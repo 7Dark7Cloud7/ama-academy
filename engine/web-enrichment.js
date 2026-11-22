@@ -172,6 +172,81 @@ async function wikiSearch(term, lang, signal) {
     .filter(Boolean);
 }
 
+/* Traduz e expande pedidos visuais em PT/EN para pesquisas de alta precisão na Wikimedia Commons. */
+const VISUAL_DICT = [
+  [/foguet[aã]o|foguete|rocket|lan[cç]amento/i, 'rocket launch thrust physics'],
+  [/in[eé]rcia|cinto de seguran[cç]a|trava[gr]|carro|autom[oó]vel/i, 'Newton cradle physics inertia'],
+  [/segunda lei|for[cç]a resultante|f\s*=\s*m|acelera[cç][aã]o|din[aâ]mica|diagrama de for[cç]as/i, 'free body diagram force vector physics'],
+  [/terceira lei|ac[cç][aã]o e rea[cç][aã]o/i, 'rocket launch action reaction thrust'],
+  [/juro composto|capitaliza[cç][aã]o|exponencial|poupan[cç]a/i, 'compound interest exponential growth graph'],
+  [/kwanza|infla[cç][aã]o|finan[cç]as|or[cç]amento|dinheiro/i, 'Angolan kwanza currency finance'],
+  [/pesquisa bin[aá]ria|binary search|algoritmo|[aá]rvore/i, 'binary search tree algorithm diagram'],
+  [/python|programa[cç][aã]o|c[oó]digo|estruturas de dados/i, 'computer programming code screen'],
+  [/fotoss[ií]ntese|clorofila|cloroplasto|ciclo de calvin/i, 'photosynthesis chloroplast diagram'],
+  [/maiombe|floresta|ecossistema|biodiversidade|planta/i, 'tropical rainforest canopy green leaves'],
+  [/c[eé]lula|adn|dna|gen[eé]tica|biologia/i, 'plant cell biology diagram'],
+  [/fun[cç][aã]o|derivada|c[aá]lculo|par[aá]bola|gr[aá]fico/i, 'mathematical function graph derivative'],
+  [/reuni[aã]o|ata|direc[cç][aã]o|equipa|gest[aã]o/i, 'business meeting conference room'],
+  [/projetor|sala de aula|universidade|estudante|campus/i, 'university lecture hall classroom'],
+  [/luanda|angola/i, 'Luanda Angola skyline'],
+  [/mapa|geografia|bairro/i, 'Angola Luanda map geography'],
+  [/energia|electricidade|circuito|ohm/i, 'electric circuit physics diagram'],
+  [/onda|frequ[eê]ncia|som|luz/i, 'sine wave physics frequency diagram'],
+];
+
+export function buildCoherentImageQueries({ title = '', text = '', sections = [], briefQueries = [], visualStyle = 'auto' } = {}) {
+  const queries = [];
+  const seen = new Set();
+  const pushQ = (q, tag = '') => {
+    const s = clean(q, 72);
+    if (!s || s.length < 3) return;
+    const key = s.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    queries.push({ query: s, tag: tag || s });
+  };
+
+  // 1. PRIORIDADE MÁXIMA: pedidos explícitos da descrição (áudio ou texto) do docente
+  (Array.isArray(briefQueries) ? briefQueries : []).forEach((bq) => {
+    const raw = clean(bq, 64);
+    if (!raw) return;
+    let translated = '';
+    for (const [re, en] of VISUAL_DICT) {
+      if (re.test(raw)) { translated = en; break; }
+    }
+    if (translated) pushQ(translated, raw);
+    pushQ(visualStyle === 'diagrams' ? `${raw} diagram` : raw, raw);
+  });
+
+  // 2. Conceitos científicos/temáticos coerentes extraídos do título e secções
+  const secStr = (Array.isArray(sections) ? sections : [])
+    .map((s) => (typeof s === 'string' ? s : (s.heading || s.title || '')))
+    .join(' ');
+  const combined = `${title} ${secStr} ${String(text || '').slice(0, 700)}`;
+  for (const [re, en] of VISUAL_DICT) {
+    if (re.test(combined)) {
+      pushQ(visualStyle === 'diagrams' ? `${en} diagram` : en, en);
+    }
+    if (queries.length >= 7) break;
+  }
+
+  return queries.slice(0, 8);
+}
+
+/* Pesquisa directa de 1 imagem coerente para um pedido específico de um slide */
+export async function searchCoherentImage(query, signal) {
+  const qList = buildCoherentImageQueries({ briefQueries: [query] });
+  const target = qList[0]?.query || clean(query, 64);
+  if (!target) return null;
+  const imgs = await commonsImageSearch(target, signal, 4);
+  if (imgs.length) return imgs[0];
+  if (target !== query) {
+    const fallback = await commonsImageSearch(clean(query, 64), signal, 3);
+    if (fallback.length) return fallback[0];
+  }
+  return null;
+}
+
 /* Imagens e diagramas educacionais reais da Wikimedia Commons (sem API key). */
 export async function commonsImageSearch(term, signal, limit = 4) {
   const cleanTerm = clean(term, 60);
@@ -184,7 +259,7 @@ export async function commonsImageSearch(term, signal, limit = 4) {
     generator: 'search',
     gsrnamespace: '6',
     gsrsearch: `${cleanTerm} filetype:bitmap|drawing`,
-    gsrlimit: String(Math.max(4, limit * 2)),
+    gsrlimit: String(Math.max(6, limit * 3)),
     prop: 'imageinfo',
     iiprop: 'url|extmetadata|mime|size',
     iiurlwidth: '960',
@@ -199,9 +274,13 @@ export async function commonsImageSearch(term, signal, limit = 4) {
       const mime = String(info.mime || '').toLowerCase();
       if (!/^image\/(jpeg|png|svg\+xml|webp)$/.test(mime)) continue;
       const title = String(p.title || '').replace(/^File:/i, '');
-      // Ignorar ícones, brasões, selos militares/institucionais ou scans de páginas de livros.
-      if (/\b(icon|logo|flag_of|stub|edit|arrow|button|page_\d|djvu|signature|seal|emblem|coat_of_arms|insignia|crest|patch|badge|air_force|força_aérea|forca_aerea|military|army|navy|usaf|bandeira|brasão|brasao)\b/i.test(title)) continue;
-      if ((info.width && info.width < 260) || (info.height && info.height < 180)) continue;
+      // Ignorar ícones, brasões, selos militares/institucionais, documentos digitalizados, lápides, retratos genéricos ou capturas irrelevantes.
+      if (/\b(icon|logo|flag_of|stub|edit|arrow|button|page_\d|djvu|signature|seal|emblem|coat_of_arms|insignia|crest|patch|badge|air_force|força_aérea|forca_aerea|military|army|navy|usaf|bandeira|brasão|brasao|gravestone|tombstone|memorial_plaque|book_cover|title_page|frontispiece|newspaper|manuscript|scan|stamp|postage|coin_obverse)\b/i.test(title)) continue;
+      if ((info.width && info.width < 320) || (info.height && info.height < 200)) continue;
+      if (info.width && info.height) {
+        const ratio = info.width / info.height;
+        if (ratio > 2.6 || ratio < 0.5) continue;
+      }
       const thumb = info.thumburl || info.url;
       if (!thumb) continue;
       const meta = info.extmetadata || {};
@@ -214,7 +293,7 @@ export async function commonsImageSearch(term, signal, limit = 4) {
         page: info.descriptionurl || `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title || '')}`,
         term: cleanTerm,
         title: clean(title.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '), 72),
-        isDiagram: mime === 'image/svg+xml' || /\b(diagram|schema|graph|chart|cycle|model|vector|force|wave)\b/i.test(title),
+        isDiagram: mime === 'image/svg+xml' || /\b(diagram|schema|graph|chart|cycle|model|vector|force|wave|tree)\b/i.test(title),
       });
       if (out.length >= limit) break;
     }
@@ -378,7 +457,7 @@ export function collectLinks(...sources) {
 
 /* Pesquisa completa em paralelo: Wikipédia + Wikimedia Commons + YouTube/Wikidata + Mapas. */
 export async function enrichFromWeb(analysis = {}, opts = {}) {
-  const { language = 'pt', maxItems = 6, signal, sourceText = '', links = [], sections = [] } = opts;
+  const { language = 'pt', maxItems = 6, signal, sourceText = '', links = [], sections = [], brief = null } = opts;
   const lang = language === 'en' ? 'en' : 'pt';
   const items = [];
   const images = [];
@@ -427,7 +506,7 @@ export async function enrichFromWeb(analysis = {}, opts = {}) {
 
   // 3. Termos centrais do ficheiro + títulos das secções
   const terms = researchTerms(analysis, analysis.title, sections);
-  const primaryTerms = terms.slice(0, 5);
+  const primaryTerms = terms.slice(0, 6);
 
   const wikiTasks = primaryTerms.map((term) =>
     wikiSearch(term, lang, signal)
@@ -444,12 +523,22 @@ export async function enrichFromWeb(analysis = {}, opts = {}) {
       })
   );
 
-  // 4. Imagens e diagramas reais na Wikimedia Commons para os termos principais
-  const imageTasks = primaryTerms.slice(0, 4).map((term) =>
-    commonsImageSearch(term, signal, 3)
-      .then((imgs) => imgs.forEach(pushImage))
+  // 4. Imagens coerentes e relevantes na Wikimedia Commons (priorizando a descrição do utilizador + conceitos reais)
+  const coherentQs = buildCoherentImageQueries({
+    title: analysis.title || '',
+    text: sourceText || '',
+    sections,
+    briefQueries: (brief && brief.imageQueries) || [],
+    visualStyle: (brief && brief.visualStyle) || 'auto',
+  });
+  const imageSearchTerms = coherentQs.length
+    ? coherentQs
+    : primaryTerms.slice(0, 5).map((t) => ({ query: t, tag: t }));
+  const imageTasks = imageSearchTerms.slice(0, 6).map(({ query, tag }, qIdx) =>
+    commonsImageSearch(query, signal, 3)
+      .then((imgs) => imgs.forEach((im) => pushImage({ ...im, tag, fromBrief: qIdx < ((brief && brief.imageQueries && brief.imageQueries.length) || 0) })))
       .catch((err) => {
-        if (err && err.name !== 'AbortError') errors.push(`imagens ${term}: ${err.message}`);
+        if (err && err.name !== 'AbortError') errors.push(`imagens ${query}: ${err.message}`);
       })
   );
 
@@ -493,8 +582,8 @@ export async function enrichFromWeb(analysis = {}, opts = {}) {
 }
 
 function finish(items, images, errors, videos, searchVideos, places, lang, maxItems) {
-  const content = items.slice(0, maxItems);
-  const imgList = images.slice(0, 10);
+  const content = items.slice(0, Math.max(8, maxItems));
+  const imgList = images.slice(0, 14);
   const mapPlaces = places.slice(0, 6);
   const ok = content.length > 0 || imgList.length > 0 || videos.length > 0 || mapPlaces.length > 0;
   return {

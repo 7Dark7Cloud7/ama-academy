@@ -137,13 +137,19 @@
       };
       db.usuarios.push(user);
       db.sessao = user.id;
-      avisar(db, user.id, 'sistema', 'sistema', primeiro ? 'Bem-vindo, diretor da AMA' : 'Bem-vindo à AMA',
+      const brandLabel = document.documentElement.dataset.brand === 'ceu' ? 'CEU Academy' : 'AMA';
+      avisar(db, user.id, 'sistema', 'sistema', primeiro ? `Bem-vindo, diretor da ${brandLabel}` : `Bem-vindo à ${brandLabel}`,
         primeiro
           ? 'Esta é a primeira conta deste dispositivo: tem o papel de administrador. Crie o seu perfil de estudante ou professor em Utilizadores.'
-          : 'A sua conta funciona neste dispositivo. Os dados ficam no navegador, sem servidor.',
+          : 'A sua conta e progresso ficam guardados em base de dados local com sincronização automática.',
         primeiro ? '#/admin/utilizadores' : '#/aluno');
-      auditar(db, nome, 'registo', 'Conta criada neste dispositivo' + (primeiro ? ' como administrador' : ''));
+      auditar(db, nome, 'registo', 'Conta criada' + (primeiro ? ' como administrador' : ''));
       save();
+      try {
+        if (window.Study && window.Study.MvpDB && typeof window.Study.MvpDB.saveStudentCard === 'function') {
+          window.Study.MvpDB.saveStudentCard({ id: `card-${user.id}`, nome: user.nome }).catch(() => {});
+        }
+      } catch { }
       return { user: publicUser(user) };
     })();
   }

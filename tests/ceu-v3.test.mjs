@@ -7,6 +7,8 @@ import { evaluateRubric, optimizeTo100 } from '../engine/quality-engine.js';
 import { buildWorksheet, renderWorksheetHtml } from '../engine/worksheet-engine.js';
 import { buildStandaloneOfflineHtml } from '../engine/export-engine.js';
 import { detectDocumentType, analyzeDocument, buildAdaptiveDocumentDeck } from '../engine/doc-analyzer.js';
+import { pickCoherent3DMode, synthesizeAndFuseDeck, parseCreativeBrief } from '../engine/ai-engine.js';
+import { buildCoherentImageQueries } from '../engine/web-enrichment.js';
 import { FIXTURES_10, PDF_SAMPLE_MULTI_PAGE, PDF_SAMPLE_STEM, PDF_SAMPLE_SCANNED } from './fixtures/ceu-v3.fixtures.mjs';
 
 test('10/10 fixtures (5 PT + 5 EN) generate with qualityScore === 100 and zero Núcleo AMA leaks', () => {
@@ -123,4 +125,39 @@ Ponto pendente: aguarda confirmação da fibra óptica no polo de Viana para a p
   assert.equal(reg.docType, 'regulamento');
   const rep = detectDocumentType('Relatório Trimestral de Desempenho: a receita cresceu 24% atingindo 18.500.000 Kz. Recomenda-se investir em logística.', 'Relatório Q3', 'relatorio.pdf');
   assert.equal(rep.docType, 'relatorio');
+});
+
+test('Coherent 3D selection and pedagogical rewriting adapt raw PDF text for teaching', () => {
+  assert.equal(pickCoherent3DMode('fisica', 'aula', 'Leis de Newton'), 'physics');
+  assert.equal(pickCoherent3DMode('financas', 'aula', 'Juro Composto em Kwanzas'), 'finance');
+  assert.equal(pickCoherent3DMode('programacao', 'aula', 'Pesquisa Binária em Python'), 'code');
+  assert.equal(pickCoherent3DMode('biologia', 'aula', 'Fotossíntese no Maiombe'), 'bio');
+  assert.equal(pickCoherent3DMode('geral', 'ata', 'Ata n.º 14'), 'meeting');
+
+  const deck = {
+    title: 'Leis de Newton',
+    subject: 'fisica',
+    docType: 'aula',
+    stats: { slides: 3, keywords: ['Inércia', 'Força', 'Aceleração'] },
+    reading: { definitions: [{ term: 'Inércia', sentence: 'Tendência de manter o estado de movimento.' }], sections: [] },
+    slides: [
+      { id: 'c', layout: 'cover', title: 'Leis de Newton', subtitle: 'Dinâmica' },
+      { id: 's1', layout: 'bullets', title: 'Primeira Lei e Inércia', bullets: ['A inércia é a tendência do corpo manter o repouso.', 'Quanto maior a massa, maior a resistência à aceleração.'] },
+      { id: 's2', layout: 'closing', title: 'Resumo', bullets: ['F = m x a'] },
+    ],
+  };
+  synthesizeAndFuseDeck(deck, null);
+  const s1 = deck.slides.find((s) => s.id === 's1');
+  assert.ok(s1.bullets.length >= 3, 'Expected pedagogical expansion bullet added');
+  assert.equal(s1.mode3d, 'physics', 'Expected coherent physics 3D mode on content slide');
+  assert.ok(deck.slides.some((s) => s.layout === 'scene-3d' && s.mode3d === 'physics'), 'Expected interactive physics 3D slide');
+
+  // Verify Voice/Text Creative Brief parser & coherent bilingual image queries
+  const brief = parseCreativeBrief('Quero fotos reais de foguetão e carros, tom simples para 1.º ano, tema escuro');
+  assert.equal(brief.visualStyle, 'photos');
+  assert.equal(brief.themeHint, 'dark');
+  assert.equal(brief.levelHint, 'basico');
+  assert.ok(brief.imageQueries.some((q) => /foguet/i.test(q)), 'Expected foguetão in parsed brief queries');
+  const qs = buildCoherentImageQueries({ title: 'Leis de Newton', briefQueries: brief.imageQueries, visualStyle: brief.visualStyle });
+  assert.ok(qs.some((x) => /rocket launch/i.test(x.query)), 'Expected coherent English Wikimedia query for foguetão');
 });

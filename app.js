@@ -275,6 +275,14 @@ window.addEventListener('hashchange', () => { closeMenu(); closeMega(); render()
    por updateBackBtn() após cada navegação. */
 const navBackBtn = () => `<button type="button" class="icon-btn nav-back" aria-label="Voltar à página anterior" title="Voltar" onclick="goBack()"${S.navStack.length ? '' : ' hidden'}>${I.back}<span class="nb-lbl">Voltar</span></button>`;
 
+const isCeuSite = () => document.documentElement.dataset.brand === 'ceu';
+const brandLogoMarkup = () => isCeuSite()
+  ? `<a class="logo" href="#/ceu-inicio"><span class="logo-chip"><img src="assets/ceu-logo.png?v=1" alt="CEU" class="ceu-logo-img"></span><span class="lw">CEU<b>ACADEMY</b></span></a>`
+  : `<a class="logo" href="#/"><span class="logo-chip">${LOGO}</span><span class="lw">AMA<b>ARISTIDES MIGUEL</b></span></a>`;
+const brandArtMarkup = () => isCeuSite()
+  ? `<a class="brand" href="#/ceu-inicio" title="CEU Academy" aria-label="Ir para a página inicial"><span class="logo-chip"><img src="assets/ceu-logo.png?v=1" alt="CEU" class="ceu-logo-img"></span><div><b style="font-family:var(--font-d);font-size:19px;color:#fff">CEU</b><span class="brand-sub">ACADEMY</span></div></a>`
+  : `<a class="brand" href="#/" title="AMA · Aristides Miguel Academy" aria-label="Ir para a página inicial"><span class="logo-chip">${LOGO}</span><div><b style="font-family:var(--font-d);font-size:19px;color:#fff">AMA</b><span class="brand-sub">ARISTIDES MIGUEL</span></div></a>`;
+
 function shellPublic(content, active = '') {
   const megaCats = [
     ['Desenvolvimento Pessoal', 'users', 'Oratória, liderança e inteligência emocional'],
@@ -282,14 +290,14 @@ function shellPublic(content, active = '') {
     ['Negócios', 'mega', 'Vendas, marketing digital e gestão'],
     ['Finanças', 'fin', 'Educação financeira e investimento em Kz'],
   ];
-  return `<div>
-  <nav class="pnav"><div class="in">
-    <button class="nav-burger" id="burger-top" aria-label="Abrir menu" aria-expanded="false" onclick="toggleMenu()">${I.menu}</button>
-    ${S.user ? `<div class="dd notif-dd" id="notif-dd"><button class="nav-ic tb-notif" title="Notificações" aria-label="Notificações" aria-haspopup="true" onclick="ddToggle(event);notifToggle(event)">${I.bell}<b class="nb" id="notif-n" hidden>0</b></button><div class="dd-menu notif-menu" id="notif-menu"></div></div>` : ''}
-    ${navBackBtn()}
-    <a class="logo" href="#/"><span class="logo-chip">${LOGO}</span><span class="lw">AMA<b>ARISTIDES MIGUEL</b></span></a>
-    <div class="links" id="navlinks">
-      <span class="lnk-wrap"><button class="lnk ${active == 'catalogo' ? 'on' : ''}" onclick="toggleMega(event)" aria-haspopup="true" aria-expanded="false">Cursos ${I.chev}</button>
+  const ceu = isCeuSite();
+  const navLinksHtml = ceu
+    ? `<a href="#/ceu-inicio" class="lnk ${active == 'inicio' ? 'on' : ''}">Início</a>
+      <a href="#/projetor" class="lnk ${active == 'projetor' ? 'on' : ''}">Projetor IA</a>
+      <a href="#/catalogo" class="lnk ${active == 'catalogo' ? 'on' : ''}">Cursos</a>
+      <a href="#/cartao-ceu" class="lnk ${active == 'cartao' ? 'on' : ''}">Cartão CEU</a>
+      ${S.user ? `<a href="#/${homePath()}" class="lnk ${active == 'painel' ? 'on' : ''}">Painel</a>` : ''}`
+    : `<span class="lnk-wrap"><button class="lnk ${active == 'catalogo' ? 'on' : ''}" onclick="toggleMega(event)" aria-haspopup="true" aria-expanded="false">Cursos ${I.chev}</button>
         <div class="mega" id="mega"><div class="mega-in">
           <div class="mega-grid">${megaCats.map(([c]) => `<a class="mega-card" href="#/catalogo" onclick="setCat('${escAttr(c)}')">
             <img src="media/${CAT_MEGA[c]}.jpg?v=70" alt="" loading="lazy" decoding="async" onerror="this.remove()">
@@ -303,14 +311,22 @@ function shellPublic(content, active = '') {
       <a href="#/projetor" class="lnk ${active == 'projetor' ? 'on' : ''}" title="PDF → slides → projetor (uma só ferramenta)">Projetor &amp; Slides</a>
       <a href="#/workshops" class="lnk ${active == 'workshops' ? 'on' : ''}">Workshops</a>
       <a href="#/publicar" class="lnk ${active == 'publicar' ? 'on' : ''}">Publicar</a>
-      ${S.user ? `<a href="#/${homePath()}" class="lnk ${active == 'painel' ? 'on' : ''}">Meu painel</a>` : ''}
+      ${S.user ? `<a href="#/${homePath()}" class="lnk ${active == 'painel' ? 'on' : ''}">Meu painel</a>` : ''}`;
+  return `<div>
+  <nav class="pnav"><div class="in">
+    <button class="nav-burger" id="burger-top" aria-label="Abrir menu" aria-expanded="false" onclick="toggleMenu()">${I.menu}</button>
+    ${S.user ? `<div class="dd notif-dd" id="notif-dd"><button class="nav-ic tb-notif" title="Notificações" aria-label="Notificações" aria-haspopup="true" onclick="ddToggle(event);notifToggle(event)">${I.bell}<b class="nb" id="notif-n" hidden>0</b></button><div class="dd-menu notif-menu" id="notif-menu"></div></div>` : ''}
+    ${navBackBtn()}
+    ${brandLogoMarkup()}
+    <div class="links" id="navlinks">
+      ${navLinksHtml}
       <div class="m-only">
         ${S.user
           ? `<button class="btn btn-ghost btn-sm m-sair" onclick="logout()">${I.logout} Terminar sessão</button>`
           : `<div class="m-auth"><a class="btn btn-ghost btn-sm" href="#/entrar">Entrar</a><a class="btn btn-f btn-sm" href="#/registo">Criar conta</a></div>`}
       </div>
     </div>
-    <label class="search">${I.search}<input id="nav-q" aria-label="Pesquisar cursos, temas ou mentores" placeholder="Pesquisar…" value="${escAttr(S.filters.q)}" onkeydown="if(event.key==='Enter'){S.filters.q=this.value;go('/catalogo?q='+encodeURIComponent(this.value))}"></label>
+    <label class="search">${I.search}<input id="nav-q" aria-label="Pesquisar cursos ou temas" placeholder="Pesquisar cursos…" value="${escAttr(S.filters.q)}" onkeydown="if(event.key==='Enter'){S.filters.q=this.value;go('/catalogo?q='+encodeURIComponent(this.value))}"></label>
     <div class="sp"></div>
     ${themeBtn()}
     ${S.user
@@ -366,6 +382,16 @@ document.addEventListener('click', (e) => {
   if (e.target.isConnected && !e.target.closest('.pnav')) closeMenu();
 });
 function footer() {
+  if (isCeuSite()) {
+    return `<footer class="ft ceu-ft"><div class="in">
+      <div class="ft-brand">
+        ${brandLogoMarkup()}
+        <p>Plataforma académica universitária ligada ao Cartão Nacional de Estudante (ceu.ao): cursos práticos, cartão digital e projetor PDF → Slides com IA e 3D.</p>
+      </div>
+      <div class="ft-col"><h4>Plataforma</h4><a href="#/projetor">Projetor IA</a><a href="#/catalogo">Cursos universitários</a><a href="#/cartao-ceu">Cartão CEU</a><a href="#/entrar">Entrar / Conta</a></div>
+      <div class="ft-col"><h4>Contacto</h4><a href="mailto:geral@ceu.ao">geral@ceu.ao</a><a href="https://ceu.ao/" target="_blank" rel="noopener noreferrer">Portal oficial ceu.ao ↗</a><a>Luanda, Angola</a></div>
+    </div><div class="bar"><span>© 2026 CEU Academy · APP FEITO PELA HORIZONTE FUTURO</span><span>Base de dados local + sincronização MVP</span></div></footer>`;
+  }
   const soc = [['f', 'M13.5 21v-7h2.4l.4-3h-2.8V9.1c0-.9.3-1.5 1.6-1.5h1.3V4.9c-.3 0-1.1-.1-2-.1-2 0-3.4 1.2-3.4 3.5V11H8.5v3h2.4v7h2.6z'], ['x', 'M17.5 5h-2.1l-3.3 4.7L6.4 5H3.9l6.6 9.3L4.2 19h2.1l3.5-5 4.9 5h2.5l-6.9-9.6L17.5 5z'], ['in', 'M7 10v9H4v-9h3zM5.5 4.2a1.8 1.8 0 110 3.6 1.8 1.8 0 010-3.6zM20 14.4c0-3-1.6-4.4-3.7-4.4-1.7 0-2.5.9-2.9 1.6V10H10.4v9H13.3v-5c0-1.4.7-2.2 1.8-2.2s1.8.7 1.8 2.1V19H20v-4.6z'], ['yt', 'M21.3 8.6c-.2-1.4-.9-2.2-2.3-2.4C17.2 6 14.8 6 12 6s-5.2 0-7 .2c-1.4.2-2.1 1-2.3 2.4C2.5 10 2.5 11.4 2.5 12.5s0 2.5.2 3.9c.2 1.4.9 2.2 2.3 2.4 1.8.2 4.2.2 7 .2s5.2 0 7-.2c1.4-.2 2.1-1 2.3-2.4.2-1.4.2-2.8.2-3.9s0-2.5-.2-3.9zM10.2 15.4V9.6l5 2.9-5 2.9z']];
   return `<footer class="ft">${blobSvgShort()}<div class="in">
     <div class="ft-brand">
@@ -403,7 +429,7 @@ function panelShell(active, content, items, opts = {}) {
   <div class="sb-scrim" id="sb-scrim" onclick="closeSide()"></div>
   <aside class="sidebar" id="sb" onmouseenter="sbHover(true)" onmouseleave="sbHover(false)">
     <span class="sb-grip" aria-hidden="true"><i></i><i></i></span>
-    <a class="brand" href="#/" title="AMA · Aristides Miguel Academy" aria-label="Ir para a página inicial"><span class="logo-chip">${LOGO_SM}</span><div><b>AMA</b><span>ARISTIDES MIGUEL</span></div></a>
+    ${brandArtMarkup()}
     ${items.map(g => `<div class="nav-h">${esc(g.h)}</div>` + g.i.map(([k, ic, label, n]) =>
       `<a class="nav-i ${active === k ? 'on' : ''}" href="#/${k}" title="${escAttr(label)}">${navIcon(ic)}<span class="ni-l">${esc(label)}</span>${n ? `<span class="nav-n">${n}</span>` : ''}</a>`).join('')).join('')}
     <div class="side-tip"><span class="st-ic">${I.bulb}</span><b>Dica rápida</b><p>${esc(dica)}</p><a href="#/boas-vindas">Ver dicas ${I.arrow}</a></div>
@@ -1057,12 +1083,12 @@ on('/mentor/:id', async ({ args }) => {
 /* ================================ auth =================================== */
 function viewEntrar(needed) {
   return `<div class="auth">
-    <div class="art angola-bg"><a class="brand" href="#/" title="AMA · Aristides Miguel Academy" aria-label="Ir para a página inicial"><span class="logo-chip">${LOGO}</span><div><b style="font-family:var(--font-d);font-size:19px;color:#fff">AMA</b><span class="brand-sub">ARISTIDES MIGUEL</span></div></a>
-      <div><p class="q">"Grandes sonhos exigem grandes aprendizados."</p><h2 style="margin-top:18px;font-size:28px">Bem-vindo de volta. O seu ${mark('próximo módulo')} está à espera.</h2></div>
-      <div class="flex" style="gap:20px;font-size:13px;color:#93a1bd"><span>24.532 estudantes</span><span>·</span><span>120 cursos</span><span>·</span><span>Luanda, Angola</span></div></div>
+    <div class="art angola-bg">${brandArtMarkup()}
+      <div><p class="q">${isCeuSite() ? '"Conhecimento claro, acessível e ligado à universidade."' : '"Grandes sonhos exigem grandes aprendizados."'}</p><h2 style="margin-top:18px;font-size:28px">Bem-vindo de volta. O seu ${mark('próximo módulo')} está à espera.</h2></div>
+      <div class="flex" style="gap:20px;font-size:13px;color:#b8d7f5"><span>${isCeuSite() ? '+10.000 estudantes' : '24.532 estudantes'}</span><span>·</span><span>Luanda, Angola</span></div></div>
     <div class="form">
-      <div class="auth-top-m"><a class="logo" href="#/"><span class="logo-chip">${LOGO}</span><span class="lw">AMA<b>ARISTIDES MIGUEL</b></span></a>
-        <a class="auth-back-m" href="#/">${I.arrow} Voltar ao início</a></div>
+      <div class="auth-top-m">${brandLogoMarkup()}
+        <a class="auth-back-m" href="${isCeuSite() ? '#/ceu-inicio' : '#/'}">${I.arrow} Voltar ao início</a></div>
       <div class="box">
       ${needed ? '<div class="err">Precisa de entrar na sua conta para aceder a esta área.</div>' : ''}
       <h1>Entrar</h1><p>Use o seu email de estudante, professor ou administrador.</p>
@@ -1070,8 +1096,14 @@ function viewEntrar(needed) {
       <div class="field"><label>Email</label><input id="l-email" type="email" placeholder="voce@exemplo.ao" autocomplete="username"></div>
       <div class="field"><label>Palavra-passe</label><input id="l-senha" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-p btn-lg" style="width:100%;justify-content:center" onclick="doLogin()">Entrar ${I.arrow}</button>
+      <div class="demo-creds" style="margin-top:14px">
+        <b>Acesso rápido MVP (1 clique)</b>
+        <div class="flex wrap" style="gap:8px;margin-top:8px">
+          <button type="button" class="btn btn-o btn-sm" onclick="doQuickMvpLogin('INSTRUCTOR')">Docente Demo</button>
+          <button type="button" class="btn btn-o btn-sm" onclick="doQuickMvpLogin('STUDENT')">Estudante Demo</button>
+        </div>
+      </div>
       <p class="muted" style="text-align:center;font-size:14px;margin-top:16px">Ainda sem conta? <a href="#/registo" style="color:var(--green);font-weight:600">Criar conta grátis</a></p>
-      <div class="demo-creds"><b>Modo local</b><br>As contas são criadas neste navegador. Se ainda não existe nenhuma, <a href="#/registo">crie a primeira</a> — torna-se administradora da escola.</div>
     </div></div></div>`;
 }
 window.doLogin = async () => {
@@ -1079,17 +1111,40 @@ window.doLogin = async () => {
     S.user = user; notifLogin(); toast(`Bem-vindo, ${user.handle}!`); go('/' + homePath());
   } catch (e) { $('#login-err').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
 };
+window.doQuickMvpLogin = async (papel = 'STUDENT') => {
+  const isDoc = papel === 'INSTRUCTOR';
+  const email = isDoc ? 'docente.demo@ceu.ao' : 'estudante.demo@ceu.ao';
+  const nome = isDoc ? 'Prof.ª Ana Silva' : 'João Mateus';
+  const senha = isDoc ? 'ceu-docente-2026' : 'ceu-estudante-2026';
+  try {
+    try { await api('/api/auth/registo', { method: 'POST', body: { nome, email, senha } }); } catch { }
+    const { user } = await api('/api/auth/login', { method: 'POST', body: { email, senha } });
+    if (isDoc && user.papel === 'STUDENT') {
+      try {
+        const raw = JSON.parse(localStorage.getItem('ama-v1-db') || '{}');
+        const found = (raw.usuarios || []).find((u) => u.email === email);
+        if (found) { found.papel = 'INSTRUCTOR'; localStorage.setItem('ama-v1-db', JSON.stringify(raw)); user.papel = 'INSTRUCTOR'; }
+      } catch { }
+    }
+    if (window.Study && window.Study.MvpDB) {
+      window.Study.MvpDB.saveStudentCard({ id: `card-${user.id}`, nome: user.nome, universidade: 'Universidade de Luanda', curso: isDoc ? 'Docência & Engenharia' : 'Engenharia Informática' }).catch(() => {});
+    }
+    S.user = user; notifLogin(); toast(`Sessão MVP iniciada: ${user.nome}`); go('/' + homePath());
+  } catch (e) { $('#login-err').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+};
 on('/entrar', async () => { if (S.user) go('/' + homePath()); return viewEntrar(); });
 
 on('/registo', async () => { if (S.user) go('/' + homePath()); return `<div class="auth">
-  <div class="art angola-bg"><a class="brand" href="#/" title="AMA · Aristides Miguel Academy" aria-label="Ir para a página inicial"><span class="logo-chip">${LOGO}</span><div><b style="font-family:var(--font-d);font-size:19px;color:#fff">AMA</b><span class="brand-sub">ARISTIDES MIGUEL</span></div></a>
-    <div><h2 style="color:#fff;font-size:30px">Crie a sua conta.<br>O primeiro curso é ${mark('oferta')}.</h2>
-      <ul style="margin-top:20px;list-style:none;font-size:14.5px;color:#c3cbc4;display:flex;flex-direction:column;gap:10px">
-        <li>✓ Curso de Inteligência Emocional grátis 7 dias</li><li>✓ Acesso a aulas ao vivo semanais</li><li>✓ Kuzaya AI disponível 24/7</li><li>✓ Pague em Kz com MULTICAIXA Express</li></ul></div>
-    <span class="muted" style="color:#7d867f;font-size:12.5px">Sem cartão de crédito. Cancele quando quiser.</span></div>
+  <div class="art angola-bg">${brandArtMarkup()}
+    <div><h2 style="color:#fff;font-size:30px">Crie a sua conta.<br>${isCeuSite() ? 'Estude e crie slides com ' + mark('IA e 3D') + '.' : 'O primeiro curso é ' + mark('oferta') + '.'}</h2>
+      <ul style="margin-top:20px;list-style:none;font-size:14.5px;color:#d6e9ff;display:flex;flex-direction:column;gap:10px">
+        ${isCeuSite()
+          ? '<li>✓ Projetor PDF → Slides com IA e 3D</li><li>✓ Cursos universitários gratuitos</li><li>✓ Cartão digital de estudante CEU</li><li>✓ Progresso guardado na base de dados</li>'
+          : '<li>✓ Curso de Inteligência Emocional grátis 7 dias</li><li>✓ Acesso a aulas ao vivo semanais</li><li>✓ Kuzaya AI disponível 24/7</li><li>✓ Pague em Kz com MULTICAIXA Express</li>'}</ul></div>
+    <span class="muted" style="color:#b8d7f5;font-size:12.5px">Gratuito para começar. Dados seguros.</span></div>
   <div class="form">
-    <div class="auth-top-m"><a class="logo" href="#/"><span class="logo-chip">${LOGO}</span><span class="lw">AMA<b>ARISTIDES MIGUEL</b></span></a>
-      <a class="auth-back-m" href="#/">${I.arrow} Voltar ao início</a></div>
+    <div class="auth-top-m">${brandLogoMarkup()}
+      <a class="auth-back-m" href="${isCeuSite() ? '#/ceu-inicio' : '#/'}">${I.arrow} Voltar ao início</a></div>
     <div class="box"><h1>Criar conta</h1><p>Leva menos de um minuto. A primeira conta deste dispositivo torna-se administradora da escola; as seguintes entram como alunos.</p>
     <div id="reg-err"></div>
     <div class="field"><label>Nome completo</label><input id="r-nome" placeholder="Ex.: Maria dos Santos"></div>

@@ -123,30 +123,158 @@ function overlapScore(aText, bText) {
   return hits;
 }
 
-/* Reescreve uma frase densa de PDF num ponto claro e escaneável (estilo Ingenium). */
-function transformBullet(raw, fallbackTerm = '') {
-  let s = clean(raw, 220)
-    .replace(/^(por exemplo|ou seja|isto é|além disso|portanto|assim|em suma|note-se que|cabe referir que|importa salientar que)[,:\s]+/i, '')
-    .replace(/\s*\([^)]{36,}\)/g, '')
+/* Interpreta a descrição do utilizador (falada por áudio ou escrita) sobre como os slides e imagens devem sair. */
+export function parseCreativeBrief(rawText = '') {
+  const raw = clean(rawText, 480);
+  if (!raw) return { raw: '', imageQueries: [], visualStyle: 'auto', themeHint: '', levelHint: '', focusSummary: '' };
+  const lower = raw.toLowerCase();
+
+  // 1. Estilo visual pedido
+  let visualStyle = 'auto';
+  if (/\b(s[oó]\s*3d|mais\s*3d|modelos?\s*3d)\b/i.test(lower)) visualStyle = '3d';
+  else if (/\b(diagrama|esquema|gr[aá]fico|fluxograma|t[eé]cnico|vector)\b/i.test(lower)) visualStyle = 'diagrams';
+  else if (/\b(foto|fotografia|realista|reais|real|imagem real)\b/i.test(lower)) visualStyle = 'photos';
+
+  // 2. Tema pedido por voz/texto
+  let themeHint = '';
+  if (/\b(escuro|noite|dark|preto)\b/i.test(lower)) themeHint = 'dark';
+  else if (/\b(azul|ceu)\b/i.test(lower)) themeHint = 'ceu';
+  else if (/\b(claro|branco|papel|limpo)\b/i.test(lower)) themeHint = 'editorial';
+  else if (/\b(verde|pinho)\b/i.test(lower)) themeHint = 'pine';
+
+  // 3. Nível / tom de explicação
+  let levelHint = '';
+  if (/\b(simples|b[aá]sico|f[aá]cil|1\.?[ºo]\s*ano|iniciante|descomplicad)/i.test(lower)) levelHint = 'basico';
+  else if (/\b(avan[cç]ad|rigoroso|aprofundad|exame|universit[aá]rio\s+avan[cç]ado)/i.test(lower)) levelHint = 'avancado';
+
+  // 4. Extrair sujeitos visuais / pedidos de imagem explícitos
+  const imageQueries = [];
+  const seen = new Set();
+  const addQ = (q) => {
+    const s = clean(String(q || '').replace(/^(de|da|do|das|dos|um|uma|uns|umas|sobre|com)\s+/i, ''), 46);
+    if (!s || s.length < 3) return;
+    const k = s.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    imageQueries.push(s);
+  };
+
+  // Padrões explícitos: "imagens de X, Y e Z", "fotos de X", "mostrar X"
+  const pat = /(?:imagens?|fotos?|fotografias?|ilustra[cç][oõ]es?|diagramas?|esquemas?|mostrar|usar|com)\s+(?:de|da|do|das|dos|sobre)?\s*([^.;!\n]{3,90})/gi;
+  let m;
+  while ((m = pat.exec(raw))) {
+    const chunk = m[1].split(/\b(?:mas|por[eé]m|tom|estilo|tema|foco|sem|para|que)\b/i)[0] || '';
+    chunk.split(/,|\be\b|\bou\b/i).forEach((part) => {
+      const t = clean(part, 42);
+      if (t.length >= 3 && !/^(mais|menos|muito|pouco|texto|slides?|claro|escuro|simples)$/i.test(t)) addQ(t);
+    });
+  }
+
+  // Substantivos visuais conhecidos mencionados em qualquer parte do áudio/texto
+  const visualNouns = [
+    'foguetão', 'foguete', 'carro', 'automóvel', 'autocarro', 'floresta', 'maiombe', 'célula', 'cloroplasto',
+    'fotossíntese', 'luanda', 'angola', 'escritório', 'reunião', 'sala de aula', 'universidade', 'projetor',
+    'gráfico', 'kwanza', 'moeda', 'computador', 'código', 'python', 'árvore', 'algoritmo', 'circuito',
+    'onda', 'planeta', 'mapa', 'laboratório', 'engenharia', 'economia', 'hospital', 'energia',
+  ];
+  for (const noun of visualNouns) {
+    if (lower.includes(noun)) addQ(noun);
+  }
+
+  return {
+    raw,
+    imageQueries: imageQueries.slice(0, 6),
+    visualStyle,
+    themeHint,
+    levelHint,
+    focusSummary: clean(raw, 140),
+  };
+}
+
+/* Escolhe o modelo 3D mais coerente com a matéria / tipo de documento. */
+export function pickCoherent3DMode(subject = 'geral', docType = 'aula', text = '') {
+  const hay = `${subject} ${docType} ${text}`.toLowerCase();
+  if (docType === 'ata' || docType === 'regulamento') return 'meeting';
+  if (docType === 'relatorio') return 'finance';
+  if (docType === 'plano') return 'code';
+  if (/f[ií]sic|for[cç]a|newton|din[aâ]mic|in[eé]rcia|acelera|massa|energia|vect/.test(hay) || subject === 'fisica') return 'physics';
+  if (/juro|kwanza|finan[cç]|infla|or[cç]amento|invest|lucro|receita|economia/.test(hay) || subject === 'financas') return 'finance';
+  if (/python|algoritm|bin[aá]ri|c[oó]digo|dados|software|programa|complexidade|rede/.test(hay) || subject === 'programacao') return 'code';
+  if (/biolog|fotoss[ií]ntese|c[eé]lula|adn|dna|ecossistema|planta|maiombe|gen[eé]tic/.test(hay) || subject === 'biologia') return 'bio';
+  if (/fun[cç][aã]o|c[aá]lculo|derivada|onda|seno|cosseno|matem[aá]tic|[aá]lgebra/.test(hay) || subject === 'matematica') return 'wave';
+  if (/rota[cç][aã]o|orbita|sat[eé]lite|giro/.test(hay)) return 'gyro';
+  return 'core';
+}
+
+/* Gera um exemplo prático ou nuance de ensino adicional (expansão pedagógica). */
+function buildTeachingExpansion(slide, subject, docType) {
+  const title = clean(slide.title || 'este tema', 46);
+  const hay = `${title} ${(slide.bullets || []).join(' ')}`.toLowerCase();
+  if (docType && docType !== 'aula') {
+    if (docType === 'ata') return `Impacto prático: confirme dono, prazo e critério de conclusão antes de encerrar este ponto.`;
+    if (docType === 'relatorio') return `Leitura executiva: ligue cada número a uma acção concreta com impacto mensurável.`;
+    if (docType === 'regulamento') return `Na prática: destaque o que é obrigatório, o prazo limite e a excepção mais comum.`;
+    return `Aplicação: transforme esta secção num passo accionável que a equipa possa executar hoje.`;
+  }
+  if (subject === 'fisica' || /for[cç]a|newton|in[eé]rcia|acelera/.test(hay)) {
+    if (/in[eé]rcia|primeira/.test(hay)) return `Na prática (Angola): num autocarro em Luanda que trava de repente, o teu corpo avança por inércia até o cinto exercer força contrária.`;
+    if (/segunda|f\s*=\s*m|acelera/.test(hay)) return `Atenção docente: massa (kg) é constante; o que muda com a força resultante é a aceleração — nunca confundir massa com peso!`;
+    if (/terceira|ac[cç][aã]o|rea[cç][aã]o/.test(hay)) return `Erro comum a evitar: acção e reacção actuam em corpos diferentes, por isso nunca se cancelam no mesmo corpo.`;
+    return `Dica de resolução: desenhe sempre primeiro o diagrama de forças (peso, normal, atrito, tracção) antes de calcular.`;
+  }
+  if (subject === 'financas' || /juro|kwanza|infla|poupan/.test(hay)) {
+    if (/composto|capitaliz/.test(hay)) return `Exemplo em Kwanzas: começar 5 anos mais cedo multiplica o capital mais do que duplicar o depósito mensal no fim.`;
+    if (/infla/.test(hay)) return `Erro comum a evitar: olhar só para a taxa nominal sem descontar a inflação esconde perdas reais de poder de compra.`;
+    return `Regra prática: separe 20% do rendimento assim que recebe e garanta 3–6 meses de fundo de emergência líquido.`;
+  }
+  if (subject === 'programacao' || /algoritm|bin[aá]ri|python|dados/.test(hay)) {
+    if (/bin[aá]ri/.test(hay)) return `Pré-requisito crítico: a lista tem de estar ordenada — sem ordenação, a pesquisa binária falha silenciosamente!`;
+    return `Boas práticas: decomponha o problema em Entrada → Processo → Saída e teste com casos extremos (lista vazia ou 1 elemento).`;
+  }
+  if (subject === 'biologia' || /fotoss[ií]ntese|planta|maiombe|clorofila/.test(hay)) {
+    return `Ligação viva: sem a conversão solar nos cloroplastos, cadeias alimentares inteiras — como a Floresta do Maiombe — colapsam.`;
+  }
+  if (subject === 'matematica' || /fun[cç]|equa|derivad|l[ií]mite/.test(hay)) {
+    return `Intuição visual: traduza sempre a expressão simbólica num gráfico mental — onde cresce, onde zera e o que muda quando x dobra.`;
+  }
+  return `Aplicação docente: peça à turma para reformular «${title}» por palavras próprias e dar um exemplo do dia a dia.`;
+}
+
+/* Reescreve uma frase densa de PDF num ponto claro, adaptado para ensinar (nunca cópia crua). */
+function transformBullet(raw, fallbackTerm = '', roleIdx = 0) {
+  let s = clean(raw, 240)
+    .replace(/^(por exemplo|ou seja|isto é|além disso|portanto|assim|em suma|note-se que|cabe referir que|importa salientar que|de acordo com|segundo o texto)[,:\s]+/i, '')
+    .replace(/\s*\([^)]{32,}\)/g, '')
     .trim();
   if (!s) return '';
-  // Se já tem estrutura "Termo: explicação", manter e condensar
-  if (/^[^:]{3,36}:\s+\S/.test(s)) {
-    const [head, ...rest] = s.split(':');
-    return `${clean(head, 36)}: ${cleanPoint(rest.join(':'), 15)}`;
+  // Se já tem estrutura "Termo: explicação" ou "Termo → explicação", refinar e condensar
+  if (/^[^:→]{3,36}[:→]\s+\S/.test(s)) {
+    const sep = s.includes('→') ? '→' : ':';
+    const [head, ...rest] = s.split(sep);
+    return `${clean(head, 36)}${sep === '→' ? ' →' : ':'} ${cleanPoint(rest.join(sep), 16)}`;
   }
   // Detectar padrão de definição "X é/consiste em/representa Y"
-  const def = s.match(/^([A-ZÁÀÂÃÉÈÊÍÌÓÒÔÕÚÙÇ][^.,;:]{2,34}?)\s+(?:é|são|significa|consiste em|representa|determina|relaciona|permite)\s+(.+)$/i);
+  const def = s.match(/^([A-ZÁÀÂÃÉÈÊÍÌÓÒÔÕÚÙÇ][^.,;:]{2,34}?)\s+(?:é|são|significa|consiste em|representa|determina|relaciona|permite|define-se como)\s+(.+)$/i);
   if (def) {
-    return `${clean(def[1], 34)} → ${cleanPoint(def[2], 15)}`;
+    return `${clean(def[1], 34)} → ${cleanPoint(def[2], 16)}`;
+  }
+  // Detectar padrão causal "Quanto maior / Se / Quando ... , ..."
+  const causal = s.match(/^((?:quanto mais|quanto maior|quanto menor|se |quando |enquanto )[^,]{6,48}),\s*(.+)$/i);
+  if (causal) {
+    return `${clean(causal[1], 44)} → ${cleanPoint(causal[2], 14)}`;
   }
   const words = s.split(/\s+/);
-  if (words.length > 18) {
+  if (words.length > 17) {
     const firstClause = s.split(/[;—–]/)[0];
-    s = cleanPoint(firstClause.length >= 30 ? firstClause : s, 16);
+    s = cleanPoint(firstClause.length >= 28 ? firstClause : s, 16);
   }
-  if (fallbackTerm && !s.toLowerCase().includes(fallbackTerm.toLowerCase()) && words.length <= 12) {
-    return `${clean(fallbackTerm, 26)}: ${s.charAt(0).toLowerCase()}${s.slice(1)}`;
+  // Enquadrar com lente pedagógica clara para nunca parecer parágrafo colado
+  const lenses = ['Ideia-chave', 'Como funciona', 'Na prática', 'Ponto essencial'];
+  const prefix = fallbackTerm && !s.toLowerCase().includes(fallbackTerm.toLowerCase()) && words.length <= 12
+    ? clean(fallbackTerm, 26)
+    : lenses[roleIdx % lenses.length];
+  if (words.length >= 5) {
+    return `${prefix}: ${s.charAt(0).toLowerCase()}${s.slice(1)}`;
   }
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -317,6 +445,7 @@ export async function improvePlan(plan, meta = {}) {
     documentType: docType,
     presentationTone: docTone,
     coreMessage: String(meta.coreMessage || ''),
+    userCreativeDirection: String(meta.creativeBrief || ''),
     instruction: docType === 'ata'
       ? 'Este documento é uma ATA DE REUNIÃO. NÃO cries perguntas escolares: foca em explicar a mensagem central, destacar decisões aprovadas, responsáveis e prazos com linguagem executiva clara.'
       : (docType === 'relatorio'
@@ -428,28 +557,35 @@ export function applyImprovement(deck, result) {
 /*    Corre SEMPRE por defeito — garante slides novos, fundidos e       */
 /*    visuais estilo Ingenium 3.0 mesmo sem Chrome AI!                  */
 /* ------------------------------------------------------------------ */
-export function synthesizeAndFuseDeck(deck, web = null) {
+export function synthesizeAndFuseDeck(deck, web = null, brief = null) {
   if (!deck || !Array.isArray(deck.slides)) return deck;
   const items = Array.isArray(web?.items) ? web.items : [];
   const images = Array.isArray(web?.images) ? web.images : [];
   const videos = Array.isArray(web?.videos) ? web.videos : [];
   const searchVideos = Array.isArray(web?.searchVideos) ? web.searchVideos : [];
   const places = Array.isArray(web?.places) ? web.places : [];
+  const parsedBrief = brief && typeof brief === 'object' ? brief : (typeof brief === 'string' ? parseCreativeBrief(brief) : null);
 
   const usedImgUrls = new Set();
   const usedWebTitles = new Set();
 
-  // Escolhe a melhor imagem da web para um slide (sem repetir).
+  // Escolhe apenas imagens GENUINAMENTE COERENTES com o slide (ou pedidas explicitamente na descrição por áudio/texto).
   const pickWebImage = (slideText, preferDiagram = false) => {
     if (!images.length) return null;
+    if (parsedBrief && parsedBrief.visualStyle === '3d') return null;
+    const wantDiag = preferDiagram || (parsedBrief && parsedBrief.visualStyle === 'diagrams');
     const scored = images
       .filter((img) => img && img.url && !usedImgUrls.has(img.url))
-      .map((img) => ({
-        img,
-        score: overlapScore(slideText, `${img.term || ''} ${img.title || ''} ${img.alt || ''}`) + (preferDiagram && img.isDiagram ? 2 : 0),
-      }))
-      .sort((a, b) => b.score - a.score);
-    const chosen = scored[0]?.img || images.find((img) => img && img.url && !usedImgUrls.has(img.url)) || null;
+      .map((img) => {
+        const imgHay = `${img.tag || ''} ${img.term || ''} ${img.title || ''} ${img.alt || ''}`;
+        const rel = overlapScore(slideText, imgHay);
+        const briefBonus = img.fromBrief ? 4 : 0;
+        const diagBonus = wantDiag && img.isDiagram ? 2 : (parsedBrief && parsedBrief.visualStyle === 'photos' && !img.isDiagram ? 2 : 0);
+        return { img, rel, total: rel + briefBonus + diagBonus };
+      })
+      .filter((x) => x.rel >= 2 || x.img.fromBrief)
+      .sort((a, b) => b.total - a.total);
+    const chosen = scored[0]?.img || null;
     if (chosen) usedImgUrls.add(chosen.url);
     return chosen;
   };
@@ -504,11 +640,22 @@ export function synthesizeAndFuseDeck(deck, web = null) {
       return;
     }
 
-    // Transformar os bullets para não ficarem texto cru do PDF
+    // Transformar os bullets para não ficarem texto cru do PDF — reorganizar + expandir para ensino!
     if (Array.isArray(slide.bullets) && slide.bullets.length && !slide.aiRewritten) {
       const term = (slide.chips && slide.chips[0]) || slide.term || '';
-      slide.bullets = slide.bullets.map((b, bi) => transformBullet(b, bi === 0 ? term : '')).filter(Boolean);
+      slide.bullets = slide.bullets.map((b, bi) => transformBullet(b, bi === 0 ? term : '', bi)).filter(Boolean);
+      // Adicionar expansão pedagógica (exemplo prático / erro comum a evitar) se o slide tiver espaço
+      if (slide.bullets.length < 4 && !slide.pedagogicalExpanded) {
+        const extra = buildTeachingExpansion(slide, deck.subject, deck.docType || 'aula');
+        if (extra && !slide.bullets.some((b) => overlapScore(b, extra) >= 7)) {
+          slide.bullets.push(extra);
+          slide.pedagogicalExpanded = true;
+        }
+      }
     }
+
+    // Coerência 3D por slide: guarda o modo 3D ideal caso este slide não tenha foto da web
+    slide.mode3d = slide.mode3d || pickCoherent3DMode(deck.subject, deck.docType || 'aula', `${deck.title} ${slideHay}`);
 
     // Fundir conhecimento da Wikipédia directamente no slide!
     const matchedWeb = pickWebItem(slideHay);
@@ -527,7 +674,7 @@ export function synthesizeAndFuseDeck(deck, web = null) {
         };
         // Fundir também um ponto enriquecido nos bullets se o slide tiver espaço (< 4 bullets)
         if (Array.isArray(slide.bullets) && slide.bullets.length < 4 && extraFact.length >= 28) {
-          const synthBullet = transformBullet(extraFact, matchedWeb.title);
+          const synthBullet = transformBullet(extraFact, matchedWeb.title, slide.bullets.length);
           if (synthBullet && !slide.bullets.some((b) => overlapScore(b, synthBullet) >= 4)) {
             slide.bullets.push(synthBullet);
           }
@@ -546,16 +693,23 @@ export function synthesizeAndFuseDeck(deck, web = null) {
       slide.sources = [{ label: slide.page ? `PDF p.${slide.page}` : 'Ficheiro', kind: 'pdf' }];
     }
 
-    // Embutir imagem real da web (Wikimedia Commons / Wikipédia) em slides visuais
-    const wantsPhoto = ['concept', 'split', 'bullets', 'quote', 'comparison'].includes(slide.layout);
+    // Embutir imagem COERENTE da web (Wikimedia Commons / pedido do docente) em layouts visuais!
+    const wantsPhoto = ['concept', 'split', 'bullets', 'quote', 'comparison', 'timeline', 'animated-flow'].includes(slide.layout);
     const hasGenericLocalArt = !slide.visual || /^media\/nucleo-/.test(String(slide.visual));
-    if (wantsPhoto && (hasGenericLocalArt || !slide.visualCredit)) {
-      const img = pickWebImage(slideHay, slide.layout === 'concept' || slide.layout === 'formula');
+    const briefWantsOverride = Boolean(parsedBrief && parsedBrief.imageQueries && parsedBrief.imageQueries.length);
+    if (wantsPhoto && (hasGenericLocalArt || !slide.visualCredit || briefWantsOverride)) {
+      const img = pickWebImage(`${slideHay} ${(parsedBrief && parsedBrief.focusSummary) || ''}`, slide.layout === 'concept' || slide.layout === 'formula');
       if (img) {
         slide.visual = img.url;
         slide.visualAlt = img.alt || slide.title;
-        slide.visualCredit = { text: img.credit || 'Wikimedia Commons', url: img.page || '' };
+        slide.visualCredit = {
+          text: img.fromBrief ? `Pedido visual · ${img.tag || img.title || 'Wikimedia'}` : (img.credit || 'Wikimedia Commons'),
+          url: img.page || '',
+        };
         imagesEmbedded += 1;
+      } else if (hasGenericLocalArt) {
+        // Sem foto coerente: deixar vazio para ativar o modelo 3D coerente ao tema!
+        slide.visual = '';
       }
     }
 
@@ -593,30 +747,23 @@ export function synthesizeAndFuseDeck(deck, web = null) {
       pushNode(`Conceito ${nodes.length + 1}`, `Elemento estrutural de ${deck.title}.`);
     }
 
-    const modeMap = {
-      fisica: 'gyro',
-      matematica: 'wave',
-      financas: 'finance',
-      programacao: 'core',
-      biologia: 'core',
-      historia: 'core',
-    };
+    const coherentMode = pickCoherent3DMode(deck.subject, deck.docType || 'aula', `${deck.title} ${kws.join(' ')}`);
     const insertAt = Math.min(deck.slides.length - 1, Math.max(3, Math.ceil(deck.slides.length * 0.45)));
     deck.slides.splice(insertAt, 0, {
       id: 's-3d-lab',
       layout: 'scene-3d',
       scene3d: true,
-      mode3d: modeMap[deck.subject] || 'core',
-      kicker: 'Laboratório 3D Interactivo · Ingenium Visual',
-      title: `Explorar em 3D: ${clean(deck.title, 48)}`,
-      subtitle: 'Arraste o modelo 3D para rodar, clique nos nós orbitais para ver a explicação fundida (PDF + Web) ou use «Explodir camadas».',
+      mode3d: coherentMode,
+      kicker: 'Modelo 3D Interactivo',
+      title: `Visualizar em 3D: ${clean(deck.title, 48)}`,
+      subtitle: 'Arraste para rodar o modelo 3D coerente com o tema e clique nos conceitos orbitais.',
       nodes3d: nodes.slice(0, 6),
       handnote: 'Arrasta para rodar 3D ↻',
       strategy: 'practice',
       durationMin: 4,
       page: null,
       notes: `Use este modelo 3D interactivo para visualizar como os ${nodes.slice(0, 6).length} conceitos principais de «${deck.title}» se ligam entre si. Rode o modelo em sala, clique em cada nó orbital e peça à turma que explique a ligação antes de avançar.`,
-      sources: [{ label: 'Síntese 3D · PDF + Web', kind: 'ai' }],
+      sources: [{ label: 'Modelo 3D · PDF + Web', kind: 'ai' }],
     });
   }
 

@@ -93,67 +93,48 @@
       .filter((c) => [101, 102, 103, 104].includes(c.id))
       .slice(0, 4);
     const features = [
-      { ic: 'ID', t: 'Cartão de estudante', d: 'O seu cartão digital, sempre à mão, ligado às turmas e aos cursos da CEU Academy.', href: '#/meus-bilhetes', cta: 'Ver cartão' },
-      { ic: '▦', t: 'Turmas e aulas', d: 'Entre na sua turma, acompanhe os materiais e participe nas aulas ao vivo.', href: '#/turmas', cta: 'Abrir turmas' },
-      { ic: '▤', t: 'Cursos universitários', d: 'Matemática, Física e estudo, organizados do básico ao avançado.', href: '#/catalogo', cta: 'Ver catálogo' },
-      { ic: '✦', t: 'PDF → Slides com IA', d: 'Transforme apontamentos em slides claros, com notas, imagens e fontes verificadas.', href: '#/projetor', cta: 'Criar aula' },
+      { ic: '✦', t: 'PDF → Slides com IA', d: 'Carregue um PDF, Ata ou sebenta: a IA reorganiza para ensinar, junta imagens da web e modelos 3D.', href: '#/projetor', cta: 'Abrir projetor' },
+      { ic: '▤', t: 'Cursos universitários', d: 'Matemática, Física, Tecnologia e Técnicas de Estudo com aulas curtas e progresso guardado.', href: '#/catalogo', cta: 'Explorar cursos' },
+      { ic: 'ID', t: 'Cartão de estudante', d: 'Personalize e guarde o seu Cartão CEU digital na base de dados, com acesso às suas apresentações.', href: '#/cartao-ceu', cta: 'Abrir cartão' },
+      { ic: '▦', t: 'Turmas & Prática', d: 'Acompanhe materiais de turma, aulas ao vivo e questionários interativos.', href: '#/turmas', cta: 'Abrir turmas' },
     ];
     const inner = `<section class="ceu-landing">
       <div class="ceu-hero">
         <div class="ceu-hero-copy">
-          <span class="eyebrow-t">CEU ACADEMY · +10.000 ESTUDANTES UNIVERSITÁRIOS</span>
-          <h1>Cursos universitários,<br><em>claros, visuais e 3D.</em></h1>
-          <p>Matemática, Física, Tecnologia e técnicas de estudo ligados ao ecossistema do <b>Cartão Nacional de Estudante Universitário (ceu.ao)</b>. Transforme qualquer PDF em slides 16:9 com IA, imagens da web, YouTube e modelos 3D interactivos.</p>
+          <span class="eyebrow-t">CEU ACADEMY · +10.000 ESTUDANTES EM ANGOLA</span>
+          <h1>Estude com clareza.<br><em>Ensine com IA e 3D.</em></h1>
+          <p>A plataforma académica ligada ao <b>Cartão Nacional de Estudante Universitário (ceu.ao)</b>: cursos universitários gratuitos e um projetor inteligente que transforma qualquer PDF em slides visuais.</p>
           <div class="ceu-cta">
-            <a class="btn btn-p" href="#/projetor">Criar slides com PDF + IA</a>
+            <a class="btn btn-p" href="#/projetor">✦ Criar slides com PDF</a>
             <a class="btn btn-o" href="#/catalogo">Ver cursos</a>
-            <a class="btn btn-o" href="https://ceu.ao/register" target="_blank" rel="noopener noreferrer">Pedir Cartão CEU ↗</a>
           </div>
-          <div class="ceu-hero-facts"><span><b>MESCTI</b> Reconhecido</span><span><b>BCI</b> Cartão CEU</span><span><b>IA + 3D</b> PDF → Slides</span></div>
+          <div class="ceu-hero-facts"><span><b>MESCTI</b> Reconhecido</span><span><b>BCI</b> Cartão CEU</span><span><b>IA + 3D</b> Automático</span></div>
         </div>
         <aside class="ceu-hero-card" aria-label="Cartão de estudante CEU Academy">
-          <img src="assets/ceu-logo.png?v=1" alt="Logótipo CEU" class="ceu-hero-logo">
-          <span class="ceu-card-kicker">CARTÃO DE ESTUDANTE UNIVERSITÁRIO · CEU.AO</span>
-          <b>Núcleo CEU · Academy</b>
-          <small>Comunidade Académica · Angola</small>
+          <div class="ceu-card-top">
+            <img src="assets/ceu-logo.png?v=1" alt="Logótipo CEU" class="ceu-hero-logo">
+            <div>
+              <span class="ceu-card-kicker">CARTÃO UNIVERSITÁRIO · CEU.AO</span>
+              <b>Núcleo CEU · Academy</b>
+            </div>
+          </div>
           <div class="ceu-card-line"></div>
-          <span class="ceu-card-note">A IA funde o seu PDF com Wikipédia, imagens Wikimedia, YouTube e 3D interactivo para ensinar com clareza visual.</span>
-          <small style="margin-top:6px;opacity:.85;font:700 9.5px var(--font-m,monospace);letter-spacing:.08em">APP FEITO PELA HORIZONTE FUTURO</small>
+          <span class="ceu-card-note">Base de dados local + nuvem para guardar apresentações, progresso de cursos e cartão digital em qualquer dispositivo.</span>
+          <div class="ceu-card-foot">
+            <a href="https://ceu.ao/register" target="_blank" rel="noopener noreferrer">Pedir Cartão CEU ↗</a>
+            <small>APP FEITO PELA HORIZONTE FUTURO</small>
+          </div>
         </aside>
       </div>
 
       <div class="ceu-partners" aria-label="Instituições universitárias em Angola">
-        <small>COMUNIDADE CEU EM ANGOLA</small>
+        <small>COMUNIDADE CEU</small>
         <span>ISPTEC</span><span>UCAN</span><span>Universidade de Luanda</span><span>UMA</span><span>IMETRO</span><span>INSUTEC</span><span>Unibelas</span><span>UGS</span>
       </div>
 
-      <div class="ceu-quickbar" aria-label="Ações rápidas">
-        <a href="#/app"><span>▤</span><b>Abrir Webapp</b><small>Projetor, slides e estudo</small></a>
-        <a href="#/projetor"><span>✦</span><b>PDF → Slides</b><small>Organizado com IA, com fontes</small></a>
-        <a href="#/meus-bilhetes"><span>ID</span><b>Cartão de estudante</b><small>Digital, sempre à mão</small></a>
-        <button type="button" id="ceu-install" ${typeof installEvent !== 'undefined' && installEvent ? '' : 'hidden'} onclick="CEUHome.install()"><span>↓</span><b>Instalar app</b><small>Website + webapp no telemóvel</small></button>
-      </div>
-
-      <div class="ceu-how">
-        <span class="eyebrow-t">COMO FUNCIONA · 3 PASSOS</span>
-        <div class="ceu-how-grid">
-          <div><b>1. Escolha</b><p>Carregue um PDF, uma imagem ou cole o texto da aula.</p></div>
-          <div><b>2. A IA organiza</b><p>Lê, limpa o ruído, condensa as ideias e acrescenta fontes da web com origem.</p></div>
-          <div><b>3. Apresente</b><p>Projecte slides 16:9 com notas, mapas, perguntas e imagens.</p></div>
-        </div>
-      </div>
-
       <div class="ceu-section-head">
-        <span class="eyebrow-t">COMECE PELOS CURSOS INICIAIS</span>
-        <h2>Estudo, Matemática e Física</h2>
-        <p>Escolha um curso para começar hoje. Todos gratuitos nesta versão, com aulas curtas e exercícios práticos.</p>
-      </div>
-      <div class="ceu-courses">${cursos.map(courseCard).join('')}</div>
-      <div class="ceu-all-courses"><a class="btn btn-o" href="#/catalogo">Ver todos os cursos →</a></div>
-
-      <div class="ceu-section-head">
-        <span class="eyebrow-t">A SUA SALA DIGITAL</span>
-        <h2>Tudo o que precisa para estudar</h2>
+        <span class="eyebrow-t">SALA DIGITAL INTEGRADA</span>
+        <h2>Tudo num só espaço académico</h2>
       </div>
       <div class="ceu-features">
         ${features.map((f) => `<a class="ceu-feature" href="${f.href}">
@@ -161,23 +142,135 @@
         </a>`).join('')}
       </div>
 
+      <div class="ceu-section-head">
+        <span class="eyebrow-t">CURSOS UNIVERSITÁRIOS</span>
+        <h2>Matemática, Física e Técnicas de Estudo</h2>
+        <p>Aulas práticas com progresso guardado na base de dados e certificado digital no fim.</p>
+      </div>
+      <div class="ceu-courses">${cursos.map(courseCard).join('')}</div>
+      <div class="ceu-all-courses"><a class="btn btn-o" href="#/catalogo">Ver catálogo completo →</a></div>
+
       <div class="ceu-band">
-        <div><span class="eyebrow-t">UMA ACADEMIA, UM ESPAÇO DIGITAL</span>
-          <h2>Do ficheiro à sala de aula, sem perder o fio.</h2>
-          <p>O conteúdo do seu curso continua a ser a verdade: a IA só organiza, condensa e acrescenta fontes verificáveis.</p></div>
-        <a class="btn btn-o" href="https://ceu.ao/" target="_blank" rel="noopener noreferrer">Visitar ceu.ao ↗</a>
+        <div>
+          <span class="eyebrow-t">ECOSSISTEMA CEU · ANGOLA</span>
+          <h2>Do PDF à sala de aula em segundos.</h2>
+          <p>Carregue qualquer ficheiro ou ata: a IA organiza, adapta para ensinar, ilustra com imagens e 3D coerente e projeta com ponteiro laser automático.</p>
+        </div>
+        <div class="flex wrap" style="gap:10px">
+          <a class="btn btn-p" href="#/projetor">Abrir Projetor →</a>
+          <a class="btn btn-o" href="https://ceu.ao/" target="_blank" rel="noopener noreferrer">Visitar ceu.ao ↗</a>
+        </div>
       </div>
       <div class="ceu-mobile-bar" aria-label="Navegação rápida">
         <a href="#/ceu-inicio" class="active">Início</a>
         <a href="#/catalogo">Cursos</a>
-        <a href="#/app" class="primary">Criar aula</a>
-        <a href="#/meus-bilhetes">Cartão</a>
+        <a href="#/projetor" class="primary">Projetor</a>
+        <a href="#/cartao-ceu">Cartão</a>
       </div>
     </section>`;
-    return typeof shellPublic === 'function' ? shellPublic(inner, 'universidade') : inner;
+    return typeof shellPublic === 'function' ? shellPublic(inner, 'inicio') : inner;
+  }
+
+  const CARD_KEY = 'ceu-student-card-v1';
+  function loadLocalCard() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CARD_KEY) || 'null');
+      if (saved && saved.nome) return saved;
+    } catch { }
+    const u = window.S && window.S.user;
+    return {
+      id: 'card-primary',
+      nome: (u && u.nome) || 'Estudante Universitário CEU',
+      universidade: 'Universidade de Luanda',
+      curso: 'Engenharia Informática',
+      ano: '2.º Ano',
+      numero: 'CEU-2026-0412',
+    };
+  }
+
+  function ceuCardView() {
+    const card = loadLocalCard();
+    let decks = [];
+    try { decks = JSON.parse(localStorage.getItem('ama-projector-v1') || '[]'); } catch { decks = []; }
+    const unis = ['ISPTEC', 'UCAN', 'Universidade de Luanda', 'UMA', 'IMETRO', 'INSUTEC', 'Unibelas', 'UGS', 'Universidade Agostinho Neto'];
+    const inner = `<section class="ceu-landing" style="padding-top:24px">
+      <div class="page-h" style="margin-bottom:20px">
+        <div>
+          <span class="eyebrow-t">CARTÃO DIGITAL · BASE DE DADOS MVP</span>
+          <h1 style="margin-top:6px">Cartão CEU &amp; Minhas Apresentações</h1>
+          <p class="muted">Os seus dados de estudante e apresentações PDF → Slides ficam guardados em IndexedDB e sincronizados com o servidor MVP.</p>
+        </div>
+        <div class="flex wrap" style="gap:8px">
+          <a class="btn btn-p btn-sm" href="#/projetor">✦ Novo slide PDF</a>
+          <button type="button" class="btn btn-o btn-sm" onclick="if(window.AMAProjector)AMAProjector.exportBackup()">↓ Backup BD (.json)</button>
+        </div>
+      </div>
+
+      <div class="ceu-card-studio">
+        <div class="ceu-id-card" aria-label="Pré-visualização do Cartão CEU">
+          <div class="ceu-id-head">
+            <img src="assets/ceu-logo.png?v=1" alt="CEU" class="ceu-hero-logo">
+            <div>
+              <span class="ceu-card-kicker">CARTÃO NACIONAL DE ESTUDANTE · CEU.AO</span>
+              <b>CEU Academy</b>
+            </div>
+            <span class="ceu-id-status">ACTIVO</span>
+          </div>
+          <div class="ceu-id-body">
+            <h2 id="ceu-id-name">${esc(card.nome)}</h2>
+            <p id="ceu-id-uni">${esc(card.universidade)} · ${esc(card.curso)}</p>
+            <div class="ceu-id-meta">
+              <div><small>NÚMERO</small><b id="ceu-id-num">${esc(card.numero)}</b></div>
+              <div><small>ANO</small><b id="ceu-id-ano">${esc(card.ano)}</b></div>
+              <div><small>VALIDADE</small><b>2026 / 2027</b></div>
+            </div>
+          </div>
+          <div class="ceu-id-foot">
+            <span>APP FEITO PELA HORIZONTE FUTURO</span>
+            <a href="https://ceu.ao/register" target="_blank" rel="noopener noreferrer">Validar em ceu.ao ↗</a>
+          </div>
+        </div>
+
+        <form class="card ceu-id-form" onsubmit="event.preventDefault();CEUHome.saveCard()">
+          <h3 style="margin:0 0 12px">Personalizar e guardar na Base de Dados</h3>
+          <div class="field"><label for="cc-nome">Nome completo</label><input id="cc-nome" required value="${esc(card.nome)}"></div>
+          <div class="field"><label for="cc-uni">Universidade</label>
+            <select id="cc-uni">${unis.map((u) => `<option value="${esc(u)}" ${card.universidade === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select>
+          </div>
+          <div class="st-grid-in">
+            <div class="field"><label for="cc-curso">Curso</label><input id="cc-curso" value="${esc(card.curso)}"></div>
+            <div class="field"><label for="cc-ano">Ano</label><input id="cc-ano" value="${esc(card.ano)}"></div>
+          </div>
+          <div class="field"><label for="cc-num">Número de estudante</label><input id="cc-num" value="${esc(card.numero)}"></div>
+          <button type="submit" class="btn btn-p" style="width:100%;justify-content:center">Guardar Cartão na Base de Dados</button>
+        </form>
+      </div>
+
+      <div class="ceu-section-head" style="margin-top:38px">
+        <span class="eyebrow-t">BASE DE DADOS LOCAL + API</span>
+        <h2>Apresentações guardadas (${decks.length})</h2>
+      </div>
+      ${decks.length ? `<div class="ceu-features">
+        ${decks.slice(0, 8).map((dk) => `<a class="ceu-feature" href="#/projetor" onclick="setTimeout(()=>{if(window.AMAProjector)AMAProjector.openSaved('${esc(dk.id)}')},60)">
+          <span class="ceu-feature-ic">${esc((dk.docTypeMeta && dk.docTypeMeta.icon) || '✦')}</span>
+          <b>${esc(dk.title)}</b>
+          <p>${dk.stats?.slides || (dk.slides || []).length} slides · ${esc(dk.sourceName || 'CEU Academy')}</p>
+          <span class="ceu-feature-cta">Abrir no Projetor →</span>
+        </a>`).join('')}
+      </div>` : `<div class="card" style="padding:22px"><p class="muted" style="margin:0">Ainda não guardou nenhuma apresentação. <a href="#/projetor" style="color:#0066b8;font-weight:700">Crie a primeira com PDF + IA →</a></p></div>`}
+
+      <div class="ceu-mobile-bar" aria-label="Navegação rápida">
+        <a href="#/ceu-inicio">Início</a>
+        <a href="#/catalogo">Cursos</a>
+        <a href="#/projetor" class="primary">Projetor</a>
+        <a href="#/cartao-ceu" class="active">Cartão</a>
+      </div>
+    </section>`;
+    return typeof shellPublic === 'function' ? shellPublic(inner, 'cartao') : inner;
   }
 
   on('/ceu-inicio', ceuHomeView);
+  on('/cartao-ceu', ceuCardView);
   on('/app', () => {
     if (location.hash !== '#/projetor') location.hash = '#/projetor';
     return '<div class="spinner"></div>';
@@ -193,7 +286,24 @@
   });
   window.CEUHome = {
     view: ceuHomeView,
+    cardView: ceuCardView,
     courses: CEU_COURSES,
+    saveCard() {
+      const card = {
+        id: 'card-primary',
+        nome: String((document.getElementById('cc-nome') || {}).value || '').trim() || 'Estudante CEU',
+        universidade: String((document.getElementById('cc-uni') || {}).value || 'Universidade de Luanda'),
+        curso: String((document.getElementById('cc-curso') || {}).value || 'Engenharia Informática').trim(),
+        ano: String((document.getElementById('cc-ano') || {}).value || '2.º Ano').trim(),
+        numero: String((document.getElementById('cc-num') || {}).value || 'CEU-2026-0412').trim(),
+      };
+      try { localStorage.setItem(CARD_KEY, JSON.stringify(card)); } catch { }
+      if (window.Study && window.Study.MvpDB && typeof window.Study.MvpDB.saveStudentCard === 'function') {
+        window.Study.MvpDB.saveStudentCard(card).catch(() => {});
+      }
+      if (typeof toast === 'function') toast('Cartão CEU guardado na base de dados!');
+      if (typeof render === 'function') render();
+    },
     install() {
       if (!installEvent) return;
       installEvent.prompt();

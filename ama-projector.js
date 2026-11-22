@@ -117,6 +117,7 @@
 
   let active3DCtrl = null;
   let classTimerId = null;
+  let activeSpeechRec = null;
   function destroyActive3D() {
     if (active3DCtrl && typeof active3DCtrl.destroy === 'function') {
       try { active3DCtrl.destroy(); } catch { }
@@ -133,8 +134,9 @@
     slideScale: 100, // 85..125
     timerSec: 60,
     timerRunning: false,
-    showNotes: true,
+    showNotes: false,
     showPlan: false,
+    moreOpen: false,
     fullscreen: false,
     readTheme: 'paper', // 'paper' | 'sepia' | 'night'
     readScale: 100, // 85..135
@@ -160,7 +162,7 @@
     selected3DNode: 0,
     explode3D: 0,
     activeFormulaVar: 0,
-    laserOn: false,
+    laserOn: true, // Automático: ponteiro laser suave ao passar o rato sobre o slide
     drawOn: false,
     drawColor: '#ff6b57',
     drawings: {}, // slideId -> Array<{ color, points: Array<[nx, ny]> }>
@@ -170,6 +172,9 @@
     editingSlide: false,
     level: 'auto', // auto | basico | intermediario | avancado
     source: null,  // parâmetros originais, para reconstruir ao mudar o nível
+    brief: '', // Descrição por áudio ou texto de como os slides e imagens devem sair
+    voiceListening: false,
+    voiceTarget: 'brief',
   };
 
   function getSlideRevealTotal(slide) {
@@ -192,10 +197,14 @@
         el.classList.toggle('pj-rev-focus', P.revealMode && idx === P.revealStep - 1);
       });
 
-      // 2. Laser pointer tracking
+      // 2. Ponteiro laser automático (activo por omissão ao sobrevoar o slide, desliga ao desenhar ou em 3D)
       const laserDot = slideEl.querySelector('.pj-laser-dot');
-      if (laserDot && P.laserOn) {
+      if (laserDot && P.laserOn && !P.drawOn && slide.layout !== 'scene-3d') {
         slideEl.onpointermove = (ev) => {
+          if (ev.target && ev.target.closest && ev.target.closest('button, a, input, select, iframe, canvas.pj-mini-3d-canvas')) {
+            laserDot.style.opacity = '0';
+            return;
+          }
           const rect = slideEl.getBoundingClientRect();
           const x = ev.clientX - rect.left;
           const y = ev.clientY - rect.top;
@@ -332,14 +341,27 @@
         deck.brand = 'Núcleo CEU';
         deck.credit = 'APP FEITO PELA HORIZONTE FUTURO';
       }
-      // Para Atas/Regulamentos, preservar a estrutura executiva sem injetar 3D académico fora do contexto
-      if (deck.docType === 'aula' && window.Study && window.Study.AI && typeof window.Study.AI.synthesizeAndFuseDeck === 'function') {
-        try { window.Study.AI.synthesizeAndFuseDeck(deck, deck.web || null); } catch { }
+      // Síntese pedagógica automática + 3D coerente (para aulas transforma & expande; para atas/normas define 3D executivo)
+      if (window.Study && window.Study.AI) {
+        try {
+          if (deck.docType === 'aula' && typeof window.Study.AI.synthesizeAndFuseDeck === 'function') {
+            window.Study.AI.synthesizeAndFuseDeck(deck, deck.web || null);
+          } else if (typeof window.Study.AI.pickCoherent3DMode === 'function') {
+            const m3d = window.Study.AI.pickCoherent3DMode(deck.subject, deck.docType, deck.title);
+            (deck.slides || []).forEach((s) => { s.mode3d = s.mode3d || m3d; });
+          }
+        } catch { }
       }
+      // Auto-otimização silenciosa para qualidade 100/100 (sem precisar de botão extra)
       if (window.Study && window.Study.Quality) {
         try {
-          if (deck.docType === 'aula') window.Study.Quality.improveDeck(deck);
-          if (typeof window.Study.Quality.evaluateRubric === 'function') {
+          if (deck.docType === 'aula') {
+            if (typeof window.Study.Quality.optimizeTo100 === 'function') {
+              window.Study.Quality.optimizeTo100(deck, { enforceCeuBrand: document.documentElement.dataset.brand === 'ceu' });
+            } else {
+              window.Study.Quality.improveDeck(deck);
+            }
+          } else if (typeof window.Study.Quality.evaluateRubric === 'function') {
             const rb = window.Study.Quality.evaluateRubric(deck, { enforceCeuBrand: document.documentElement.dataset.brand === 'ceu' });
             deck.rubricScore = rb.qualityScore;
             deck.rubric = rb.rubric;
@@ -363,12 +385,22 @@
       list.unshift(deck);
       localStorage.setItem(DECKS_KEY, JSON.stringify(list.slice(0, 12)));
     } catch { }
+    try {
+      if (window.Study && window.Study.MvpDB && typeof window.Study.MvpDB.saveDeckRecord === 'function') {
+        window.Study.MvpDB.saveDeckRecord(deck).catch(() => {});
+      }
+    } catch { }
   }
 
   function deleteSavedDeck(id) {
     try {
       const list = loadDecks().filter((d) => d.id !== id);
       localStorage.setItem(DECKS_KEY, JSON.stringify(list));
+    } catch { }
+    try {
+      if (window.Study && window.Study.MvpDB && typeof window.Study.MvpDB.deleteDeckRecord === 'function') {
+        window.Study.MvpDB.deleteDeckRecord(id).catch(() => {});
+      }
     } catch { }
   }
 
@@ -384,15 +416,22 @@
 
   async function enrichDeckWithWeb(deck, force = false) {
     const web = (window.Study && window.Study.SlideStudioWeb) || null;
+    const ai = (window.Study && window.Study.AI) || null;
     if (!deck || !web || typeof web.enrichFromWeb !== 'function') return null;
-    if (!force && deck.docType === 'ata') {
-      P.webStatus = 'Ata de Reunião analisada localmente: decisões, responsáveis e prazos preservados sem ruído externo.';
+    const parsedBrief = (ai && typeof ai.parseCreativeBrief === 'function' && P.brief)
+      ? ai.parseCreativeBrief(P.brief)
+      : null;
+    if (parsedBrief && parsedBrief.themeHint) P.theme = parsedBrief.themeHint;
+    if (!force && deck.docType === 'ata' && !(parsedBrief && parsedBrief.imageQueries && parsedBrief.imageQueries.length)) {
+      P.webStatus = 'Ata analisada localmente · decisões, responsáveis e prazos preservados.';
       if (P.deck && P.deck.id === deck.id) render();
       return null;
     }
     if (!force && deck.web && deck.web.items && deck.web.items.length) return deck.web;
     P.webBusy = true;
-    P.webStatus = 'A pesquisar Wikipédia, imagens Wikimedia Commons e vídeos YouTube para fundir nos slides…';
+    P.webStatus = parsedBrief && parsedBrief.imageQueries.length
+      ? `A procurar imagens coerentes (${parsedBrief.imageQueries.slice(0, 3).join(', ')}) e contexto web…`
+      : 'A pesquisar imagens coerentes, Wikipédia e vídeos para fundir nos slides…';
     render();
     let res = null;
     try {
@@ -406,14 +445,15 @@
         sourceText: fullText,
         sections: (deck.reading && deck.reading.sections) || [],
         links,
-        maxItems: 6,
+        brief: parsedBrief,
+        maxItems: 8,
       });
     } catch {
       res = null;
     }
     P.webBusy = false;
     if (!res || !res.ok) {
-      P.webStatus = 'Sem ligação: aula sintetizada localmente com diagramas visuais e laboratório 3D.';
+      P.webStatus = 'Sem ligação: aula sintetizada localmente com modelos 3D coerentes.';
       if (P.deck && P.deck.id === deck.id) render();
       return null;
     }
@@ -426,29 +466,27 @@
       note: res.note || '',
       checkedAt: new Date().toISOString(),
     };
-    // FUNDIR directamente em TODOS os slides (texto + imagens + vídeos + mapas + 3D)
-    const ai = window.Study && window.Study.AI;
+    // FUNDIR directamente em TODOS os slides (texto + imagens coerentes + vídeos + 3D)
     if (ai && typeof ai.synthesizeAndFuseDeck === 'function') {
-      ai.synthesizeAndFuseDeck(deck, deck.web);
+      ai.synthesizeAndFuseDeck(deck, deck.web, parsedBrief);
     }
-    if (window.Study && window.Study.Quality) {
+    if (window.Study && window.Study.Quality && deck.docType === 'aula') {
       try { window.Study.Quality.improveDeck(deck); } catch { }
     }
     const syn = deck.synthesis || {};
-    P.webStatus = `Fusão concluída: ${syn.fusedSlides || 0} slide(s) enriquecidos com Wikipédia, ${syn.imagesEmbedded || 0} imagem(ns) da net, ${syn.videosEmbedded || 0} vídeo(s) e modelo 3D interactivo.`;
+    P.webStatus = `Fusão concluída: ${syn.imagesEmbedded || 0} imagem(ns) coerente(s) e 3D activos.`;
     saveDeck(deck);
     if (P.deck && P.deck.id === deck.id) render();
-    toast(P.webStatus);
     return deck.web;
   }
 
-  /* IA real (Chrome Prompt API / Gemini API) recebendo PDF + Web juntos! */
+  /* IA real (Chrome Prompt API / Gemini API) recebendo PDF + Web + Descrição do docente juntos! */
   async function improveDeckWithAI(deck, manual = false) {
     const ai = (window.Study && window.Study.AI) || null;
     if (!ai || !deck || !deck.plan || P.aiBusy) return null;
     if (!manual && deck.ai && ['chrome-language-model', 'gemini-api'].includes(deck.ai.engine)) return null;
     P.aiBusy = true;
-    P.aiStatus = 'A IA está a fundir o PDF com a web e a reescrever os slides para maior compreensão…';
+    P.aiStatus = 'A IA está a adaptar os slides à sua descrição e ao contexto web…';
     render();
     try {
       const info = await ai.aiStatus();
@@ -459,40 +497,53 @@
         docType: deck.docType || 'aula',
         docTone: (deck.docTypeMeta && deck.docTypeMeta.tone) || '',
         coreMessage: (deck.docAnalysis && deck.docAnalysis.extracted && deck.docAnalysis.extracted.coreMessage) || '',
+        creativeBrief: P.brief || '',
         web: deck.web || null,
         onProgress: (msg) => { P.aiStatus = msg; render(); },
       });
       const applied = ai.applyImprovement(deck, result);
+      const parsedBrief = typeof ai.parseCreativeBrief === 'function' && P.brief ? ai.parseCreativeBrief(P.brief) : null;
       if (typeof ai.synthesizeAndFuseDeck === 'function') {
-        ai.synthesizeAndFuseDeck(deck, deck.web || null);
+        ai.synthesizeAndFuseDeck(deck, deck.web || null, parsedBrief);
       }
       const engineLabel = result.engine === 'gemini-api' ? 'Gemini AI' : 'IA do Chrome';
       P.aiStatus = applied
-        ? `${engineLabel} activa · ${result.blocks.length} bloco(s) fundidos e reescritos para máxima clareza.`
+        ? `${engineLabel} activa · ${result.blocks.length} bloco(s) adaptados.`
         : `${engineLabel} activa · síntese visual aplicada.`;
       if (applied) saveDeck(deck);
     } catch (err) {
-      const syn = deck.synthesis || {};
-      P.aiStatus = `Síntese Pedagógica Local activa (${syn.fusedSlides || 0} slides fundidos + 3D). Para modelo LLM extra, active Chrome AI ou configure uma chave Gemini.`;
+      P.aiStatus = 'Síntese Pedagógica Local + 3D activos.';
     }
     P.aiBusy = false;
     if (P.deck && P.deck.id === deck.id) render();
     return null;
   }
 
-  function mountActive3DScene(slide) {
+  function mountActive3DScene(slide, deck) {
     destroyActive3D();
-    if (!slide || slide.layout !== 'scene-3d') return;
+    if (!slide) return;
     setTimeout(() => {
-      const canvas = document.querySelector('.pj-3d-canvas');
       const eng = S_();
-      if (!canvas || !eng || typeof eng.mountNucleo3D !== 'function') return;
-      const nodes = Array.isArray(slide.nodes3d) ? slide.nodes3d : [];
+      if (!eng || typeof eng.mountNucleo3D !== 'function') return;
+      const isFull3D = slide.layout === 'scene-3d';
+      const canvas = document.querySelector(isFull3D ? '.pj-3d-canvas' : '.pj-mini-3d-canvas');
+      if (!canvas) return;
+      const mode3d = slide.mode3d || (eng.AI && typeof eng.AI.pickCoherent3DMode === 'function'
+        ? eng.AI.pickCoherent3DMode(deck?.subject, deck?.docType, `${deck?.title || ''} ${slide.title || ''}`)
+        : 'core');
+      const nodes = Array.isArray(slide.nodes3d) && slide.nodes3d.length
+        ? slide.nodes3d
+        : (Array.isArray(slide.bullets) ? slide.bullets.slice(0, 3).map((b, i) => ({
+            label: String(b).split(/[:→]/)[0].trim().slice(0, 18),
+            short: String(i + 1).padStart(2, '0'),
+            note: String(b),
+          })) : []);
       active3DCtrl = eng.mountNucleo3D(canvas, {
-        initialMode: slide.mode3d || 'core',
+        initialMode: mode3d,
+        mini: !isFull3D,
         customNodes: nodes.map((n, i) => ({ id: `n-${i}`, label: n.label, short: n.short || String(i + 1), note: n.note })),
         brand: document.documentElement.dataset.brand === 'ceu' ? 'ceu' : 'ama',
-        onSelectNode: (id) => {
+        onSelectNode: isFull3D ? (id) => {
           const idx = Number(String(id || '').replace('n-', '')) || 0;
           P.selected3DNode = idx;
           const card = document.getElementById('pj-3d-inspector');
@@ -501,9 +552,9 @@
             card.innerHTML = `<span class="pj-3d-tag">CONCEITO ${String(idx + 1).padStart(2, '0')} · 3D</span><strong>${esc(picked.label)}</strong><p>${esc(picked.note)}</p>`;
           }
           document.querySelectorAll('.pj-3d-pill').forEach((b, i) => b.classList.toggle('on', i === idx));
-        },
+        } : null,
       });
-      if (active3DCtrl && P.explode3D) active3DCtrl.setExplode(P.explode3D);
+      if (isFull3D && active3DCtrl && P.explode3D) active3DCtrl.setExplode(P.explode3D);
     }, 30);
   }
 
@@ -527,14 +578,12 @@
   /* Renderização do Slide Visual 16:9 (Ingenium 3.0 + 3D + Web Fusion) */
   /* ------------------------------------------------------------------ */
   function chipHtml(slide) {
-    const chips = Array.isArray(slide.chips) ? slide.chips.filter(Boolean).slice(0, 4) : [];
-    const srcs = Array.isArray(slide.sources) ? slide.sources : [];
-    if (!chips.length && !srcs.length) return '';
-    return `<div class="pj-chips" aria-label="Termos-chave e fontes">
+    const chips = Array.isArray(slide.chips) ? slide.chips.filter(Boolean).slice(0, 3) : [];
+    const webSrc = (Array.isArray(slide.sources) ? slide.sources : []).find((s) => s.url);
+    if (!chips.length && !webSrc) return '';
+    return `<div class="pj-chips" aria-label="Termos-chave">
       ${chips.map((c) => `<span>${esc(c)}</span>`).join('')}
-      ${srcs.map((s) => s.url
-        ? `<a class="pj-src-chip pj-src-web" href="${escAttr(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)} ↗</a>`
-        : `<span class="pj-src-chip">${esc(s.label)}</span>`).join('')}
+      ${webSrc ? `<a class="pj-src-chip pj-src-web" href="${escAttr(webSrc.url)}" target="_blank" rel="noopener noreferrer">${esc(webSrc.label)} ↗</a>` : ''}
     </div>`;
   }
 
@@ -660,11 +709,12 @@
           <div class="pj-3d-stage-box">
             <canvas class="pj-3d-canvas" aria-label="Modelo 3D interactivo de ${escAttr(deck.title)}"></canvas>
             <div class="pj-3d-controls">
-              <button type="button" onclick="AMAProjector.set3DMode('core')">Poliedro</button>
-              <button type="button" onclick="AMAProjector.set3DMode('wave')">Onda 3D</button>
-              <button type="button" onclick="AMAProjector.set3DMode('gyro')">Giroscópio</button>
+              <button type="button" onclick="AMAProjector.set3DMode('physics')">Física 3D</button>
               <button type="button" onclick="AMAProjector.set3DMode('finance')">Barras 3D</button>
-              <button type="button" class="pj-3d-hi" onclick="AMAProjector.toggle3DExplode()">${P.explode3D ? 'Juntar' : 'Explodir ✦'}</button>
+              <button type="button" onclick="AMAProjector.set3DMode('code')">Árvore 3D</button>
+              <button type="button" onclick="AMAProjector.set3DMode('bio')">Hélice 3D</button>
+              <button type="button" onclick="AMAProjector.set3DMode('wave')">Onda 3D</button>
+              <button type="button" class="pj-3d-hi" onclick="AMAProjector.toggle3DExplode()">${P.explode3D ? 'Juntar' : 'Explodir'}</button>
               <button type="button" onclick="AMAProjector.toggle3DSpin()">↻ Rodar</button>
             </div>
           </div>
@@ -850,8 +900,8 @@
         <figure class="pj-split-art">
           ${slide.visual
             ? `<img src="${escAttr(slide.visual)}" alt="${escAttr(slide.visualAlt || slide.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-            : renderIngeniumSvg(slide, deck)}
-          ${slide.visualCredit ? `<figcaption>${slide.visualCredit.url ? `<a href="${escAttr(slide.visualCredit.url)}" target="_blank" rel="noopener noreferrer">` : ''}${esc(slide.visualCredit.text)}${slide.visualCredit.url ? ' ↗</a>' : ''}</figcaption>` : ''}
+            : `<canvas class="pj-mini-3d-canvas" aria-label="Visualização 3D de ${escAttr(slide.title)}"></canvas>`}
+          ${slide.visualCredit ? `<figcaption>${slide.visualCredit.url ? `<a href="${escAttr(slide.visualCredit.url)}" target="_blank" rel="noopener noreferrer">` : ''}${esc(slide.visualCredit.text)}${slide.visualCredit.url ? ' ↗</a>' : ''}</figcaption>` : (!slide.visual ? '<figcaption>Modelo 3D interactivo · arraste para rodar</figcaption>' : '')}
         </figure>
       </div>`;
     } else if (slide.layout === 'closing') {
@@ -881,37 +931,31 @@
         <figure class="pj-slide-art">
           ${slide.visual
             ? `<img src="${escAttr(slide.visual)}" alt="${escAttr(slide.visualAlt || slide.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-            : renderIngeniumSvg(slide, deck)}
-          ${slide.visualCredit ? `<figcaption>${slide.visualCredit.url ? `<a href="${escAttr(slide.visualCredit.url)}" target="_blank" rel="noopener noreferrer">` : ''}${esc(slide.visualCredit.text)}${slide.visualCredit.url ? ' ↗</a>' : ''}</figcaption>` : '<figcaption>Diagrama visual Ingenium 3.0</figcaption>'}
+            : `<canvas class="pj-mini-3d-canvas" aria-label="Visualização 3D de ${escAttr(slide.title)}"></canvas>`}
+          ${slide.visualCredit ? `<figcaption>${slide.visualCredit.url ? `<a href="${escAttr(slide.visualCredit.url)}" target="_blank" rel="noopener noreferrer">` : ''}${esc(slide.visualCredit.text)}${slide.visualCredit.url ? ' ↗</a>' : ''}</figcaption>` : (!slide.visual ? '<figcaption>Modelo 3D interactivo · arraste para rodar</figcaption>' : '')}
         </figure>
       </div>`;
     }
 
-    if (slide.layout === 'scene-3d') mountActive3DScene(slide);
-    else destroyActive3D();
+    mountActive3DScene(slide, deck);
     mountProjectionOverlays(slide);
 
     const srcLabel = slide.page
       ? `${deck.sourceName ? deck.sourceName + ' · ' : ''}p.${slide.page}`
       : (deck.sourceName || `Núcleo ${brandName()}`);
-    const webStrip = (!slide.fusedInsight && slide.web) ? `<div class="pj-web-strip">
-      <span class="pj-web-tag">A WEB ACRESCENTA · EXTERNO</span>
-      <p>${esc(slide.web.text)}</p>
-      <a href="${escAttr(slide.web.url || '#')}" target="_blank" rel="noopener noreferrer">${esc(slide.web.source || 'Fonte externa')} ↗</a>
-    </div>` : '';
     const sid = slide.id || `s-${index}`;
     const hasStrokes = Array.isArray(P.drawings[sid]) && P.drawings[sid].length > 0;
-    return `<div class="pj-slide pj-theme-${escAttr(P.theme)} ${slide.scene3d ? 'pj-scene3d' : ''} ${P.laserOn ? 'is-laser' : ''} ${P.drawOn ? 'is-draw' : ''}" style="--pj-slide-scale:${P.slideScale}%" role="region" aria-roledescription="slide" aria-label="Slide ${index + 1}: ${escAttr(slide.title || '')}" data-testid="projector-slide" data-slide-index="${index}">
-      <div class="pj-slide-inner"><span class="pj-deco" aria-hidden="true"><i></i><i></i><i></i></span><span class="pj-ghost" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span><span class="pj-handnote" aria-hidden="true">${esc(slide.handnote || slide.handNote || 'Repara nisto ✎')}</span>${inner}</div>
-      ${webStrip}
+    const showHand = deck.docType === 'aula' && (slide.handnote || slide.handNote);
+    return `<div class="pj-slide pj-slide-anim pj-theme-${escAttr(P.theme)} ${slide.scene3d ? 'pj-scene3d' : ''} ${P.laserOn && !P.drawOn && P.fullscreen ? 'is-laser' : ''} ${P.drawOn ? 'is-draw' : ''}" style="--pj-slide-scale:${P.slideScale}%" role="region" aria-roledescription="slide" aria-label="Slide ${index + 1}: ${escAttr(slide.title || '')}" data-testid="projector-slide" data-slide-index="${index}">
+      <div class="pj-slide-inner"><span class="pj-ghost" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>${showHand ? `<span class="pj-handnote" aria-hidden="true">${esc(slide.handnote || slide.handNote)}</span>` : ''}${inner}</div>
       <footer class="pj-slide-foot">
         <span class="pj-foot-brand">${nucleoName()} · ${esc(deck.title)} · APP FEITO PELA HORIZONTE FUTURO</span>
-        <span class="pj-foot-src" title="Origem do conteúdo deste slide">Fonte: ${esc(srcLabel)}</span>
+        <span class="pj-foot-src">${esc(srcLabel)}</span>
         <span class="pj-foot-num">${numStr}</span>
       </footer>
       <div class="pj-slide-progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
       ${(P.drawOn || hasStrokes) ? `<canvas class="pj-draw-canvas ${P.drawOn ? 'active' : ''}" aria-label="Quadro de anotações do docente"></canvas>` : ''}
-      ${P.laserOn ? `<span class="pj-laser-dot" aria-hidden="true"></span>` : ''}
+      ${(P.laserOn && !P.drawOn && slide.layout !== 'scene-3d') ? `<span class="pj-laser-dot" aria-hidden="true"></span>` : ''}
       ${P.blackout ? `<div class="pj-blackout" role="dialog" aria-label="Cortina de atenção" onclick="AMAProjector.toggleBlackout()">
         <span class="pj-kicker">PAUSA · ATENÇÃO AO DOCENTE</span>
         <strong>${esc(deck.title)}</strong>
@@ -1022,20 +1066,20 @@
     const notebooks = loadNotebooks();
     const savedDecks = loadDecks();
     const prefill = takePrefill();
-    return `<section class="card pj-creator" data-testid="projector-creator">
+    return `<section class="card pj-creator pj-creator-calm" data-testid="projector-creator">
       <div class="pj-creator-head">
         <div>
-          <span class="eyebrow-t">${I.doc} PDF → AULA ORGANIZADA → PROJETOR</span>
-          <h2 style="margin-top:6px">Envie o PDF — a ${brandName()} organiza a aula</h2>
-          <p class="muted">A camada de IA local lê cada página, retira ruído de PDF, escolhe as ideias centrais e escreve objectivos, notas e verificação. O resultado são slides 16:9 prontos a projetar — processados neste navegador, sem enviar o ficheiro para fora.</p>
+          <span class="eyebrow-t">${I.doc} PDF &amp; TEXTO → SLIDES INTELIGENTES</span>
+          <h2 style="margin-top:6px">Carregue um ficheiro — a IA adapta, ilustra e cria os slides</h2>
+          <p class="muted">Detecta automaticamente se é Aula, Ata, Relatório ou Regulamento, reescreve para ensinar com clareza, junta imagens, 3D coerente e notas do docente.</p>
         </div>
         <div class="pj-samples">
-          <span>Testar com exemplo pronto:</span>
-          <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.loadSample('ata')">📋 Ata de Reunião</button>
-          <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('fisica')">Física · Newton</button>
-          <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('financas')">Finanças · Kz</button>
-          <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('programacao')">Python · Algoritmos</button>
-          <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('biologia')">Biologia · Maiombe</button>
+          <span>Experimentar:</span>
+          <button type="button" class="pj-sample-pill is-hi" onclick="AMAProjector.loadSample('ata')">📋 Ata</button>
+          <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('fisica')">Física</button>
+          <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('financas')">Finanças</button>
+          <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('programacao')">Python</button>
+          <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('biologia')">Biologia</button>
         </div>
       </div>
 
@@ -1043,10 +1087,9 @@
         <div class="pj-dropzone">
           <label class="pj-drop-label" for="pj-file-input">
             <span class="pj-drop-ic">${I.doc}</span>
-            <strong>PASSO 1 · Carregue o ficheiro</strong>
-            <span class="pj-step-hint">PDF, DOCX, PPTX, imagem ou texto — fundido com web, imagens e 3D.</span>
-            <small>Suporta .pdf, .docx, .pptx, .txt, .md, .png, .jpg · fusão automática</small>
-            <span class="btn btn-f btn-sm" style="margin-top:8px">Selecionar ficheiro PDF / Office</span>
+            <strong>Arraste ou escolha o ficheiro</strong>
+            <small>.pdf · .docx · .pptx · .txt · .md · imagem</small>
+            <span class="btn btn-p btn-sm" style="margin-top:10px">Escolher ficheiro</span>
             <input id="pj-file-input" type="file" accept=".pdf,.docx,.pptx,.txt,.md,image/png,image/jpeg,image/webp" hidden onchange="AMAProjector.handleFile(this)">
           </label>
           <p class="pj-upload-st" id="pj-upload-st" aria-live="polite">${esc(P.uploadStatus || (P.pendingSource ? `Ficheiro pronto: ${P.pendingSource}` : ''))}</p>
@@ -1056,103 +1099,107 @@
               <b>${esc(P.pdfMeta.filename)}</b>
               <span>${P.pdfMeta.totalPages} pág.</span>
               ${P.pdfMeta.headingsCount ? `<span>${P.pdfMeta.headingsCount} títulos</span>` : ''}
-              ${P.pdfMeta.estimatedReadingMin ? `<span>~${P.pdfMeta.estimatedReadingMin} min</span>` : ''}
             </div>
             <div class="pj-range-row">
-              <label>Pág. inicial <input type="number" min="1" max="${P.pdfMeta.totalPages}" value="${P.pageStart}" onchange="AMAProjector.setPageRange(this.value, null)"></label>
-              <label>Pág. final <input type="number" min="1" max="${P.pdfMeta.totalPages}" value="${P.pageEnd}" onchange="AMAProjector.setPageRange(null, this.value)"></label>
-              <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.reextractPdfRange()">Re-extrair intervalo</button>
+              <label>Pág. <input type="number" min="1" max="${P.pdfMeta.totalPages}" value="${P.pageStart}" onchange="AMAProjector.setPageRange(this.value, null)"></label>
+              <span>a</span>
+              <label><input type="number" min="1" max="${P.pdfMeta.totalPages}" value="${P.pageEnd}" onchange="AMAProjector.setPageRange(null, this.value)"></label>
+              <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.reextractPdfRange()">Aplicar</button>
             </div>
           </div>` : ''}
 
           ${P.isScanned ? `<div class="pj-scanned-warn" role="alert">
-            <b>Este PDF parece digitalizado (imagem).</b>
-            <p>Menos de 30 caracteres/página detectados. Pode correr OCR local (PT/EN) neste navegador ou colar o texto ao lado.</p>
+            <b>PDF digitalizado detectado.</b>
+            <p>Pode correr OCR local (PT/EN) ou colar o texto ao lado.</p>
             <div class="flex wrap" style="gap:8px;margin-top:8px">
-              <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.runOcr()">Executar OCR local (PT/EN)</button>
-              <button type="button" class="btn btn-o btn-sm" onclick="document.getElementById('pj-text')?.focus()">Colar texto manualmente</button>
-            </div>
-          </div>` : ''}
-
-          <div class="field" style="margin-top:12px">
-            <label for="pj-links">Links de apoio (YouTube / Wikipédia — opcional, fundidos por defeito)</label>
-            <input id="pj-links" placeholder="https://youtu.be/... ou https://pt.wikipedia.org/wiki/..." value="${escAttr(P.extraLinks || '')}" oninput="AMAProjector.setLinks(this.value)">
-          </div>
-
-          ${notebooks.length ? `<div class="field" style="margin-top:14px">
-            <label for="pj-nb-select">Ou abrir caderno do Estúdio de Estudo</label>
-            <div class="flex" style="gap:8px">
-              <select id="pj-nb-select">${notebooks.map((r) => `<option value="${escAttr(r.id)}">${esc(r.title)}</option>`).join('')}</select>
-              <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.fromSelectedNotebook()">Projetar</button>
+              <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.runOcr()">Executar OCR local</button>
+              <button type="button" class="btn btn-o btn-sm" onclick="document.getElementById('pj-text')?.focus()">Colar texto</button>
             </div>
           </div>` : ''}
         </div>
 
         <div class="pj-text-form">
-          <div class="pj-step-tag">PASSO 2 · Confirme o título e a disciplina (ou cole o texto)</div>
-          <div class="st-grid-in">
-            <div class="field"><label for="pj-title">Título da apresentação</label><input id="pj-title" maxlength="90" placeholder="Ex.: Dinâmica e Leis de Newton" value="${escAttr(prefill && prefill.title || '')}" oninput="this.removeAttribute('data-auto-title')"></div>
-            <div class="field"><label for="pj-subject">Disciplina</label>
-              <select id="pj-subject" onchange="this.removeAttribute('data-auto-subject')">
-                ${[['geral', 'Geral'], ['matematica', 'Matemática'], ['fisica', 'Física'], ['programacao', 'Programação'], ['financas', 'Finanças'], ['empreendedorismo', 'Negócios &amp; Comunicação'], ['biologia', 'Biologia'], ['historia', 'História']]
-                  .map(([v, l]) => `<option value="${v}" ${(prefill && prefill.subject) === v ? 'selected' : ''}>${l}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-          <div class="pj-v3-controls">
-            <div class="field"><label for="pj-doctype">Tipo de ficheiro</label>
-              <select id="pj-doctype" onchange="AMAProjector.setV3Opt('docType', this.value)">
-                <option value="auto" ${P.docType === 'auto' ? 'selected' : ''}>✨ Auto-detectar</option>
-                <option value="ata" ${P.docType === 'ata' ? 'selected' : ''}>📋 Ata de Reunião</option>
-                <option value="relatorio" ${P.docType === 'relatorio' ? 'selected' : ''}>📊 Relatório / Proposta</option>
-                <option value="regulamento" ${P.docType === 'regulamento' ? 'selected' : ''}>⚖️ Regulamento / Norma</option>
-                <option value="cientifico" ${P.docType === 'cientifico' ? 'selected' : ''}>🔬 Artigo / Monografia</option>
-                <option value="plano" ${P.docType === 'plano' ? 'selected' : ''}>🗺️ Plano / Manual</option>
-                <option value="aula" ${P.docType === 'aula' ? 'selected' : ''}>🎓 Aula / Sebenta</option>
-              </select>
-            </div>
-            <div class="field"><label for="pj-edu-level">Ensino / Público</label>
-              <select id="pj-edu-level" onchange="AMAProjector.setV3Opt('eduLevel', this.value)">
-                <option value="secundario" ${P.eduLevel === 'secundario' ? 'selected' : ''}>Ensino Secundário</option>
-                <option value="universitario" ${P.eduLevel === 'universitario' ? 'selected' : ''}>Universitário</option>
-                <option value="profissional" ${P.eduLevel === 'profissional' ? 'selected' : ''}>Formação Profissional</option>
-              </select>
-            </div>
-            <div class="field"><label for="pj-density">Densidade · Idioma</label>
-              <select id="pj-density" onchange="AMAProjector.setV3Opt('density', this.value)">
-                <option value="essencial" ${P.density === 'essencial' ? 'selected' : ''}>Essencial (6–7)</option>
-                <option value="completo" ${P.density === 'completo' ? 'selected' : ''}>Completo (10–11)</option>
-                <option value="detalhado" ${P.density === 'detalhado' ? 'selected' : ''}>Detalhado por secção</option>
-              </select>
-            </div>
-          </div>
           <div class="field">
-            <label for="pj-text">Conteúdo extraído ou notas da aula</label>
-            <textarea id="pj-text" rows="5" placeholder="Cole o texto da aula separado por parágrafos (ou importe um PDF à esquerda)…">${esc(prefill && prefill.text || '')}</textarea>
+            <label for="pj-text">Ou cole o texto aqui (ata, sebenta, resumo ou artigo)</label>
+            <textarea id="pj-text" rows="5" placeholder="Cole qualquer texto — a IA reorganiza, explica com exemplos, adiciona imagens e modelos 3D automaticamente…">${esc(prefill && prefill.text || '')}</textarea>
           </div>
-          <div class="flex wrap" style="gap:8px;align-items:center">
-            <button type="button" class="btn btn-o" onclick="AMAProjector.buildOutlineFromForm()">▤ PASSO 2 · Editar Roteiro (Outline)</button>
-            <button type="button" class="btn btn-p" onclick="AMAProjector.generateFromForm()">${I.spark} Gerar slides agora</button>
-            ${P.deck ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleCreator(false)">Voltar à apresentação atual</button>` : ''}
+          <div class="field pj-brief-field">
+            <label for="pj-brief">Como quer os slides e as imagens? <small>(opcional · escreva ou fale por áudio)</small></label>
+            <div class="pj-voice-row">
+              <input id="pj-brief" maxlength="320" placeholder="Ex.: Fotos reais de foguetões e carros, tom simples para 1.º ano, tema escuro…" value="${escAttr(P.brief || '')}" oninput="AMAProjector.setBrief(this.value)">
+              <button type="button" class="btn btn-o btn-sm pj-mic-btn ${P.voiceListening && P.voiceTarget === 'brief' ? 'is-rec' : ''}" title="Falar descrição por áudio (microfone)" onclick="AMAProjector.toggleVoice('brief')">${P.voiceListening && P.voiceTarget === 'brief' ? '● A ouvir…' : '🎙 Falar'}</button>
+            </div>
           </div>
+          <div class="flex wrap" style="gap:10px;align-items:center">
+            <button type="button" class="btn btn-p" onclick="AMAProjector.generateFromForm()">${I.spark} Gerar slides automaticamente</button>
+            ${P.deck ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleCreator(false)">Voltar aos slides</button>` : ''}
+          </div>
+
+          <details class="pj-adv-opts">
+            <summary>⚙ Opções avançadas (título, tipo, roteiro editável, links)</summary>
+            <div class="pj-adv-body">
+              <div class="st-grid-in">
+                <div class="field"><label for="pj-title">Título (auto se vazio)</label><input id="pj-title" maxlength="90" placeholder="Detectado automaticamente" value="${escAttr(prefill && prefill.title || '')}" oninput="this.removeAttribute('data-auto-title')"></div>
+                <div class="field"><label for="pj-subject">Disciplina</label>
+                  <select id="pj-subject" onchange="this.removeAttribute('data-auto-subject')">
+                    ${[['geral', 'Auto / Geral'], ['matematica', 'Matemática'], ['fisica', 'Física'], ['programacao', 'Programação'], ['financas', 'Finanças'], ['empreendedorismo', 'Negócios'], ['biologia', 'Biologia'], ['historia', 'História']]
+                      .map(([v, l]) => `<option value="${v}" ${(prefill && prefill.subject) === v ? 'selected' : ''}>${l}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+              <div class="pj-v3-controls">
+                <div class="field"><label for="pj-doctype">Tipo de ficheiro</label>
+                  <select id="pj-doctype" onchange="AMAProjector.setV3Opt('docType', this.value)">
+                    <option value="auto" ${P.docType === 'auto' ? 'selected' : ''}>Auto-detectar</option>
+                    <option value="ata" ${P.docType === 'ata' ? 'selected' : ''}>Ata de Reunião</option>
+                    <option value="relatorio" ${P.docType === 'relatorio' ? 'selected' : ''}>Relatório</option>
+                    <option value="regulamento" ${P.docType === 'regulamento' ? 'selected' : ''}>Regulamento</option>
+                    <option value="cientifico" ${P.docType === 'cientifico' ? 'selected' : ''}>Artigo</option>
+                    <option value="plano" ${P.docType === 'plano' ? 'selected' : ''}>Plano</option>
+                    <option value="aula" ${P.docType === 'aula' ? 'selected' : ''}>Aula / Sebenta</option>
+                  </select>
+                </div>
+                <div class="field"><label for="pj-edu-level">Público</label>
+                  <select id="pj-edu-level" onchange="AMAProjector.setV3Opt('eduLevel', this.value)">
+                    <option value="secundario" ${P.eduLevel === 'secundario' ? 'selected' : ''}>Secundário</option>
+                    <option value="universitario" ${P.eduLevel === 'universitario' ? 'selected' : ''}>Universitário</option>
+                    <option value="profissional" ${P.eduLevel === 'profissional' ? 'selected' : ''}>Profissional</option>
+                  </select>
+                </div>
+                <div class="field"><label for="pj-density">Densidade</label>
+                  <select id="pj-density" onchange="AMAProjector.setV3Opt('density', this.value)">
+                    <option value="essencial" ${P.density === 'essencial' ? 'selected' : ''}>Essencial (6–7)</option>
+                    <option value="completo" ${P.density === 'completo' ? 'selected' : ''}>Completo (10–11)</option>
+                    <option value="detalhado" ${P.density === 'detalhado' ? 'selected' : ''}>Detalhado</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label for="pj-links">Links de apoio (YouTube / Wikipédia — opcional)</label>
+                <input id="pj-links" placeholder="https://youtu.be/... ou https://pt.wikipedia.org/wiki/..." value="${escAttr(P.extraLinks || '')}" oninput="AMAProjector.setLinks(this.value)">
+              </div>
+              ${notebooks.length ? `<div class="field">
+                <label for="pj-nb-select">Abrir caderno guardado</label>
+                <div class="flex" style="gap:8px">
+                  <select id="pj-nb-select">${notebooks.map((r) => `<option value="${escAttr(r.id)}">${esc(r.title)}</option>`).join('')}</select>
+                  <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.fromSelectedNotebook()">Abrir</button>
+                </div>
+              </div>` : ''}
+              <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.buildOutlineFromForm()">▤ Editar Roteiro antes de gerar</button>
+            </div>
+          </details>
         </div>
       </div>
 
       ${P.outline ? renderOutlineEditor(P.outline) : ''}
 
-      <ol class="pj-steps" aria-label="O que a ${brandName()} faz com o ficheiro">
-        <li><span>01</span><div><b>Lê e limpa</b><small>Retira cabeçalhos, números de página e ruído do PDF.</small></div></li>
-        <li><span>02</span><div><b>Organiza e condensa</b><small>Uma ideia por linha, objectivos e notas do docente.</small></div></li>
-        <li><span>03</span><div><b>Projeta e acrescenta</b><small>Layouts visuais + fontes externas marcadas EXTERNO.</small></div></li>
-      </ol>
-
       ${savedDecks.length ? `<div class="pj-saved-wrap">
-        <h3>Apresentações guardadas neste navegador</h3>
+        <h3>Apresentações recentes</h3>
         <div class="pj-saved-grid">
           ${savedDecks.slice(0, 4).map((dk) => `<div class="pj-saved-item">
             <button type="button" class="pj-saved-open" onclick="AMAProjector.openSaved('${escAttr(dk.id)}')">
               <strong>${esc(dk.title)}</strong>
-              <small>${dk.stats.slides} slides · ~${dk.stats.estMinutes} min${dk.sourceName ? ` · ${esc(dk.sourceName)}` : ''}</small>
+              <small>${dk.stats.slides} slides · ~${dk.stats.estMinutes} min</small>
             </button>
             <button type="button" class="icon-btn" title="Apagar apresentação" aria-label="Apagar ${escAttr(dk.title)}" onclick="AMAProjector.removeSaved('${escAttr(dk.id)}')">${I.close}</button>
           </div>`).join('')}
@@ -1203,107 +1250,116 @@
     const idx = Math.max(0, Math.min(P.slideIdx, deck.slides.length - 1));
     P.slideIdx = idx;
     const slide = deck.slides[idx];
-    const rubricScore = Number.isFinite(deck.rubricScore) ? deck.rubricScore : (window.Study && window.Study.Quality && window.Study.Quality.evaluateRubric ? window.Study.Quality.evaluateRubric(deck, { enforceCeuBrand: document.documentElement.dataset.brand === 'ceu' }).qualityScore : 100);
+    const isBusy = P.webBusy || P.aiBusy;
+    const statusLabel = P.webBusy
+      ? 'A enriquecer com imagens e web…'
+      : (P.aiBusy
+          ? 'IA a refinar explicações…'
+          : (deck.synthesis && deck.synthesis.imagesEmbedded ? `✦ IA · ${deck.synthesis.imagesEmbedded} img + 3D` : '✦ IA + 3D activos'));
 
-    const toolbar = `<div class="pj-toolbar" data-testid="projector-toolbar">
-      <div class="pj-tb-left">
-        <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleCreator(true)">${I.plus} Novo PDF</button>
-        <div class="pj-mode-seg" role="tablist" aria-label="Modo de visualização">
-          <button type="button" role="tab" aria-selected="${P.mode === 'slides'}" class="${P.mode === 'slides' ? 'on' : ''}" onclick="AMAProjector.setMode('slides')">Slides</button>
-          <button type="button" role="tab" aria-selected="${P.mode === 'reading'}" class="${P.mode === 'reading' ? 'on' : ''}" onclick="AMAProjector.setMode('reading')">Modo Leitura</button>
-          <button type="button" role="tab" aria-selected="${P.mode === 'grid'}" class="${P.mode === 'grid' ? 'on' : ''}" onclick="AMAProjector.setMode('grid')">Grelha (${deck.slides.length})</button>
+    const morePopover = P.moreOpen ? `<div class="pj-more-pop" role="menu" aria-label="Mais opções" onclick="event.stopPropagation()">
+      <div class="pj-mp-sec">
+        <span class="pj-mp-h">Visual &amp; Tema</span>
+        <div class="pj-mp-row">
+          ${[['editorial', 'Papel'], ['dark', 'Escuro'], ['ceu', 'CEU Azul'], ['pine', 'Pinho']]
+            .map(([k, l]) => `<button type="button" class="${P.theme === k ? 'on' : ''}" onclick="AMAProjector.setTheme('${k}')">${l}</button>`).join('')}
+        </div>
+        <div class="pj-mp-row" style="margin-top:6px">
+          <button type="button" onclick="AMAProjector.stepSlideScale(-8)">Letra A−</button>
+          <button type="button" onclick="AMAProjector.stepSlideScale(8)">Letra A+</button>
         </div>
       </div>
-      <div class="pj-tb-right">
-        <div class="pj-level-seg" role="group" aria-label="Nível de ensino da turma">
-          <span>Nível</span>
+      <div class="pj-mp-sec">
+        <span class="pj-mp-h">Sala de Aula (atalhos)</span>
+        <div class="pj-mp-row">
+          <button type="button" class="${P.showNotes ? 'on' : ''}" onclick="AMAProjector.toggleNotes()">Notas (N)</button>
+          <button type="button" class="${P.revealMode ? 'on' : ''}" onclick="AMAProjector.toggleRevealMode()">1-a-1 (S)</button>
+          <button type="button" class="${P.drawOn ? 'on' : ''}" onclick="AMAProjector.toggleDraw()">Desenhar (D)</button>
+          <button type="button" class="${P.blackout ? 'on' : ''}" onclick="AMAProjector.toggleBlackout()">Cortina (B)</button>
+          <button type="button" class="${P.timerRunning ? 'on' : ''}" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerRunning ? `${P.timerSec}s` : '60s'} (T)</button>
+          <button type="button" class="${P.laserOn ? 'on' : ''}" onclick="AMAProjector.toggleLaser()">Laser Auto (L)</button>
+        </div>
+      </div>
+      <div class="pj-mp-sec">
+        <span class="pj-mp-h">Adaptação &amp; IA</span>
+        <div class="pj-mp-row">
           ${[['auto', 'Auto'], ['basico', 'Básico'], ['intermediario', 'Médio'], ['avancado', 'Avançado']]
-            .map(([k, l]) => `<button type="button" class="${P.level === k ? 'on' : ''}" aria-pressed="${P.level === k}" title="Adaptar a explicação ao nível ${l}" onclick="AMAProjector.setLevel('${k}')">${l}</button>`).join('')}
+            .map(([k, l]) => `<button type="button" class="${P.level === k ? 'on' : ''}" onclick="AMAProjector.setLevel('${k}')">${l}</button>`).join('')}
         </div>
-        ${P.mode !== 'reading' ? `<div class="pj-theme-seg" role="group" aria-label="Tema dos slides">
-          <button type="button" class="${P.theme === 'editorial' ? 'on' : ''}" aria-pressed="${P.theme === 'editorial'}" onclick="AMAProjector.setTheme('editorial')">Papel</button>
-          <button type="button" class="${P.theme === 'dark' ? 'on' : ''}" aria-pressed="${P.theme === 'dark'}" onclick="AMAProjector.setTheme('dark')">Escuro</button>
-          <button type="button" class="${P.theme === 'ceu' ? 'on' : ''}" aria-pressed="${P.theme === 'ceu'}" onclick="AMAProjector.setTheme('ceu')">CEU Azul</button>
-          <button type="button" class="${P.theme === 'pine' ? 'on' : ''}" aria-pressed="${P.theme === 'pine'}" onclick="AMAProjector.setTheme('pine')">Pinho</button>
+        <div class="pj-mp-row" style="margin-top:6px">
+          <button type="button" onclick="AMAProjector.promptBrief()">🎙 Descrever estilo/imagens</button>
+          <button type="button" onclick="AMAProjector.togglePlanPanel()">${P.showPlan ? 'Ocultar Plano' : 'Ver Plano IA'}</button>
+          <button type="button" onclick="AMAProjector.improveAI()">Refinar IA</button>
+          <button type="button" onclick="AMAProjector.configGeminiKey()">Chave Gemini</button>
         </div>
-        <div class="pj-theme-seg" role="group" aria-label="Tamanho de fonte do slide">
-          <button type="button" title="Diminuir fonte do slide" onclick="AMAProjector.stepSlideScale(-8)">A−</button>
-          <button type="button" title="Aumentar fonte do slide" onclick="AMAProjector.stepSlideScale(8)">A+</button>
+      </div>
+      <div class="pj-mp-sec">
+        <span class="pj-mp-h">Exportar &amp; Prática</span>
+        <div class="pj-mp-row">
+          <button type="button" onclick="AMAProjector.exportPptx()">.PPTX</button>
+          <button type="button" onclick="AMAProjector.exportPrintPdf()">PDF</button>
+          <button type="button" onclick="AMAProjector.exportOfflineHtml()">HTML Offline</button>
+          <button type="button" onclick="AMAProjector.exportWorksheet()">Ficha Aluno</button>
+          <button type="button" onclick="AMAProjector.practiceDeck()">Quiz</button>
+          <button type="button" onclick="AMAProjector.exportBackup()">Backup BD</button>
+          ${(typeof S !== 'undefined' && S.user && ['ADMIN', 'INSTRUCTOR'].includes(S.user.papel)) ? `<button type="button" onclick="AMAProjector.sendToClass()">Enviar à turma</button>` : ''}
+        </div>
+      </div>
+    </div>` : '';
+
+    const toolbar = `<div class="pj-toolbar pj-toolbar-calm" data-testid="projector-toolbar">
+      <div class="pj-tb-left">
+        <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleCreator(true)">${I.plus} Novo</button>
+        <div class="pj-mode-seg" role="tablist" aria-label="Modo de visualização">
+          <button type="button" role="tab" aria-selected="${P.mode === 'slides'}" class="${P.mode === 'slides' ? 'on' : ''}" onclick="AMAProjector.setMode('slides')">Slides</button>
+          <button type="button" role="tab" aria-selected="${P.mode === 'reading'}" class="${P.mode === 'reading' ? 'on' : ''}" onclick="AMAProjector.setMode('reading')">Leitura</button>
+          <button type="button" role="tab" aria-selected="${P.mode === 'grid'}" class="${P.mode === 'grid' ? 'on' : ''}" onclick="AMAProjector.setMode('grid')">Grelha</button>
+        </div>
+      </div>
+      <div class="pj-tb-center">
+        ${deck.docTypeMeta ? `<label class="pj-doc-chip" data-testid="projector-doc-banner" title="${escAttr((deck.docAnalysis && deck.docAnalysis.extracted && deck.docAnalysis.extracted.coreMessage) || deck.docTypeMeta.tone)}">
+          <span>${esc(deck.docTypeMeta.icon)}</span>
+          <select aria-label="Reinterpretar documento como" onchange="AMAProjector.setDocType(this.value)">
+            ${[['auto', 'Auto'], ['ata', 'Ata de Reunião'], ['relatorio', 'Relatório'], ['regulamento', 'Regulamento'], ['cientifico', 'Artigo'], ['plano', 'Plano'], ['aula', 'Aula']]
+              .map(([v, l]) => `<option value="${v}" ${(deck.docType === v) ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </label>` : ''}
+        <span class="pj-auto-pill ${isBusy ? 'is-busy' : ''}" aria-live="polite">${esc(statusLabel)}</span>
+      </div>
+      <div class="pj-tb-right">
+        ${P.drawOn ? `<div class="pj-ink-picker" role="group" aria-label="Caneta">
+          ${[['#ff6b57', 'Coral'], ['#b8f36b', 'Lima'], ['#00a4dc', 'Azul']].map(([c, n]) => `<button type="button" class="pj-ink-dot ${P.drawColor === c ? 'on' : ''}" style="background:${c}" title="${n}" onclick="AMAProjector.setDrawColor('${c}')"></button>`).join('')}
+          <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.clearDrawing()">Limpar</button>
+          <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleDraw()">✕</button>
         </div>` : ''}
-        <button type="button" class="btn btn-o btn-sm ${P.revealMode ? 'is-on' : ''}" title="Revelar pontos um a um com Espaço / seta direita (atalho S)" onclick="AMAProjector.toggleRevealMode()">◐ 1-a-1</button>
-        <button type="button" class="btn btn-o btn-sm ${P.laserOn ? 'is-on' : ''}" title="Ponteiro laser sobre o slide (atalho L)" onclick="AMAProjector.toggleLaser()">◎ Laser</button>
-        <button type="button" class="btn btn-o btn-sm ${P.drawOn ? 'is-on' : ''}" title="Desenhar / sublinhar sobre o slide (atalho D)" onclick="AMAProjector.toggleDraw()">✎ Desenhar</button>
-        ${P.drawOn ? `<div class="pj-ink-picker" role="group" aria-label="Cor da caneta">
-          ${[['#ff6b57', 'Coral'], ['#b8f36b', 'Lima'], ['#00a4dc', 'Azul']].map(([c, n]) => `<button type="button" class="pj-ink-dot ${P.drawColor === c ? 'on' : ''}" style="background:${c}" title="${n}" aria-label="Cor ${n}" onclick="AMAProjector.setDrawColor('${c}')"></button>`).join('')}
-          <button type="button" class="btn btn-o btn-sm" title="Limpar desenho deste slide (atalho C)" onclick="AMAProjector.clearDrawing()">Limpar</button>
-        </div>` : ''}
-        <button type="button" class="btn btn-o btn-sm ${P.blackout ? 'is-on' : ''}" title="Cortina escura de atenção ao docente (atalho B)" onclick="AMAProjector.toggleBlackout()">■ Cortina</button>
-        <button type="button" class="btn btn-o btn-sm ${P.editingSlide ? 'is-on' : ''}" title="Editar este slide ao vivo (atalho E)" onclick="AMAProjector.toggleEditSlide()">Editar</button>
-        <button type="button" class="btn btn-o btn-sm ${P.timerRunning ? 'is-on' : ''}" title="Cronómetro de discussão em sala (atalho T)" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerRunning ? `${P.timerSec}s` : '60s'}</button>
-        ${P.mode === 'slides' ? `<button type="button" class="btn btn-o btn-sm ${P.showNotes ? 'is-on' : ''}" aria-pressed="${P.showNotes}" onclick="AMAProjector.toggleNotes()">Notas</button>` : ''}
-        <button type="button" class="btn btn-o btn-sm pj-score-btn" title="Auto-otimizar slides para 100/100 na rubrica pedagógica" onclick="AMAProjector.optimizeTo100()">✦ ${rubricScore}/100 · Otimizar</button>
-        <button type="button" class="btn btn-p btn-sm" title="Criar perguntas a partir do texto extraído do ficheiro" onclick="AMAProjector.practiceDeck()">${I.quiz} Praticar</button>
-        ${(typeof S !== 'undefined' && S.user && ['ADMIN', 'INSTRUCTOR'].includes(S.user.papel)) ? `<button type="button" class="btn btn-o btn-sm" title="Publicar esta aula como matéria de uma turma" onclick="AMAProjector.sendToClass()">${I.doc} Enviar à turma</button>` : ''}
-        <button type="button" class="btn btn-o btn-sm" title="Fundir PDF + Wikipédia + imagens + 3D com IA (Chrome AI / Gemini)" onclick="AMAProjector.improveAI()">${I.spark} IA</button>
-        <button type="button" class="btn btn-o btn-sm" title="Configurar chave Gemini API (opcional)" onclick="AMAProjector.configGeminiKey()">Chave IA</button>
-        <button type="button" class="btn btn-o btn-sm" title="Exportar apresentação PowerPoint (.pptx)" onclick="AMAProjector.exportPptx()">.PPTX</button>
-        <button type="button" class="btn btn-o btn-sm" title="Imprimir ou guardar 1 slide por página em PDF" onclick="AMAProjector.exportPrintPdf()">PDF</button>
-        <button type="button" class="btn btn-o btn-sm" title="Descarregar HTML offline autónomo para pen USB" onclick="AMAProjector.exportOfflineHtml()">HTML</button>
-        <button type="button" class="btn btn-o btn-sm" title="Gerar Ficha do Aluno imprimível com gabarito" onclick="AMAProjector.exportWorksheet()">Ficha Aluno</button>
-        <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.toggleFullscreen()">${P.fullscreen ? 'Sair ecrã inteiro' : 'Projetar'}</button>
+        <button type="button" class="btn btn-o btn-sm ${P.editingSlide ? 'is-on' : ''}" title="Editar este slide (E)" onclick="AMAProjector.toggleEditSlide()">✎ Editar</button>
+        <div class="pj-more-wrap">
+          <button type="button" class="btn btn-o btn-sm ${P.moreOpen ? 'is-on' : ''}" aria-expanded="${P.moreOpen}" onclick="event.stopPropagation();AMAProjector.toggleMore()">⋯ Mais</button>
+          ${morePopover}
+        </div>
+        <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.toggleFullscreen()">▶ Projetar</button>
       </div>
     </div>`;
 
     let body = '';
-    const webBar = (P.webBusy || P.webStatus) ? `<div class="pj-web-status ${P.webBusy ? 'is-busy' : ''}" aria-live="polite">
-      <span>${I.spark} ${P.webBusy ? 'A web está a ser consultada para acrescentar fontes…' : esc(P.webStatus)}</span>
-      ${!P.webBusy ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.enrich()">Voltar a verificar</button>` : ''}
-    </div>` : '';
-    const aiBar = (P.aiBusy || P.aiStatus) ? `<div class="pj-ai-status ${P.aiBusy ? 'is-busy' : ''}" aria-live="polite">
-      <span>${I.spark} ${esc(P.aiStatus)}</span>
-      ${!P.aiBusy && !(deck.ai && deck.ai.engine === 'chrome-language-model') ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.improveAI()">Tentar IA</button>` : ''}
-    </div>` : '';
     const planPanel = (() => {
       const plan = deck.plan;
-      if (!plan || !Array.isArray(plan.blocks) || !plan.blocks.length) return '';
-      return `<details class="pj-plan" data-testid="projector-plan" ${P.showPlan ? 'open' : ''} ontoggle="AMAProjector.planToggled(this.open)">
+      if (!P.showPlan || !plan || !Array.isArray(plan.blocks) || !plan.blocks.length) return '';
+      return `<details class="pj-plan" data-testid="projector-plan" open ontoggle="AMAProjector.planToggled(this.open)">
         <summary>
-          <span class="pj-plan-k">${I.spark} Plano da IA <small>${deck.ai && deck.ai.engine === 'chrome-language-model' ? '· Chrome AI' : '· motor local'}</small></span>
-          <span class="pj-plan-stat"><b>${plan.condensed.sentencesRead}</b> frases lidas → <b>${plan.condensed.ideasKept}</b> ideias em <b>${plan.blocks.length}</b> bloco(s)</span>
-          <small>Ver como o ficheiro foi organizado</small>
+          <span class="pj-plan-k">${I.spark} Plano da IA · ${plan.condensed.sentencesRead} frases → ${plan.condensed.ideasKept} ideias</span>
+          <small>Fechar</small>
         </summary>
         <div class="pj-plan-body">
           <ol class="pj-plan-steps">${(plan.steps || []).map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
-          ${(() => {
-            const q = deck.quality || (window.Study && window.Study.Quality && window.Study.Quality.auditDeck(deck));
-            if (!q) return '';
-            return `<div class="pj-quality">
-              <div class="pj-quality-h"><b>Qualidade e coerência</b><span>${q.score}%</span></div>
-              <div class="pj-quality-grid">${Object.entries(q.checks).map(([k, c]) => {
-              const label = { notes: 'Notas 60–120', slides: '≤50 palavras', interaction: 'Perguntas 8–12 min', scenes: 'Cenas 3D', provenance: 'Origens EXTERNO', accessibility: 'Teclado/toque', coherence: 'Marca coerente' }[k] || k;
-              return `<span class="${c.ok ? 'ok' : 'warn'}" title="${escAttr(c.detail || '')}">${esc(label)} · ${c.ok ? 'OK' : 'verificar'}</span>`;
-            }).join('')}</div>
-            </div>`;
-          })()}
-          <div class="pj-plan-blocks">
-            ${plan.blocks.map((b, i) => `<div class="pj-plan-block">
-              <span class="pj-pb-n">${String(i + 1).padStart(2, '0')}</span>
-              <div>
-                <b>${esc(b.heading)}</b>
-                <small>Pág. ${esc(b.page)} · ${b.read} frases lidas → ${b.kept} ideia(s) · slides ${b.slideIndexes.length ? b.slideIndexes.join(', ') : '—'}</small>
-                <em>${esc(b.objective)}</em>
-              </div>
-            </div>`).join('')}
-          </div>
-          ${(plan.keywords || []).length ? `<div class="pj-chips pj-plan-chips" aria-label="Termos que a IA considerou centrais">${plan.keywords.map((k) => `<span>${esc(k)}</span>`).join('')}</div>` : ''}
         </div>
       </details>`;
     })();
 
     if (P.mode === 'reading') {
-      body = `${aiBar}${webBar}${renderReadingMode(deck)}`;
+      body = `${renderReadingMode(deck)}`;
     } else if (P.mode === 'grid') {
-      body = `${aiBar}${webBar}${planPanel}<div class="pj-grid-view" data-testid="projector-grid">
+      body = `${planPanel}<div class="pj-grid-view" data-testid="projector-grid">
         ${deck.slides.map((sl, i) => `<button type="button" class="pj-grid-card ${i === idx ? 'on' : ''}" onclick="AMAProjector.jumpSlide(${i})">
           <span class="pj-gc-n">${String(i + 1).padStart(2, '0')} · ${esc(sl.layout)}</span>
           <strong>${esc(sl.title)}</strong>
@@ -1317,7 +1373,7 @@
         ? `<span class="pj-rev-pill">Revelar ${Math.min(P.revealStep, revTotal)}/${revTotal}</span>`
         : '';
       const inlineEditor = P.editingSlide && !P.fullscreen ? `<section class="card pj-slide-editor" data-testid="projector-inline-editor">
-        <div class="pj-ed-head"><b>Editar Slide ${idx + 1} ao vivo</b><button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleEditSlide()">Concluir</button></div>
+        <div class="pj-ed-head"><b>Editar Slide ${idx + 1}</b><button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleEditSlide()">Concluir</button></div>
         <div class="pj-ed-grid">
           <label>Título <input id="pj-ed-title" maxlength="65" value="${escAttr(slide.title || '')}" onchange="AMAProjector.saveInlineEdit()"></label>
           <label>Layout
@@ -1326,9 +1382,18 @@
                 .map(([v, l]) => `<option value="${v}" ${slide.layout === v ? 'selected' : ''}>${l}</option>`).join('')}
             </select>
           </label>
-          <label>Nota manuscrita (Caveat) <input id="pj-ed-hand" maxlength="42" value="${escAttr(slide.handnote || slide.handNote || '')}" onchange="AMAProjector.saveInlineEdit()"></label>
+          <label>Nota manuscrita <input id="pj-ed-hand" maxlength="42" value="${escAttr(slide.handnote || slide.handNote || '')}" onchange="AMAProjector.saveInlineEdit()"></label>
         </div>
         <label style="display:block;margin-top:8px">Intuição / Subtítulo <input id="pj-ed-sub" value="${escAttr(slide.intuition || slide.subtitle || '')}" onchange="AMAProjector.saveInlineEdit()"></label>
+        <div style="margin-top:8px">
+          <label for="pj-ed-imgq">Descrição da imagem deste slide (escreva ou fale por áudio)</label>
+          <div class="pj-voice-row" style="margin-top:4px">
+            <input id="pj-ed-imgq" placeholder="Ex.: foguetão espacial, diagrama de forças, floresta do Maiombe, sala de reunião…" value="${escAttr(slide.visualPrompt || '')}">
+            <button type="button" class="btn btn-o btn-sm pj-mic-btn ${P.voiceListening && P.voiceTarget === 'slideImg' ? 'is-rec' : ''}" onclick="AMAProjector.toggleVoice('slideImg')">${P.voiceListening && P.voiceTarget === 'slideImg' ? '● Ouvir' : '🎙'}</button>
+            <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.searchSlideImage()">↻ Buscar imagem</button>
+            <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.useSlide3D()">Usar 3D</button>
+          </div>
+        </div>
         <label style="display:block;margin-top:8px">Pontos do slide (1 por linha, máx. 4) <textarea id="pj-ed-bullets" rows="4" onchange="AMAProjector.saveInlineEdit()">${esc(((slide.steps && slide.steps.length ? slide.steps : slide.bullets) || []).join('\n'))}</textarea></label>
         <label style="display:block;margin-top:8px">Notas do Docente <textarea id="pj-ed-notes" rows="2" onchange="AMAProjector.saveInlineEdit()">${esc(slide.notes || slide.teacherNote || '')}</textarea></label>
       </section>` : '';
@@ -1338,35 +1403,20 @@
         <span class="pj-fs-pos">${String(idx + 1).padStart(2, '0')} / ${String(deck.slides.length).padStart(2, '0')}</span>
         <button type="button" ${idx >= deck.slides.length - 1 && (!P.revealMode || P.revealStep >= revTotal) ? 'disabled' : ''} onclick="AMAProjector.step(1)">→</button>
         <i></i>
-        <button type="button" class="${P.revealMode ? 'on' : ''}" title="Revelar 1 a 1 (S)" onclick="AMAProjector.toggleRevealMode()">◐ 1-a-1</button>
-        <button type="button" class="${P.laserOn ? 'on' : ''}" title="Laser (L)" onclick="AMAProjector.toggleLaser()">◎ Laser</button>
         <button type="button" class="${P.drawOn ? 'on' : ''}" title="Desenhar (D)" onclick="AMAProjector.toggleDraw()">✎ Desenhar</button>
-        ${P.drawOn ? `<button type="button" title="Limpar desenho (C)" onclick="AMAProjector.clearDrawing()">Limpar</button>` : ''}
-        <button type="button" class="${P.blackout ? 'on' : ''}" title="Cortina (B)" onclick="AMAProjector.toggleBlackout()">■ Cortina</button>
-        <button type="button" class="${P.timerRunning ? 'on' : ''}" title="Cronómetro 60s (T)" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerRunning ? `${P.timerSec}s` : '60s'}</button>
+        ${P.drawOn ? `<button type="button" title="Limpar (C)" onclick="AMAProjector.clearDrawing()">Limpar</button>` : ''}
         <button type="button" class="${P.showNotes ? 'on' : ''}" title="Notas (N)" onclick="AMAProjector.toggleNotes()">Notas</button>
-        <button type="button" class="pj-fs-exit" title="Sair ecrã inteiro (Esc)" onclick="AMAProjector.toggleFullscreen()">Sair ✕</button>
+        <button type="button" class="${P.blackout ? 'on' : ''}" title="Cortina (B)" onclick="AMAProjector.toggleBlackout()">■</button>
+        ${P.timerRunning ? `<button type="button" class="on" title="Parar cronómetro (T)" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerSec}s</button>` : ''}
+        <button type="button" class="pj-fs-exit" title="Sair (Esc)" onclick="AMAProjector.toggleFullscreen()">Sair ✕</button>
       </div>` : '';
 
-      const docBanner = (!P.fullscreen && deck.docTypeMeta) ? `<div class="pj-doc-banner" data-testid="projector-doc-banner">
-        <div class="pj-doc-banner-main">
-          <strong>${esc(deck.docTypeMeta.icon)} Ficheiro interpretado como: ${esc(deck.docTypeMeta.label)}</strong>
-          <span>${esc((deck.docAnalysis && deck.docAnalysis.extracted && deck.docAnalysis.extracted.coreMessage) || deck.docTypeMeta.tone)}</span>
-        </div>
-        <label style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:11.5px">Modo:
-          <select aria-label="Reinterpretar documento como" onchange="AMAProjector.setDocType(this.value)">
-            ${[['auto', '✨ Auto'], ['ata', '📋 Ata'], ['relatorio', '📊 Relatório'], ['regulamento', '⚖️ Norma'], ['cientifico', '🔬 Artigo'], ['plano', '🗺️ Plano'], ['aula', '🎓 Aula']]
-              .map(([v, l]) => `<option value="${v}" ${(deck.docType === v || (P.docType === v)) ? 'selected' : ''}>${l}</option>`).join('')}
-          </select>
-        </label>
-      </div>` : '';
-
-      body = `${!P.fullscreen ? docBanner + aiBar + webBar + planPanel : ''}<div class="pj-stage-wrap ${P.fullscreen ? 'is-fs' : ''}">
+      body = `${!P.fullscreen ? planPanel : ''}<div class="pj-stage-wrap ${P.fullscreen ? 'is-fs' : ''}">
         <div class="pj-stage-main">
           ${renderSlideContent(slide, deck, idx, deck.slides.length)}
           ${!P.fullscreen ? `<div class="pj-nav-bar">
             <button type="button" class="btn btn-o btn-sm" ${idx === 0 ? 'disabled' : ''} onclick="AMAProjector.step(-1)">${I.back} Anterior</button>
-            <span class="pj-nav-pos" aria-live="polite" data-testid="projector-counter">Slide <b>${idx + 1}</b> de ${deck.slides.length} · ~${slide.durationMin || 3} min ${revBadge}</span>
+            <span class="pj-nav-pos" aria-live="polite" data-testid="projector-counter">Slide <b>${idx + 1}</b> de ${deck.slides.length} ${revBadge}</span>
             <button type="button" class="btn btn-p btn-sm" ${idx >= deck.slides.length - 1 && (!P.revealMode || P.revealStep >= revTotal) ? 'disabled' : ''} onclick="AMAProjector.step(1)">${P.revealMode && P.revealStep < revTotal ? 'Revelar passo' : 'Próximo'} ${I.arrow}</button>
           </div>` : ''}
           ${inlineEditor}
@@ -1375,18 +1425,15 @@
           <div class="pj-notes-h"><span>Notas do Docente</span><small>Slide ${idx + 1}/${deck.slides.length}</small></div>
           <p>${esc(slide.notes || slide.teacherNote || 'Sem notas adicionais para este slide.')}</p>
           ${nextSlide ? `<div class="pj-next-preview" onclick="AMAProjector.step(1)">
-            <span class="pj-np-tag">PRÓXIMO SLIDE · ${String(idx + 2).padStart(2, '0')}</span>
+            <span class="pj-np-tag">PRÓXIMO · ${String(idx + 2).padStart(2, '0')}</span>
             <b>${esc(nextSlide.title)}</b>
-            <small>${esc(nextSlide.subtitle || (nextSlide.bullets && nextSlide.bullets[0]) || nextSlide.rhythm || nextSlide.layout)}</small>
-          </div>` : `<div class="pj-next-preview"><span class="pj-np-tag">FIM DA AULA</span><b>Último slide da apresentação</b></div>`}
+          </div>` : `<div class="pj-next-preview"><span class="pj-np-tag">FIM</span><b>Último slide</b></div>`}
           <div class="pj-notes-keys">
-            <span><kbd>←</kbd><kbd>→</kbd> Navegar</span>
+            <span><kbd>←</kbd><kbd>→</kbd> Slides</span>
             <span><kbd>S</kbd> 1-a-1</span>
-            <span><kbd>L</kbd> Laser</span>
-            <span><kbd>D</kbd> Desenhar</span>
+            <span><kbd>D</kbd> Caneta</span>
             <span><kbd>B</kbd> Cortina</span>
             <span><kbd>T</kbd> 60s</span>
-            <span><kbd>E</kbd> Editar</span>
             <span><kbd>F</kbd> Projetar</span>
           </div>
         </aside>` : ''}
@@ -1401,7 +1448,7 @@
       </div>` : ''}`;
     }
 
-    return `<div class="pj-workspace ${P.fullscreen ? 'is-fs-overlay' : ''}">${!P.fullscreen ? toolbar : ''}${body}</div>`;
+    return `<div class="pj-workspace ${P.fullscreen ? 'is-fs-overlay' : ''}" onclick="if(window.AMAProjector&&AMAProjector.closeMore)AMAProjector.closeMore()">${!P.fullscreen ? toolbar : ''}${body}</div>`;
   }
 
   function wrapShell(inner) {
@@ -1409,7 +1456,7 @@
       const m = S.user.papel === 'ADMIN' ? MENU.admin : S.user.papel === 'INSTRUCTOR' ? MENU.instrutor : MENU.aluno;
       return panelShell('projetor', inner, m);
     }
-    return shellPublic(`<div class="pj-public-wrap">${inner}</div>`, 'universidade');
+    return shellPublic(`<div class="pj-public-wrap">${inner}</div>`, 'projetor');
   }
 
   function projectorRouteView({ q }) {
@@ -1424,7 +1471,7 @@
           title: rec.title,
           subject: rec.subject,
           text: rec.text,
-          sourceName: 'Caderno AMA',
+          sourceName: `Caderno ${brandName()}`,
           author: (S && S.user && S.user.nome) || '',
         });
         if (deck && deck.ok) {
@@ -1437,15 +1484,14 @@
         }
       }
     }
-    const header = !P.fullscreen ? `<div class="page-h">
+    const header = (!P.fullscreen && (!P.deck || P.showCreator)) ? `<div class="page-h pj-page-h-calm">
       <div>
-        <span class="eyebrow-t">${I.play} NÚCLEO ${/CEU/.test(nucleoName()) ? 'CEU' : 'AMA'} · PROJETOR DOCENTE</span>
-        <h1 style="margin-top:6px">Projetor de Aulas &amp; Modo Leitura</h1>
-        <p>O mesmo sítio para ler o ficheiro, organizar a aula e projetar. A IA local escolhe as ideias centrais, escreve objectivos e notas, e acrescenta fontes externas marcadas — o seu PDF continua a ser a verdade.</p>
+        <span class="eyebrow-t">${I.play} ${nucleoName()} · PROJETOR INTELIGENTE</span>
+        <h1 style="margin-top:6px">Projetor PDF → Slides</h1>
       </div>
       <div class="flex wrap" style="gap:8px">
-        <a class="btn btn-o" href="#/quiz">${I.quiz} Modo Quiz</a>
-        <a class="btn btn-o" href="#/universidade">${I.grad} Universidade</a>
+        <a class="btn btn-o btn-sm" href="#/quiz">${I.quiz} Quiz</a>
+        <a class="btn btn-o btn-sm" href="#/catalogo">Cursos</a>
       </div>
     </div>` : '';
 
@@ -1462,6 +1508,135 @@
   const AMAProjector = {
     build(params) { return buildDeck(params); },
     planToggled(open) { P.showPlan = !!open; },
+    togglePlanPanel() { P.showPlan = !P.showPlan; P.moreOpen = false; render(); },
+    toggleMore() { P.moreOpen = !P.moreOpen; render(); },
+    closeMore() { if (P.moreOpen) { P.moreOpen = false; render(); } },
+    setBrief(v) { P.brief = String(v || '').slice(0, 320); },
+    toggleVoice(target = 'brief') {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        return toast('Reconhecimento de voz não suportado neste navegador — escreva a descrição no campo ao lado.');
+      }
+      if (P.voiceListening && activeSpeechRec) {
+        try { activeSpeechRec.stop(); } catch { }
+        P.voiceListening = false;
+        render();
+        return;
+      }
+      try {
+        const rec = new SR();
+        rec.lang = 'pt-PT';
+        rec.continuous = false;
+        rec.interimResults = true;
+        activeSpeechRec = rec;
+        P.voiceListening = true;
+        P.voiceTarget = target;
+        const baseText = target === 'slideImg'
+          ? String((document.getElementById('pj-ed-imgq') || {}).value || '').trim()
+          : String(P.brief || '').trim();
+        toast('🎙 A ouvir… descreva como quer os slides e as imagens.');
+        render();
+        rec.onresult = (ev) => {
+          let transcript = '';
+          for (let i = 0; i < ev.results.length; i += 1) {
+            transcript += ev.results[i][0].transcript + ' ';
+          }
+          const combined = `${baseText ? baseText + ' ' : ''}${transcript.trim()}`.trim().slice(0, 320);
+          if (target === 'slideImg') {
+            const inp = document.getElementById('pj-ed-imgq');
+            if (inp) inp.value = combined;
+          } else {
+            P.brief = combined;
+            const inp = document.getElementById('pj-brief');
+            if (inp) inp.value = combined;
+          }
+        };
+        rec.onerror = () => {
+          P.voiceListening = false;
+          activeSpeechRec = null;
+          toast('Não foi possível captar áudio — verifique a permissão do microfone ou escreva a descrição.');
+          render();
+        };
+        rec.onend = () => {
+          P.voiceListening = false;
+          activeSpeechRec = null;
+          render();
+          if (target === 'slideImg') {
+            const val = String((document.getElementById('pj-ed-imgq') || {}).value || '').trim();
+            if (val) AMAProjector.searchSlideImage();
+          }
+        };
+        rec.start();
+      } catch {
+        P.voiceListening = false;
+        toast('Microfone indisponível neste momento.');
+        render();
+      }
+    },
+    promptBrief() {
+      P.moreOpen = false;
+      const val = window.prompt(
+        'Descreva como quer os slides e que tipo de imagens usar (ex.: "fotos reais de foguetões e carros, tema escuro, tom simples"):',
+        P.brief || ''
+      );
+      if (val === null) return;
+      P.brief = String(val || '').trim().slice(0, 320);
+      if (P.deck) {
+        toast('A aplicar a sua descrição e a procurar imagens coerentes…');
+        enrichDeckWithWeb(P.deck, true).then(() => improveDeckWithAI(P.deck, true));
+      } else {
+        render();
+      }
+    },
+    async searchSlideImage() {
+      if (!P.deck) return;
+      const slide = P.deck.slides[P.slideIdx];
+      const web = window.Study && window.Study.SlideStudioWeb;
+      const q = String((document.getElementById('pj-ed-imgq') || {}).value || '').trim();
+      if (!q) return toast('Escreva ou fale o que quer ver na imagem deste slide.');
+      if (!web || typeof web.searchCoherentImage !== 'function') return toast('Motor de imagens a carregar…');
+      slide.visualPrompt = q;
+      toast(`A procurar imagem coerente para «${q}»…`);
+      try {
+        const img = await web.searchCoherentImage(q);
+        if (!img || !img.url) return toast('Nenhuma foto adequada encontrada — tente palavras mais concretas ou clique em «Usar 3D».');
+        slide.visual = img.url;
+        slide.visualAlt = img.alt || q;
+        slide.visualCredit = { text: `Pedido visual · ${q}`, url: img.page || '' };
+        if (slide.layout === 'cover') slide.webHero = { url: img.url, credit: `Pedido visual · ${q}` };
+        saveDeck(P.deck);
+        toast(`Imagem atualizada para «${q}»!`);
+        render();
+      } catch {
+        toast('Sem ligação para pesquisar imagem neste momento.');
+      }
+    },
+    useSlide3D() {
+      if (!P.deck) return;
+      const slide = P.deck.slides[P.slideIdx];
+      if (!slide) return;
+      slide.visual = '';
+      slide.visualCredit = null;
+      if (slide.layout === 'cover') slide.webHero = null;
+      saveDeck(P.deck);
+      toast('Slide alternado para o modelo 3D interactivo coerente.');
+      render();
+    },
+    async exportBackup() {
+      P.moreOpen = false;
+      const db = window.Study && window.Study.MvpDB;
+      if (!db || typeof db.exportFullBackup !== 'function') return toast('Base de dados MVP a carregar…');
+      const snap = await db.exportFullBackup();
+      const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ceu-academy-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+      toast('Backup completo da base de dados descarregado (.json).');
+    },
     setLinks(v) { P.extraLinks = String(v || ''); },
     enrich() { if (P.deck) enrichDeckWithWeb(P.deck, true); },
     improveAI() { if (P.deck) improveDeckWithAI(P.deck, true); },
@@ -1906,7 +2081,8 @@
       P.slideIdx = 0;
       P.mode = 'slides';
       P.showCreator = false;
-      P.showPlan = true;
+      P.showPlan = false;
+      P.moreOpen = false;
       P.pendingPages = null;
       saveDeck(deck);
       toast(`Apresentação criada · ${deck.stats.slides} slides prontos.`);
@@ -1959,15 +2135,20 @@
     toggleCreator(on) {
       P.showCreator = !!on;
       P.fullscreen = false;
+      document.body.classList.remove('pj-is-fs');
       render();
     },
     setMode(mode) {
       P.mode = mode;
-      if (mode !== 'slides') P.fullscreen = false;
+      if (mode !== 'slides') {
+        P.fullscreen = false;
+        document.body.classList.remove('pj-is-fs');
+      }
       render();
     },
     setTheme(theme) {
       P.theme = theme;
+      P.moreOpen = false;
       render();
     },
     /* Reconstrói o deck com outra didática. O conteúdo vem sempre do ficheiro
@@ -1975,6 +2156,7 @@
     setLevel(level) {
       if (!['auto', 'basico', 'intermediario', 'avancado'].includes(level)) return;
       P.level = level;
+      P.moreOpen = false;
       if (!P.source) return render();
       const deck = buildDeck(P.source);
       if (deck && deck.ok) {
@@ -2012,22 +2194,26 @@
     },
     toggleNotes() {
       P.showNotes = !P.showNotes;
+      P.moreOpen = false;
       render();
     },
     toggleRevealMode() {
       P.revealMode = !P.revealMode;
       P.revealStep = P.revealMode ? 1 : 99;
+      P.moreOpen = false;
       toast(P.revealMode ? 'Modo Revelar 1-a-1 activado (prima Espaço ou → para revelar cada ponto).' : 'Todos os pontos visíveis ao mesmo tempo.');
       render();
     },
     toggleLaser() {
       P.laserOn = !P.laserOn;
       if (P.laserOn) P.drawOn = false;
+      P.moreOpen = false;
       render();
     },
     toggleDraw() {
       P.drawOn = !P.drawOn;
       if (P.drawOn) P.laserOn = false;
+      P.moreOpen = false;
       render();
     },
     setDrawColor(col) {
@@ -2043,11 +2229,13 @@
     },
     toggleBlackout() {
       P.blackout = !P.blackout;
+      P.moreOpen = false;
       render();
     },
     toggleEditSlide() {
       P.editingSlide = !P.editingSlide;
       if (P.editingSlide) P.fullscreen = false;
+      P.moreOpen = false;
       render();
     },
     saveInlineEdit() {
@@ -2108,6 +2296,8 @@
     },
     toggleFullscreen() {
       P.fullscreen = !P.fullscreen;
+      P.moreOpen = false;
+      document.body.classList.toggle('pj-is-fs', P.fullscreen);
       if (P.fullscreen) {
         P.mode = 'slides';
         P.editingSlide = false;
@@ -2327,6 +2517,7 @@
     if (!document.fullscreenElement && P.fullscreen) {
       P.fullscreen = false;
       P.blackout = false;
+      document.body.classList.remove('pj-is-fs');
       if (/^#\/projetor/.test(location.hash)) render();
     }
   });
