@@ -115,6 +115,46 @@ export async function exportDeckToPptx(deck) {
       notes.forEach((b, bi) => {
         slide.addText(`• ${String(b)}`, { x: 0.7, y: 4.5 + bi * 0.55, w: 11.8, h: 0.5, fontSize: 13.5, color: INK });
       });
+    } else if (sl.layout === 'stat-spotlight' && sl.heroStat) {
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x: 0.6, y: 2.0, w: 4.8, h: 3.6, rectRadius: 0.2,
+        fill: { color: CEU_BLUE }, line: { color: '00A4DC', width: 2 },
+      });
+      slide.addText(String(sl.heroStat.label || 'DESTAQUE').toUpperCase(), {
+        x: 0.85, y: 2.25, w: 4.3, h: 0.35, fontSize: 10, bold: true, fontFace: 'Courier New', color: '9BE5FF',
+      });
+      slide.addText(String(sl.heroStat.value || ''), {
+        x: 0.85, y: 2.75, w: 4.3, h: 1.1, fontSize: 38, bold: true, color: WHITE,
+      });
+      slide.addText(String(sl.heroStat.context || ''), {
+        x: 0.85, y: 3.95, w: 4.3, h: 1.4, fontSize: 12.5, color: 'D6ECFF', valign: 'top',
+      });
+      (sl.bullets || []).slice(0, 3).forEach((b, bi) => {
+        const y = 2.0 + bi * 1.22;
+        slide.addShape(pptx.ShapeType.roundRect, {
+          x: 5.75, y, w: 6.85, h: 1.05, rectRadius: 0.14,
+          fill: { color: WHITE }, line: { color: INK, width: 1.2 },
+        });
+        slide.addText(`${String(bi + 1).padStart(2, '0')}  ${String(b)}`, {
+          x: 5.95, y: y + 0.15, w: 6.45, h: 0.78, fontSize: 13.5, color: INK, valign: 'top',
+        });
+      });
+    } else if (sl.layout === 'bento-grid') {
+      const items = (sl.bullets || []).slice(0, 4);
+      items.forEach((b, bi) => {
+        const isHero = bi === 0;
+        const x = isHero ? 0.6 : (0.6 + ((bi - 1) % 2) * 6.15);
+        const y = isHero ? 2.0 : (3.65 + Math.floor((bi - 1) / 2) * 1.48);
+        const w = isHero ? 12.0 : 5.85;
+        const h = isHero ? 1.45 : 1.32;
+        slide.addShape(pptx.ShapeType.roundRect, {
+          x, y, w, h, rectRadius: 0.16,
+          fill: { color: isHero ? 'E6F5FF' : WHITE }, line: { color: isHero ? CEU_BLUE : INK, width: 1.5 },
+        });
+        slide.addText(`${String(bi + 1).padStart(2, '0')}  ${String(b)}`, {
+          x: x + 0.22, y: y + 0.18, w: w - 0.44, h: h - 0.32, fontSize: isHero ? 15 : 13.5, bold: isHero, color: INK, valign: 'top',
+        });
+      });
     } else if (sl.layout === 'quiz') {
       slide.addText(String(sl.question || ''), { x: 0.6, y: 1.95, w: 11.8, h: 0.9, fontSize: 18, bold: true, color: INK });
       (sl.options || []).slice(0, 4).forEach((opt, oi) => {
@@ -176,6 +216,12 @@ export function buildStandaloneOfflineHtml(deck) {
     if (sl.layout === 'formula' || sl.formula) {
       return `<div class="formula-box"><code>${esc(sl.formula || sl.highlight || '')}</code></div>
         ${(sl.steps || sl.bullets || []).length ? `<ol class="cards">${(sl.steps || sl.bullets).slice(0, 4).map((b, i) => `<li><b>${String(i + 1).padStart(2, '0')}</b><span>${esc(b)}</span></li>`).join('')}</ol>` : ''}`;
+    }
+    if (sl.layout === 'stat-spotlight' && sl.heroStat) {
+      return `<div class="cmp">
+        <div style="background:#00217e;color:#fff;border-color:#00a4dc"><small style="color:#9be5ff">${esc(sl.heroStat.label || 'DESTAQUE')}</small><b style="font-size:34px;color:#fff;margin:8px 0">${esc(sl.heroStat.value)}</b><p style="margin:0;color:#d6ecff;font-size:13px">${esc(sl.heroStat.context || '')}</p></div>
+        <div><ol class="cards" style="grid-template-columns:1fr;margin:0">${(sl.bullets || []).slice(0, 3).map((b, i) => `<li><b>${String(i + 1).padStart(2, '0')}</b><span>${esc(b)}</span></li>`).join('')}</ol></div>
+      </div>`;
     }
     if (sl.layout === 'comparison') {
       return `<div class="cmp"><div><span>A</span><b>${esc(sl.left || '')}</b></div><div><span>B</span><b>${esc(sl.right || '')}</b></div></div>

@@ -884,6 +884,8 @@
       </div>`;
     } else if (slide.layout === 'stat-spotlight' && slide.heroStat) {
       const st = slide.heroStat;
+      const pctMatch = String(st.value || '').match(/(\d+(?:[.,]\d+)?)\s*%/);
+      const barPct = pctMatch ? Math.max(8, Math.min(100, parseFloat(pctMatch[1].replace(',', '.')))) : 72;
       inner = `<div class="pj-layout-stat">
         <span class="pj-kicker">${esc(slide.kicker)}</span>
         <h2>${esc(slide.title)}</h2>
@@ -891,6 +893,10 @@
           <div class="pj-stat-hero">
             <span class="pj-stat-lbl">${esc(st.label || 'Destaque')}</span>
             <strong class="pj-stat-val">${esc(st.value)}</strong>
+            <svg class="pj-stat-svg" viewBox="0 0 220 14" aria-hidden="true">
+              <rect x="0" y="3" width="220" height="8" rx="4" fill="currentColor" fill-opacity=".14"/>
+              <rect class="ig-draw" x="0" y="3" width="${Math.round(2.2 * barPct)}" height="8" rx="4" fill="var(--s-accent,#00a4dc)"/>
+            </svg>
             <p class="pj-stat-ctx">${esc(st.context || slide.subtitle || '')}</p>
           </div>
           <div class="pj-stat-side">
@@ -1343,8 +1349,9 @@
         </div>
       </div>
       <div class="pj-mp-sec">
-        <span class="pj-mp-h">Exportar &amp; Prática</span>
+        <span class="pj-mp-h">Exportar &amp; Partilha</span>
         <div class="pj-mp-row">
+          <button type="button" onclick="AMAProjector.shareDeck()">🔗 Partilhar link</button>
           <button type="button" onclick="AMAProjector.exportPptx()">.PPTX</button>
           <button type="button" onclick="AMAProjector.exportPrintPdf()">PDF</button>
           <button type="button" onclick="AMAProjector.exportOfflineHtml()">HTML Offline</button>
@@ -1422,12 +1429,21 @@
         ? `<span class="pj-rev-pill">Revelar ${Math.min(P.revealStep, revTotal)}/${revTotal}</span>`
         : '';
       const inlineEditor = P.editingSlide && !P.fullscreen ? `<section class="card pj-slide-editor" data-testid="projector-inline-editor">
-        <div class="pj-ed-head"><b>Editar Slide ${idx + 1}</b><button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleEditSlide()">Concluir</button></div>
+        <div class="pj-ed-head">
+          <b>Editar Slide ${idx + 1} de ${deck.slides.length}</b>
+          <div class="flex wrap" style="gap:6px">
+            <button type="button" class="btn btn-o btn-sm" ${idx === 0 ? 'disabled' : ''} title="Mover slide para trás" onclick="AMAProjector.moveSlide(-1)">← Mover</button>
+            <button type="button" class="btn btn-o btn-sm" ${idx >= deck.slides.length - 1 ? 'disabled' : ''} title="Mover slide para a frente" onclick="AMAProjector.moveSlide(1)">Mover →</button>
+            <button type="button" class="btn btn-o btn-sm" title="Inserir novo slide a seguir" onclick="AMAProjector.addSlide()">+ Slide</button>
+            ${deck.slides.length > 2 ? `<button type="button" class="btn btn-o btn-sm" title="Remover este slide" onclick="AMAProjector.deleteSlide()">🗑 Apagar</button>` : ''}
+            <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.toggleEditSlide()">Concluir</button>
+          </div>
+        </div>
         <div class="pj-ed-grid">
           <label>Título <input id="pj-ed-title" maxlength="65" value="${escAttr(slide.title || '')}" onchange="AMAProjector.saveInlineEdit()"></label>
           <label>Layout
             <select id="pj-ed-layout" onchange="AMAProjector.saveInlineEdit()">
-              ${[['bullets', 'Cartões'], ['concept', 'Conceito'], ['split', 'Visual 2-col'], ['formula', 'Fórmula'], ['comparison', 'Comparação'], ['animated-flow', 'Passo a Passo'], ['quote', 'Destaque'], ['closing', 'Síntese']]
+              ${[['bento-grid', 'Grelha Bento'], ['stat-spotlight', 'Destaque Numérico'], ['bullets', 'Cartões'], ['concept', 'Conceito'], ['split', 'Visual 2-col'], ['formula', 'Fórmula'], ['comparison', 'Comparação'], ['animated-flow', 'Passo a Passo'], ['quote', 'Citação'], ['closing', 'Síntese']]
                 .map(([v, l]) => `<option value="${v}" ${slide.layout === v ? 'selected' : ''}>${l}</option>`).join('')}
             </select>
           </label>
@@ -1514,6 +1530,29 @@
     if (!S_() || !S_().buildProjectorDeck) {
       waitForStudy(() => { if (/^#\/projetor/.test(location.hash)) render(); });
       return wrapShell('<div class="spinner"></div>');
+    }
+    if (q && q.deck && (!P.deck || P.deck.id !== q.deck)) {
+      const localFound = loadDecks().find((d) => String(d.id) === String(q.deck));
+      if (localFound) {
+        P.deck = localFound;
+        P.slideIdx = 0;
+        P.mode = 'slides';
+        P.showCreator = false;
+      } else if (!P._loadingDeckId || P._loadingDeckId !== q.deck) {
+        P._loadingDeckId = q.deck;
+        fetch('/api/mvp?resource=decks').then((r) => r.ok ? r.json() : null).then((json) => {
+          const rec = (json && Array.isArray(json.records) ? json.records : []).find((x) => String(x.id) === String(q.deck));
+          const dk = rec && (rec.data || rec.payload || rec);
+          if (dk && Array.isArray(dk.slides)) {
+            P.deck = dk;
+            P.slideIdx = 0;
+            P.mode = 'slides';
+            P.showCreator = false;
+            saveDeck(dk);
+            render();
+          }
+        }).catch(() => {});
+      }
     }
     if (q && q.rec && (!P.deck || P.deck.sourceRecId !== q.rec)) {
       const rec = loadNotebooks().find((r) => r.id === q.rec);
@@ -1730,6 +1769,61 @@
       if (!['ok', 'mid', 'rev'].includes(kind)) return;
       P.pulseVotes[kind] = (P.pulseVotes[kind] || 0) + 1;
       render();
+    },
+    moveSlide(delta) {
+      if (!P.deck || !Array.isArray(P.deck.slides)) return;
+      const to = P.slideIdx + delta;
+      if (to < 0 || to >= P.deck.slides.length) return;
+      const arr = P.deck.slides;
+      [arr[P.slideIdx], arr[to]] = [arr[to], arr[P.slideIdx]];
+      arr.forEach((s, i) => { s.index = i + 1; });
+      P.slideIdx = to;
+      saveDeck(P.deck);
+      render();
+    },
+    addSlide() {
+      if (!P.deck || !Array.isArray(P.deck.slides)) return;
+      const newSlide = {
+        id: `s-custom-${Date.now()}`,
+        layout: 'bento-grid',
+        kicker: 'NOVO PONTO',
+        title: 'Novo Slide Personalizado',
+        bullets: ['Ideia principal: escreva aqui o ponto central', 'Exemplo prático: ligue ao contexto da turma', 'Resumo: o que os alunos devem reter'],
+        notes: 'Personalize este slide clicando nos campos acima ou peça uma imagem coerente.',
+        narration: 'Vamos analisar este novo ponto adicionado pelo docente.',
+        durationMin: 3,
+      };
+      const at = P.slideIdx + 1;
+      P.deck.slides.splice(at, 0, newSlide);
+      P.deck.slides.forEach((s, i) => { s.index = i + 1; });
+      if (P.deck.stats) P.deck.stats.slides = P.deck.slides.length;
+      P.slideIdx = at;
+      saveDeck(P.deck);
+      toast('Novo slide inserido! Edite o título, pontos ou imagem.');
+      render();
+    },
+    deleteSlide() {
+      if (!P.deck || !Array.isArray(P.deck.slides) || P.deck.slides.length <= 2) return;
+      P.deck.slides.splice(P.slideIdx, 1);
+      P.deck.slides.forEach((s, i) => { s.index = i + 1; });
+      if (P.deck.stats) P.deck.stats.slides = P.deck.slides.length;
+      P.slideIdx = Math.max(0, Math.min(P.slideIdx, P.deck.slides.length - 1));
+      saveDeck(P.deck);
+      toast('Slide removido.');
+      render();
+    },
+    async shareDeck() {
+      P.moreOpen = false;
+      if (!P.deck) return;
+      saveDeck(P.deck);
+      const url = `${location.origin}${location.pathname}#/projetor?deck=${encodeURIComponent(P.deck.id)}`;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+          return toast('🔗 Link partilhável copiado! Qualquer pessoa pode abrir esta apresentação.');
+        }
+      } catch { }
+      window.prompt('Copie o link partilhável desta apresentação:', url);
     },
     async exportBackup() {
       P.moreOpen = false;

@@ -19,7 +19,7 @@ import * as quality from './quality-engine.js?v=12';
 import * as pdfEngine from './pdf-engine.js?v=1';
 import * as outlineEngine from './outline-engine.js?v=2';
 import * as worksheetEngine from './worksheet-engine.js?v=1';
-import * as exportEngine from './export-engine.js?v=1';
+import * as exportEngine from './export-engine.js?v=2';
 import * as docAnalyzer from './doc-analyzer.js?v=1';
 import * as mvpDb from './mvp-db.js?v=1';
 
