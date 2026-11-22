@@ -641,6 +641,7 @@ export function synthesizeAndFuseDeck(deck, web = null) {
   };
 
   if (deck.plan && Array.isArray(deck.plan.steps)) {
+    deck.plan.steps = deck.plan.steps.filter((s) => !/^Síntese visual Ingenium 3\.0:/i.test(String(s || '')));
     deck.plan.steps.unshift(
       `Síntese visual Ingenium 3.0: ${fusedCount} slide(s) fundidos com a Wikipédia, ${imagesEmbedded} imagem(ns) da net embutida(s), ${videosEmbedded} vídeo(s) e 1 laboratório 3D interactivo.`
     );

@@ -199,8 +199,8 @@ export async function commonsImageSearch(term, signal, limit = 4) {
       const mime = String(info.mime || '').toLowerCase();
       if (!/^image\/(jpeg|png|svg\+xml|webp)$/.test(mime)) continue;
       const title = String(p.title || '').replace(/^File:/i, '');
-      // Ignorar ícones, brasões minúsculos ou scans de páginas de livros.
-      if (/\b(icon|logo|flag_of|stub|edit|arrow|button|page_\d|djvu|signature)\b/i.test(title)) continue;
+      // Ignorar ícones, brasões, selos militares/institucionais ou scans de páginas de livros.
+      if (/\b(icon|logo|flag_of|stub|edit|arrow|button|page_\d|djvu|signature|seal|emblem|coat_of_arms|insignia|crest|patch|badge|air_force|força_aérea|forca_aerea|military|army|navy|usaf|bandeira|brasão|brasao)\b/i.test(title)) continue;
       if ((info.width && info.width < 260) || (info.height && info.height < 180)) continue;
       const thumb = info.thumburl || info.url;
       if (!thumb) continue;

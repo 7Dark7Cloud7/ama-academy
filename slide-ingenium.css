@@ -88,7 +88,7 @@
   background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
 }
 
-.pj-slide-inner{position:relative;z-index:1}
+.pj-slide-inner{position:relative;z-index:1;flex:1 1 auto;padding-bottom:18px}
 .pj-slide-inner>*:not(.pj-deco):not(.pj-ghost){position:relative;z-index:1}
 .pj-deco{
   position:absolute; right:-5%; top:-16%; width:min(36vw,340px); aspect-ratio:1; pointer-events:none; z-index:0;
