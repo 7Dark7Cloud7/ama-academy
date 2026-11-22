@@ -101,6 +101,7 @@
   };
 
   let active3DCtrl = null;
+  let classTimerId = null;
   function destroyActive3D() {
     if (active3DCtrl && typeof active3DCtrl.destroy === 'function') {
       try { active3DCtrl.destroy(); } catch { }
@@ -110,9 +111,13 @@
 
   const P = {
     deck: null,
+    outline: null,
     slideIdx: 0,
     mode: 'slides', // 'slides' | 'reading' | 'grid'
     theme: document.documentElement.dataset.brand === 'ceu' ? 'ceu' : 'editorial', // 'editorial' | 'dark' | 'pine' | 'ceu'
+    slideScale: 100, // 85..125
+    timerSec: 60,
+    timerRunning: false,
     showNotes: true,
     showPlan: false,
     fullscreen: false,
@@ -127,6 +132,14 @@
     uploadStatus: '',
     pendingPages: null,
     pendingSource: '',
+    pdfFile: null,
+    pdfMeta: null,
+    pageStart: 1,
+    pageEnd: 15,
+    isScanned: false,
+    eduLevel: 'universitario', // secundario | universitario | profissional
+    eduLang: 'auto', // auto | pt | en
+    density: 'completo', // essencial | completo | detalhado
     extraLinks: '',
     selected3DNode: 0,
     explode3D: 0,
@@ -152,11 +165,22 @@
       author: params.author || ((typeof S !== 'undefined' && S.user && S.user.nome) || `Docente ${brandName()}`),
     });
     if (deck && deck.ok) {
+      if (document.documentElement.dataset.brand === 'ceu') {
+        deck.brand = 'Núcleo CEU';
+        deck.credit = 'APP FEITO PELA HORIZONTE FUTURO';
+      }
       if (window.Study && window.Study.AI && typeof window.Study.AI.synthesizeAndFuseDeck === 'function') {
         try { window.Study.AI.synthesizeAndFuseDeck(deck, deck.web || null); } catch { }
       }
       if (window.Study && window.Study.Quality) {
-        try { window.Study.Quality.improveDeck(deck); } catch { }
+        try {
+          window.Study.Quality.improveDeck(deck);
+          if (typeof window.Study.Quality.evaluateRubric === 'function') {
+            const rb = window.Study.Quality.evaluateRubric(deck, { enforceCeuBrand: document.documentElement.dataset.brand === 'ceu' });
+            deck.rubricScore = rb.qualityScore;
+            deck.rubric = rb.rubric;
+          }
+        } catch { }
       }
     }
     return deck;
@@ -702,11 +726,11 @@
       <p>${esc(slide.web.text)}</p>
       <a href="${escAttr(slide.web.url || '#')}" target="_blank" rel="noopener noreferrer">${esc(slide.web.source || 'Fonte externa')} ↗</a>
     </div>` : '';
-    return `<div class="pj-slide pj-theme-${escAttr(P.theme)} ${slide.scene3d ? 'pj-scene3d' : ''}" role="region" aria-roledescription="slide" aria-label="Slide ${index + 1}: ${escAttr(slide.title || '')}" data-testid="projector-slide" data-slide-index="${index}">
-      <div class="pj-slide-inner"><span class="pj-deco" aria-hidden="true"><i></i><i></i><i></i></span><span class="pj-ghost" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span><span class="pj-handnote" aria-hidden="true">${esc(slide.handnote || 'Repara nisto ✎')}</span>${inner}</div>
+    return `<div class="pj-slide pj-theme-${escAttr(P.theme)} ${slide.scene3d ? 'pj-scene3d' : ''}" style="--pj-slide-scale:${P.slideScale}%" role="region" aria-roledescription="slide" aria-label="Slide ${index + 1}: ${escAttr(slide.title || '')}" data-testid="projector-slide" data-slide-index="${index}">
+      <div class="pj-slide-inner"><span class="pj-deco" aria-hidden="true"><i></i><i></i><i></i></span><span class="pj-ghost" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span><span class="pj-handnote" aria-hidden="true">${esc(slide.handnote || slide.handNote || 'Repara nisto ✎')}</span>${inner}</div>
       ${webStrip}
       <footer class="pj-slide-foot">
-        <span class="pj-foot-brand">${brandName()} · ${esc(deck.title)}</span>
+        <span class="pj-foot-brand">${nucleoName()} · ${esc(deck.title)} · APP FEITO PELA HORIZONTE FUTURO</span>
         <span class="pj-foot-src" title="Origem do conteúdo deste slide">Fonte: ${esc(srcLabel)}</span>
         <span class="pj-foot-num">${numStr}</span>
       </footer>
@@ -844,6 +868,29 @@
           </label>
           <p class="pj-upload-st" id="pj-upload-st" aria-live="polite">${esc(P.uploadStatus || (P.pendingSource ? `Ficheiro pronto: ${P.pendingSource}` : ''))}</p>
 
+          ${P.pdfMeta ? `<div class="pj-pdf-meta-box">
+            <div class="pj-pdf-meta-row">
+              <b>${esc(P.pdfMeta.filename)}</b>
+              <span>${P.pdfMeta.totalPages} pág.</span>
+              ${P.pdfMeta.headingsCount ? `<span>${P.pdfMeta.headingsCount} títulos</span>` : ''}
+              ${P.pdfMeta.estimatedReadingMin ? `<span>~${P.pdfMeta.estimatedReadingMin} min</span>` : ''}
+            </div>
+            <div class="pj-range-row">
+              <label>Pág. inicial <input type="number" min="1" max="${P.pdfMeta.totalPages}" value="${P.pageStart}" onchange="AMAProjector.setPageRange(this.value, null)"></label>
+              <label>Pág. final <input type="number" min="1" max="${P.pdfMeta.totalPages}" value="${P.pageEnd}" onchange="AMAProjector.setPageRange(null, this.value)"></label>
+              <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.reextractPdfRange()">Re-extrair intervalo</button>
+            </div>
+          </div>` : ''}
+
+          ${P.isScanned ? `<div class="pj-scanned-warn" role="alert">
+            <b>Este PDF parece digitalizado (imagem).</b>
+            <p>Menos de 30 caracteres/página detectados. Pode correr OCR local (PT/EN) neste navegador ou colar o texto ao lado.</p>
+            <div class="flex wrap" style="gap:8px;margin-top:8px">
+              <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.runOcr()">Executar OCR local (PT/EN)</button>
+              <button type="button" class="btn btn-o btn-sm" onclick="document.getElementById('pj-text')?.focus()">Colar texto manualmente</button>
+            </div>
+          </div>` : ''}
+
           <div class="field" style="margin-top:12px">
             <label for="pj-links">Links de apoio (YouTube / Wikipédia — opcional, fundidos por defeito)</label>
             <input id="pj-links" placeholder="https://youtu.be/... ou https://pt.wikipedia.org/wiki/..." value="${escAttr(P.extraLinks || '')}" oninput="AMAProjector.setLinks(this.value)">
@@ -869,16 +916,42 @@
               </select>
             </div>
           </div>
+          <div class="pj-v3-controls">
+            <div class="field"><label for="pj-edu-level">Ensino</label>
+              <select id="pj-edu-level" onchange="AMAProjector.setV3Opt('eduLevel', this.value)">
+                <option value="secundario" ${P.eduLevel === 'secundario' ? 'selected' : ''}>Ensino Secundário</option>
+                <option value="universitario" ${P.eduLevel === 'universitario' ? 'selected' : ''}>Universitário</option>
+                <option value="profissional" ${P.eduLevel === 'profissional' ? 'selected' : ''}>Formação Profissional</option>
+              </select>
+            </div>
+            <div class="field"><label for="pj-edu-lang">Idioma</label>
+              <select id="pj-edu-lang" onchange="AMAProjector.setV3Opt('eduLang', this.value)">
+                <option value="auto" ${P.eduLang === 'auto' ? 'selected' : ''}>Auto (PT/EN)</option>
+                <option value="pt" ${P.eduLang === 'pt' ? 'selected' : ''}>Português (PT)</option>
+                <option value="en" ${P.eduLang === 'en' ? 'selected' : ''}>English (EN)</option>
+              </select>
+            </div>
+            <div class="field"><label for="pj-density">Densidade</label>
+              <select id="pj-density" onchange="AMAProjector.setV3Opt('density', this.value)">
+                <option value="essencial" ${P.density === 'essencial' ? 'selected' : ''}>Essencial (6–7)</option>
+                <option value="completo" ${P.density === 'completo' ? 'selected' : ''}>Completo (10–11)</option>
+                <option value="detalhado" ${P.density === 'detalhado' ? 'selected' : ''}>Detalhado por secção</option>
+              </select>
+            </div>
+          </div>
           <div class="field">
             <label for="pj-text">Conteúdo extraído ou notas da aula</label>
             <textarea id="pj-text" rows="5" placeholder="Cole o texto da aula separado por parágrafos (ou importe um PDF à esquerda)…">${esc(prefill && prefill.text || '')}</textarea>
           </div>
           <div class="flex wrap" style="gap:8px;align-items:center">
-            <button type="button" class="btn btn-p" onclick="AMAProjector.generateFromForm()">${I.spark} PASSO 3 · Gerar slides agora</button>
+            <button type="button" class="btn btn-o" onclick="AMAProjector.buildOutlineFromForm()">▤ PASSO 2 · Editar Roteiro (Outline)</button>
+            <button type="button" class="btn btn-p" onclick="AMAProjector.generateFromForm()">${I.spark} Gerar slides agora</button>
             ${P.deck ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleCreator(false)">Voltar à apresentação atual</button>` : ''}
           </div>
         </div>
       </div>
+
+      ${P.outline ? renderOutlineEditor(P.outline) : ''}
 
       <ol class="pj-steps" aria-label="O que a ${brandName()} faz com o ficheiro">
         <li><span>01</span><div><b>Lê e limpa</b><small>Retira cabeçalhos, números de página e ruído do PDF.</small></div></li>
@@ -902,12 +975,48 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Editor de Roteiro (Passo 1 -> Passo 2, estilo Gamma)               */
+  /* ------------------------------------------------------------------ */
+  function renderOutlineEditor(outline) {
+    if (!outline || !Array.isArray(outline.cards)) return '';
+    const activeCount = outline.cards.filter((c) => c.enabled !== false).length;
+    return `<div class="pj-outline-editor" data-testid="projector-outline">
+      <div class="pj-outline-head">
+        <div>
+          <span class="pj-kicker">ETAPA 1 DE 2 · ROTEIRO EDITÁVEL (${activeCount} SLIDES ACTIVOS)</span>
+          <h3>Revise, reordene ou edite os cartões antes de gerar</h3>
+        </div>
+        <div class="flex wrap" style="gap:8px">
+          <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.addOutlineCard()">+ Adicionar slide</button>
+          <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.renderDeckFromOutline()">${I.spark} Gerar Slides + Web + 3D</button>
+        </div>
+      </div>
+      <ol class="pj-outline-list">
+        ${outline.cards.map((c, idx) => `<li class="pj-out-card ${c.enabled === false ? 'is-off' : ''}">
+          <div class="pj-out-top">
+            <span class="pj-out-badge">${esc(c.rhythm)}</span>
+            <span class="pj-out-lay">${esc(c.layout)}</span>
+            <div class="pj-out-actions">
+              <button type="button" title="Mover acima" ${idx === 0 ? 'disabled' : ''} onclick="AMAProjector.moveOutline(${idx}, -1)">↑</button>
+              <button type="button" title="Mover abaixo" ${idx === outline.cards.length - 1 ? 'disabled' : ''} onclick="AMAProjector.moveOutline(${idx}, 1)">↓</button>
+              <button type="button" title="Activar/Desactivar" onclick="AMAProjector.toggleOutline('${escAttr(c.id)}')">${c.enabled === false ? 'Ativar' : 'Ocultar'}</button>
+            </div>
+          </div>
+          <input class="pj-out-title" value="${escAttr(c.title)}" maxlength="65" aria-label="Título do slide ${idx + 1}" onchange="AMAProjector.editOutlineTitle('${escAttr(c.id)}', this.value)">
+          ${(c.bullets || []).length ? `<ul class="pj-out-bullets">${c.bullets.slice(0, 3).map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+        </li>`).join('')}
+      </ol>
+    </div>`;
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Workspace do Projetor                                              */
   /* ------------------------------------------------------------------ */
   function renderDeckWorkspace(deck) {
     const idx = Math.max(0, Math.min(P.slideIdx, deck.slides.length - 1));
     P.slideIdx = idx;
     const slide = deck.slides[idx];
+    const rubricScore = Number.isFinite(deck.rubricScore) ? deck.rubricScore : (window.Study && window.Study.Quality && window.Study.Quality.evaluateRubric ? window.Study.Quality.evaluateRubric(deck, { enforceCeuBrand: document.documentElement.dataset.brand === 'ceu' }).qualityScore : 100);
 
     const toolbar = `<div class="pj-toolbar" data-testid="projector-toolbar">
       <div class="pj-tb-left">
@@ -925,17 +1034,26 @@
             .map(([k, l]) => `<button type="button" class="${P.level === k ? 'on' : ''}" aria-pressed="${P.level === k}" title="Adaptar a explicação ao nível ${l}" onclick="AMAProjector.setLevel('${k}')">${l}</button>`).join('')}
         </div>
         ${P.mode !== 'reading' ? `<div class="pj-theme-seg" role="group" aria-label="Tema dos slides">
-          <button type="button" class="${P.theme === 'editorial' ? 'on' : ''}" aria-pressed="${P.theme === 'editorial'}" onclick="AMAProjector.setTheme('editorial')">Claro</button>
+          <button type="button" class="${P.theme === 'editorial' ? 'on' : ''}" aria-pressed="${P.theme === 'editorial'}" onclick="AMAProjector.setTheme('editorial')">Papel</button>
           <button type="button" class="${P.theme === 'dark' ? 'on' : ''}" aria-pressed="${P.theme === 'dark'}" onclick="AMAProjector.setTheme('dark')">Escuro</button>
           <button type="button" class="${P.theme === 'ceu' ? 'on' : ''}" aria-pressed="${P.theme === 'ceu'}" onclick="AMAProjector.setTheme('ceu')">CEU Azul</button>
           <button type="button" class="${P.theme === 'pine' ? 'on' : ''}" aria-pressed="${P.theme === 'pine'}" onclick="AMAProjector.setTheme('pine')">Pinho</button>
+        </div>
+        <div class="pj-theme-seg" role="group" aria-label="Tamanho de fonte do slide">
+          <button type="button" title="Diminuir fonte do slide" onclick="AMAProjector.stepSlideScale(-8)">A−</button>
+          <button type="button" title="Aumentar fonte do slide" onclick="AMAProjector.stepSlideScale(8)">A+</button>
         </div>` : ''}
+        <button type="button" class="btn btn-o btn-sm ${P.timerRunning ? 'is-on' : ''}" title="Cronómetro de discussão em sala (atalho T)" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerRunning ? `${P.timerSec}s` : '60s'}</button>
         ${P.mode === 'slides' ? `<button type="button" class="btn btn-o btn-sm ${P.showNotes ? 'is-on' : ''}" aria-pressed="${P.showNotes}" onclick="AMAProjector.toggleNotes()">Notas</button>` : ''}
+        <button type="button" class="btn btn-o btn-sm pj-score-btn" title="Auto-otimizar slides para 100/100 na rubrica pedagógica" onclick="AMAProjector.optimizeTo100()">✦ ${rubricScore}/100 · Otimizar</button>
         <button type="button" class="btn btn-p btn-sm" title="Criar perguntas a partir do texto extraído do ficheiro" onclick="AMAProjector.practiceDeck()">${I.quiz} Praticar</button>
         ${(typeof S !== 'undefined' && S.user && ['ADMIN', 'INSTRUCTOR'].includes(S.user.papel)) ? `<button type="button" class="btn btn-o btn-sm" title="Publicar esta aula como matéria de uma turma" onclick="AMAProjector.sendToClass()">${I.doc} Enviar à turma</button>` : ''}
-        <button type="button" class="btn btn-o btn-sm" title="Fundir PDF + Wikipédia + imagens + 3D com IA (Chrome AI / Gemini)" onclick="AMAProjector.improveAI()">${I.spark} Melhorar com IA</button>
-        <button type="button" class="btn btn-o btn-sm" title="Configurar chave Gemini API (opcional, guardada só neste navegador)" onclick="AMAProjector.configGeminiKey()">Chave IA</button>
-        <button type="button" class="btn btn-o btn-sm" title="Exportar HTML pronto para imprimir ou guardar como PDF" onclick="AMAProjector.printDeck()">Exportar</button>
+        <button type="button" class="btn btn-o btn-sm" title="Fundir PDF + Wikipédia + imagens + 3D com IA (Chrome AI / Gemini)" onclick="AMAProjector.improveAI()">${I.spark} IA</button>
+        <button type="button" class="btn btn-o btn-sm" title="Configurar chave Gemini API (opcional)" onclick="AMAProjector.configGeminiKey()">Chave IA</button>
+        <button type="button" class="btn btn-o btn-sm" title="Exportar apresentação PowerPoint (.pptx)" onclick="AMAProjector.exportPptx()">.PPTX</button>
+        <button type="button" class="btn btn-o btn-sm" title="Imprimir ou guardar 1 slide por página em PDF" onclick="AMAProjector.exportPrintPdf()">PDF</button>
+        <button type="button" class="btn btn-o btn-sm" title="Descarregar HTML offline autónomo para pen USB" onclick="AMAProjector.exportOfflineHtml()">HTML</button>
+        <button type="button" class="btn btn-o btn-sm" title="Gerar Ficha do Aluno imprimível com gabarito" onclick="AMAProjector.exportWorksheet()">Ficha Aluno</button>
         <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.toggleFullscreen()">${P.fullscreen ? 'Sair ecrã inteiro' : 'Projetar'}</button>
       </div>
     </div>`;
@@ -1131,6 +1249,189 @@
       P.activeFormulaVar = Number(idx) || 0;
       render();
     },
+    setV3Opt(key, val) { P[key] = val; },
+    setPageRange(start, end) {
+      if (start !== null) P.pageStart = Math.max(1, Number(start) || 1);
+      if (end !== null) P.pageEnd = Math.max(P.pageStart, Number(end) || P.pageStart);
+    },
+    async reextractPdfRange() {
+      const pdfEng = window.Study && window.Study.PDF;
+      if (!P.pdfFile || !pdfEng || typeof pdfEng.extractPdfLayout !== 'function') return toast('Carregue um PDF primeiro.');
+      const stEl = document.getElementById('pj-upload-st');
+      const say = (m) => { P.uploadStatus = m; if (stEl) stEl.textContent = m; };
+      try {
+        say(`A extrair páginas ${P.pageStart}–${P.pageEnd}…`);
+        const r = await pdfEng.extractPdfLayout(P.pdfFile, {
+          startPage: P.pageStart,
+          endPage: P.pageEnd,
+          onProgress: (p) => say(`A processar pág. ${p.page} (${Math.round(p.progress * 100)}%)…`),
+        });
+        P.pdfMeta = r;
+        P.isScanned = !!r.isScanned;
+        P.pendingPages = r.pageTexts;
+        const ta = document.getElementById('pj-text');
+        if (ta) ta.value = r.text || '';
+        say(r.isScanned ? r.warning : `Extraídas pág. ${P.pageStart}–${P.pageEnd} · ${r.headingsCount} títulos · ${r.wordCount} palavras.`);
+        render();
+      } catch (e) {
+        say(e && e.message ? e.message : 'Falha ao re-extrair intervalo.');
+      }
+    },
+    async runOcr() {
+      const pdfEng = window.Study && window.Study.PDF;
+      if (!P.pdfFile || !pdfEng || typeof pdfEng.runOcrOnPdf !== 'function') return toast('Carregue um PDF digitalizado primeiro.');
+      const stEl = document.getElementById('pj-upload-st');
+      const say = (m) => { P.uploadStatus = m; if (stEl) stEl.textContent = m; };
+      try {
+        say('A iniciar OCR local (PT/EN) nas páginas selecionadas…');
+        const r = await pdfEng.runOcrOnPdf(P.pdfFile, {
+          startPage: P.pageStart,
+          endPage: Math.min(P.pageEnd, P.pageStart + 4),
+          onProgress: (p) => say(p.status || `OCR pág. ${p.page}…`),
+        });
+        P.isScanned = !!r.isScanned;
+        P.pendingPages = r.pageTexts;
+        const ta = document.getElementById('pj-text');
+        if (ta) ta.value = r.text || '';
+        say(`OCR concluído · ${r.wordCount} palavras reconhecidas.`);
+        render();
+      } catch (e) {
+        say(e && e.message ? e.message : 'OCR indisponível neste navegador.');
+      }
+    },
+    buildOutlineFromForm() {
+      const outEng = window.Study && window.Study.Outline;
+      if (!outEng) return toast('Motor de roteiro a carregar…');
+      const title = ((document.getElementById('pj-title') || {}).value || '').trim();
+      const subject = (document.getElementById('pj-subject') || {}).value || 'geral';
+      const text = ((document.getElementById('pj-text') || {}).value || '').trim();
+      if (text.length < 40 && !(P.pendingPages && P.pendingPages.length)) {
+        return toast('Carregue um PDF ou cole pelo menos 40 caracteres para gerar o roteiro.');
+      }
+      P.outline = outEng.buildEditableOutline({
+        title,
+        subject,
+        text,
+        pageTexts: P.pendingPages || [],
+        sourceName: P.pendingSource || title || 'Material de Aula',
+        level: P.eduLevel,
+        language: P.eduLang,
+        density: P.density,
+      });
+      toast(`Roteiro pronto com ${P.outline.cards.length} cartões — edite, reordene ou gere os slides!`);
+      render();
+    },
+    moveOutline(idx, delta) {
+      const outEng = window.Study && window.Study.Outline;
+      if (!P.outline || !outEng) return;
+      P.outline = outEng.moveOutlineCard(P.outline, idx, delta);
+      render();
+    },
+    toggleOutline(cardId) {
+      const outEng = window.Study && window.Study.Outline;
+      if (!P.outline || !outEng) return;
+      P.outline = outEng.toggleOutlineCard(P.outline, cardId);
+      render();
+    },
+    editOutlineTitle(cardId, val) {
+      const outEng = window.Study && window.Study.Outline;
+      if (!P.outline || !outEng) return;
+      P.outline = outEng.updateOutlineCard(P.outline, cardId, { title: String(val || '').trim().slice(0, 65) });
+    },
+    addOutlineCard() {
+      const outEng = window.Study && window.Study.Outline;
+      if (!P.outline || !outEng) return;
+      P.outline = outEng.addOutlineCard(P.outline, {});
+      render();
+    },
+    renderDeckFromOutline() {
+      const outEng = window.Study && window.Study.Outline;
+      if (!P.outline || !outEng) return;
+      const deck = outEng.buildDeckFromOutline(P.outline, {
+        author: (typeof S !== 'undefined' && S.user && S.user.nome) || `Docente ${brandName()}`,
+        theme: P.theme,
+      });
+      if (window.Study && window.Study.AI && typeof window.Study.AI.synthesizeAndFuseDeck === 'function') {
+        try { window.Study.AI.synthesizeAndFuseDeck(deck, null); } catch { }
+      }
+      if (window.Study && window.Study.Quality && typeof window.Study.Quality.optimizeTo100 === 'function') {
+        try { window.Study.Quality.optimizeTo100(deck, { enforceCeuBrand: document.documentElement.dataset.brand === 'ceu' }); } catch { }
+      }
+      P.deck = deck;
+      P.outline = null;
+      P.slideIdx = 0;
+      P.mode = 'slides';
+      P.showCreator = false;
+      saveDeck(deck);
+      toast(`Apresentação gerada a partir do roteiro (${deck.slides.length} slides · ${deck.rubricScore || 100}/100)!`);
+      render();
+      enrichDeckWithWeb(deck).then(() => improveDeckWithAI(deck));
+    },
+    stepSlideScale(delta) {
+      P.slideScale = Math.max(84, Math.min(124, P.slideScale + delta));
+      render();
+    },
+    toggleTimer() {
+      if (classTimerId) {
+        clearInterval(classTimerId);
+        classTimerId = null;
+        P.timerRunning = false;
+        P.timerSec = 60;
+        render();
+        return;
+      }
+      P.timerSec = 60;
+      P.timerRunning = true;
+      render();
+      classTimerId = setInterval(() => {
+        P.timerSec -= 1;
+        if (P.timerSec <= 0) {
+          clearInterval(classTimerId);
+          classTimerId = null;
+          P.timerRunning = false;
+          P.timerSec = 60;
+          toast('⏱ Tempo esgotado! Peça as respostas à turma.');
+        }
+        if (/^#\/projetor/.test(location.hash)) render();
+      }, 1000);
+    },
+    optimizeTo100() {
+      const q = window.Study && window.Study.Quality;
+      if (!P.deck || !q || typeof q.optimizeTo100 !== 'function') return;
+      const res = q.optimizeTo100(P.deck, { enforceCeuBrand: document.documentElement.dataset.brand === 'ceu' });
+      saveDeck(P.deck);
+      toast(`✦ Rubrica pedagógica otimizada: ${res.qualityScore}/100!`);
+      render();
+    },
+    async exportPptx() {
+      const exp = window.Study && window.Study.Export;
+      if (!P.deck || !exp) return toast('Motor de exportação a carregar…');
+      toast('A gerar ficheiro PowerPoint (.pptx) com estilo Ingenium…');
+      try {
+        const r = await exp.exportDeckToPptx(P.deck);
+        toast(`PowerPoint exportado: ${r.fileName}`);
+      } catch (e) {
+        toast(e && e.message ? e.message : 'Erro ao exportar .pptx — tente HTML Offline ou PDF.');
+      }
+    },
+    exportPrintPdf() {
+      const exp = window.Study && window.Study.Export;
+      if (!P.deck || !exp) return this.printDeck();
+      exp.exportDeckToPrintPdf(P.deck);
+      toast('Vista de impressão 16:9 (1 slide por página) aberta.');
+    },
+    exportOfflineHtml() {
+      const exp = window.Study && window.Study.Export;
+      if (!P.deck || !exp) return this.printDeck();
+      const r = exp.exportDeckToOfflineHtml(P.deck);
+      toast(`HTML offline (pronto para pen USB) guardado: ${r.fileName}`);
+    },
+    exportWorksheet() {
+      const exp = window.Study && window.Study.Export;
+      if (!P.deck || !exp) return toast('Motor de Ficha do Aluno a carregar…');
+      const r = exp.exportDeckWorksheet(P.deck, { includeAnswers: true });
+      toast(`Ficha do Aluno + Chave de Correção guardada: ${r.fileName}`);
+    },
     loadSample(key) {
       const eng = S_();
       const sample = SAMPLE_LECTURES[key];
@@ -1229,6 +1530,44 @@
         } catch {
           say('Não foi possível ler o ficheiro de texto.');
           return;
+        }
+      }
+
+      // PDF via layout-aware pdf-engine.js (with heading detection, header/footer strip, page range, scanned detection)
+      if (/\.pdf$/i.test(file.name) && window.Study && window.Study.PDF && typeof window.Study.PDF.extractPdfLayout === 'function') {
+        try {
+          P.pdfFile = file;
+          P.isScanned = false;
+          say(`A ler layout do PDF ${file.name} (${mod.formatFileSize(file.size)})…`);
+          const meta = await window.Study.PDF.inspectPdfMetadata(file);
+          P.pageStart = 1;
+          P.pageEnd = meta.defaultEndPage;
+          const r = await window.Study.PDF.extractPdfLayout(file, {
+            startPage: P.pageStart,
+            endPage: P.pageEnd,
+            onProgress: (p) => say(`A extrair pág. ${p.page}/${p.total} (${Math.round(p.progress * 100)}%)…`),
+          });
+          P.pdfMeta = r;
+          P.isScanned = !!r.isScanned;
+          P.pendingPages = Array.isArray(r.pageTexts) && r.pageTexts.length ? r.pageTexts : null;
+          P.pendingSource = file.name;
+          const ti = document.getElementById('pj-title');
+          const ta = document.getElementById('pj-text');
+          const preferred = (ti && ti.value.trim() && !ti.dataset.autoTitle) ? ti.value.trim() : '';
+          const titleVal = preferred || r.title || mod.filenameToTitle(file.name);
+          applyDetectedTitle(ti, titleVal);
+          if (ta) ta.value = r.text || '';
+          applyDetectedSubject(r.text || '');
+          if (r.isScanned) {
+            say(r.warning);
+            render();
+            return;
+          }
+          say(`PDF pronto · ${r.totalPages} pág. (${r.headingsCount} títulos, ${r.strippedHeadersFooters} cabeçalhos removidos). A criar roteiro editável…`);
+          this.buildOutlineFromForm();
+          return;
+        } catch (pdfErr) {
+          say(`A tentar leitor alternativo… (${pdfErr && pdfErr.message ? pdfErr.message : 'fallback'})`);
         }
       }
 
@@ -1632,6 +1971,8 @@
       ev.preventDefault(); AMAProjector.setMode(P.mode === 'reading' ? 'slides' : 'reading');
     } else if (k.toLowerCase() === 'n' && P.mode === 'slides') {
       ev.preventDefault(); AMAProjector.toggleNotes();
+    } else if (k.toLowerCase() === 't' && P.mode === 'slides') {
+      ev.preventDefault(); AMAProjector.toggleTimer();
     } else if (k.toLowerCase() === 'f') {
       ev.preventDefault(); AMAProjector.toggleFullscreen();
     } else if (k === 'Escape' && P.fullscreen) {

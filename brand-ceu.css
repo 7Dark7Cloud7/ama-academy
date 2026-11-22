@@ -134,7 +134,7 @@
 .ceu-band{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:54px;padding:32px;border-radius:20px;background:linear-gradient(120deg,#e6f1ff,#f7faff);border:1px solid #d6e4f5}
 .ceu-band h2{font-size:clamp(24px,3vw,34px);color:var(--ink);margin:10px 0}
 .ceu-band p{margin:0;max-width:720px;color:#41536e}
-@media(max-width:760px){.ceu-landing{padding:24px 14px 50px}.ceu-hero{grid-template-columns:minmax(0,1fr);padding:28px 22px}.ceu-hero h1{font-size:38px}.ceu-hero::after{display:none}}
+@media(max-width:760px){.ceu-landing{padding:24px 14px 50px;overflow-x:clip}.ceu-hero{grid-template-columns:minmax(0,1fr);padding:26px 20px}.ceu-hero h1{font-size:36px}.ceu-hero::after{display:none}.ceu-quickbar{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ceu-quickbar>a,.ceu-quickbar>button{padding:12px 10px;gap:8px;min-width:0}.ceu-quickbar b{font-size:12.5px}}
 @media(prefers-reduced-motion:reduce){.ceu-hero::after{animation:none}.ceu-feature:hover{transform:none}}
 
 .ceu-corner{

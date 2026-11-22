@@ -15,7 +15,11 @@ import * as slideStudio from './slide-studio-engine.js?v=10';
 // Camada de investigação Wikipédia/Wikimedia/Wikidata YouTube/Mapas — fundida nos slides por omissão.
 import * as slideWeb from './web-enrichment.js?v=9';
 import * as aiEngine from './ai-engine.js?v=2';
-import * as quality from './quality-engine.js?v=11';
+import * as quality from './quality-engine.js?v=12';
+import * as pdfEngine from './pdf-engine.js?v=1';
+import * as outlineEngine from './outline-engine.js?v=1';
+import * as worksheetEngine from './worksheet-engine.js?v=1';
+import * as exportEngine from './export-engine.js?v=1';
 
 window.Study = {
   ...summary, ...review, ...teacher, ...attendance, ...planner, ...quiz, ...projector, ...nucleo3d,
@@ -29,5 +33,9 @@ window.Study = {
   SlideStudioWeb: slideWeb,
   AI: aiEngine,
   Quality: quality,
+  PDF: pdfEngine,
+  Outline: outlineEngine,
+  Worksheet: worksheetEngine,
+  Export: exportEngine,
 };
 window.dispatchEvent(new Event('study-ready'));

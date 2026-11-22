@@ -50,10 +50,10 @@ function auditDeck(deck) {
   const scenes = slides.filter((s) => s.scene3d);
   const external = slides.filter((s) => s.external || s.web || s.layout === 'web-spotlight');
   const externalWithSource = external.filter((s) => s.web?.url || s.web?.sourceUrl || (s.items || []).some((w) => w.url));
-  const brand = document?.documentElement?.dataset?.brand || 'ama';
-  const brandName = brand === 'ceu' ? 'CEU Academy' : 'AMA';
+  const brand = (typeof document !== 'undefined' && document?.documentElement?.dataset?.brand) || (deck?.brand === 'Núcleo CEU' ? 'ceu' : 'ama');
+  const brandName = brand === 'ceu' ? 'Núcleo CEU' : 'AMA';
   const haystack = slides.map((s) => `${s.kicker || ''} ${s.notes || ''} ${s.title || ''}`).join(' ');
-  const coherent = brand === 'ceu' ? !/\bAMA\b/.test(haystack) : !/CEU Academy/.test(haystack);
+  const coherent = brand === 'ceu' ? !/N[úu]cleo\s+AMA|\bAMA\b/.test(haystack) : !/CEU Academy/.test(haystack);
 
   const checks = {
     notes: {
@@ -246,4 +246,223 @@ function improveDeck(deck) {
   return deck.quality;
 }
 
-export { auditDeck, improveDeck, slideWords, noteWords };
+/* ------------------------------------------------------------------ */
+/* CEU Academy v3 — 6-Check 100-Point Pedagogical Rubric & Optimizer  */
+/* ------------------------------------------------------------------ */
+function evaluateRubric(deck, { enforceCeuBrand = true } = {}) {
+  const slides = Array.isArray(deck?.slides) ? deck.slides : [];
+  const L = deck?.language === 'en';
+
+  // 1. Pedagogical Completeness (20 pts)
+  const hasOpening = slides.some((s) => s.layout === 'cover' || /ABERTURA|OPENING/i.test(s.rhythm || s.kicker || ''));
+  const hasCore = slides.some((s) => !['cover', 'agenda', 'objectives', 'quiz', 'check', 'closing'].includes(s.layout));
+  const hasCheck = slides.some((s) => ['quiz', 'check'].includes(s.layout) || /VERIFICA[ÇC][ÃA]O|CHECKPOINT/i.test(s.rhythm || s.kicker || ''));
+  const hasClosing = slides.some((s) => s.layout === 'closing' || /S[ÍI]NTESE|SYNTHESIS/i.test(s.rhythm || s.kicker || ''));
+  const completenessPts = (hasOpening ? 5 : 0) + (hasCore ? 5 : 0) + (hasCheck ? 5 : 0) + (hasClosing ? 5 : 0);
+
+  // 2. Anti-Wall-of-Text Density (20 pts): <= 4 bullets and <= 150 chars per bullet
+  const overcrowded = slides.filter((s) => {
+    const list = Array.isArray(s.bullets) ? s.bullets : [];
+    return list.length > 4 || list.some((b) => String(b || '').length > 150);
+  });
+  const densityPts = overcrowded.length === 0 ? 20 : Math.max(0, 20 - overcrowded.length * 5);
+
+  // 3. Typography & Caveat Notes (15 pts): title 3..65 chars + non-empty handNote
+  const badTypo = slides.filter((s) => {
+    const t = String(s.title || '').trim();
+    const h = String(s.handNote || s.handnote || '').trim();
+    return t.length < 3 || t.length > 65 || !h;
+  });
+  const typoPts = badTypo.length === 0 ? 15 : Math.max(0, 15 - badTypo.length * 4);
+
+  // 4. Visual Variety (15 pts): >= 3 distinct layouts
+  const layouts = new Set(slides.map((s) => s.layout || 'bullets'));
+  const varietyPts = layouts.size >= 3 ? 15 : Math.round((layouts.size / 3) * 15);
+
+  // 5. Teacher Readiness (15 pts): non-empty teacherNote / notes on every slide
+  const missingNotes = slides.filter((s) => String(s.teacherNote || s.notes || '').trim().length < 10);
+  const teacherPts = missingNotes.length === 0 ? 15 : Math.max(0, 15 - missingNotes.length * 4);
+
+  // 6. Brand & Language Consistency (15 pts): 0 occurrences of Núcleo AMA
+  const allText = [
+    deck?.title, deck?.brand, deck?.sourceName,
+    ...slides.flatMap((s) => [s.title, s.subtitle, s.kicker, s.notes, s.teacherNote, s.handNote, s.handnote, ...(s.bullets || [])]),
+  ].filter(Boolean).join(' ');
+  const hasAmaLeak = enforceCeuBrand && /N[úu]cleo\s+AMA/i.test(allText);
+  const brandPts = hasAmaLeak ? 0 : 15;
+
+  const qualityScore = completenessPts + densityPts + typoPts + varietyPts + teacherPts + brandPts;
+  return {
+    qualityScore,
+    rubric: {
+      completeness: { points: completenessPts, max: 20, ok: completenessPts === 20, detail: hasOpening && hasCore && hasCheck && hasClosing ? 'ABERTURA + conteúdo + VERIFICAÇÃO + SÍNTESE' : 'Faltam blocos obrigatórios' },
+      density: { points: densityPts, max: 20, ok: densityPts === 20, detail: `${overcrowded.length} slide(s) acima do limite (≤4 pontos, ≤150 car.)` },
+      typography: { points: typoPts, max: 15, ok: typoPts === 15, detail: `${badTypo.length} título(s)/nota(s) fora do padrão` },
+      variety: { points: varietyPts, max: 15, ok: varietyPts === 15, detail: `${layouts.size} layouts distintos` },
+      teacher: { points: teacherPts, max: 15, ok: teacherPts === 15, detail: `${missingNotes.length} slide(s) sem nota docente` },
+      brand: { points: brandPts, max: 15, ok: brandPts === 15, detail: hasAmaLeak ? 'Referência antiga «Núcleo AMA» detectada' : (L ? 'Núcleo CEU · EN consistent' : 'Núcleo CEU · PT coerente') },
+    },
+  };
+}
+
+function scrubCeuBrand(text) {
+  return String(text ?? '')
+    .replace(/N[úu]cleo\s+AMA/gi, 'Núcleo CEU')
+    .replace(/\bAMA\s+—\s+Aristides\s+Miguel\s+Academy/gi, 'CEU Academy');
+}
+
+function optimizeTo100(deck, { enforceCeuBrand = true } = {}) {
+  if (!deck || !Array.isArray(deck.slides)) return { qualityScore: 0, rubric: {} };
+  const L = deck.language === 'en';
+  const clipChars = (s, max) => {
+    const t = strip(s);
+    if (t.length <= max) return t;
+    return `${t.slice(0, max - 1).replace(/\s+\S*$/, '').replace(/[,;:]$/, '')}…`;
+  };
+
+  if (enforceCeuBrand) {
+    deck.brand = 'Núcleo CEU';
+    deck.credit = 'APP FEITO PELA HORIZONTE FUTURO';
+    if (deck.title) deck.title = scrubCeuBrand(deck.title);
+    if (deck.sourceName) deck.sourceName = scrubCeuBrand(deck.sourceName);
+  }
+
+  // Split overcrowded slides (>4 bullets) & trim bullets (<= 150 chars), titles (3..65 chars)
+  const rebuilt = [];
+  for (const rawSlide of deck.slides) {
+    const s = { ...rawSlide };
+    if (enforceCeuBrand) {
+      s.title = scrubCeuBrand(s.title);
+      s.subtitle = s.subtitle ? scrubCeuBrand(s.subtitle) : s.subtitle;
+      s.kicker = s.kicker ? scrubCeuBrand(s.kicker) : s.kicker;
+      s.notes = s.notes ? scrubCeuBrand(s.notes) : s.notes;
+      s.teacherNote = s.teacherNote ? scrubCeuBrand(s.teacherNote) : s.teacherNote;
+    }
+    const cleanTitle = clipChars(s.title || (L ? 'Lesson Concept' : 'Conceito da Aula'), 65);
+    s.title = cleanTitle.length >= 3 ? cleanTitle : (L ? 'Key Topic' : 'Tema Central');
+
+    const hand = strip(s.handNote || s.handnote || '');
+    s.handNote = hand || (L ? 'Notice this ✎' : 'Repara nisto ✎');
+    s.handnote = s.handNote;
+
+    const noteVal = strip(s.teacherNote || s.notes || '');
+    s.teacherNote = noteVal.length >= 10
+      ? noteVal
+      : (L
+          ? `Explain "${s.title}" clearly, connect to a concrete example, and verify understanding with the class.`
+          : `Explique «${s.title}» com clareza, ligue a um exemplo concreto e confirme a compreensão da turma.`);
+    s.notes = s.teacherNote;
+
+    if (Array.isArray(s.bullets) && s.bullets.length > 0) {
+      const trimmed = s.bullets.map((b) => clipChars(enforceCeuBrand ? scrubCeuBrand(b) : b, 148)).filter(Boolean);
+      if (trimmed.length > 4) {
+        s.bullets = trimmed.slice(0, 4);
+        rebuilt.push(s);
+        const rest = trimmed.slice(4, 8);
+        rebuilt.push({
+          ...s,
+          id: `${s.id}-part2`,
+          title: clipChars(`${s.title} (2)`, 65),
+          layout: s.layout === 'bullets' ? 'split' : 'bullets',
+          bullets: rest,
+        });
+        continue;
+      }
+      s.bullets = trimmed;
+    }
+    rebuilt.push(s);
+  }
+
+  // Ensure ABERTURA
+  if (!rebuilt.some((s) => s.layout === 'cover')) {
+    rebuilt.unshift({
+      id: 's-opt-cover',
+      layout: 'cover',
+      rhythm: L ? 'OPENING' : 'ABERTURA',
+      kicker: L ? 'OPENING · Núcleo CEU' : 'ABERTURA · Núcleo CEU',
+      title: clipChars(deck.title || (L ? 'Interactive Lesson' : 'Aula Interactiva'), 65),
+      subtitle: L ? 'Structured visual lesson ready for classroom projection.' : 'Aula visual estruturada e pronta para projeção.',
+      bullets: [],
+      handNote: L ? 'Start here ✎' : 'Começa pela intuição ✎',
+      handnote: L ? 'Start here ✎' : 'Começa pela intuição ✎',
+      teacherNote: L ? 'Introduce the main topic and ask an opening question to engage students.' : 'Apresente o tema central e faça uma pergunta de abertura à turma.',
+      notes: L ? 'Introduce the main topic and ask an opening question to engage students.' : 'Apresente o tema central e faça uma pergunta de abertura à turma.',
+    });
+  }
+
+  // Ensure at least 1 core slide
+  if (!rebuilt.some((s) => !['cover', 'agenda', 'objectives', 'quiz', 'check', 'closing'].includes(s.layout))) {
+    rebuilt.splice(1, 0, {
+      id: 's-opt-core',
+      layout: 'concept',
+      rhythm: L ? 'KEY IDEA' : 'IDEIA-CHAVE',
+      kicker: L ? 'KEY IDEA' : 'IDEIA-CHAVE',
+      title: clipChars(deck.title || (L ? 'Core Concept' : 'Conceito-Chave'), 65),
+      subtitle: clipChars(deck.reading?.centralIdea || deck.title || '', 148),
+      bullets: [],
+      handNote: L ? 'Key idea ✎' : 'Repara nisto ✎',
+      handnote: L ? 'Key idea ✎' : 'Repara nisto ✎',
+      teacherNote: L ? 'Explain the core concept clearly and invite one example from students.' : 'Explique a ideia-chave com clareza e peça um exemplo aos estudantes.',
+      notes: L ? 'Explain the core concept clearly and invite one example from students.' : 'Explique a ideia-chave com clareza e peça um exemplo aos estudantes.',
+    });
+  }
+
+  // Ensure VERIFICAÇÃO
+  if (!rebuilt.some((s) => ['quiz', 'check'].includes(s.layout))) {
+    const core = rebuilt.find((s) => !['cover', 'agenda', 'objectives', 'closing'].includes(s.layout)) || rebuilt[0];
+    rebuilt.splice(Math.max(1, rebuilt.length - 1), 0, {
+      id: 's-opt-quiz',
+      layout: 'quiz',
+      rhythm: L ? 'CHECKPOINT' : 'VERIFICAÇÃO',
+      kicker: L ? 'CHECKPOINT' : 'VERIFICAÇÃO',
+      title: L ? 'Quick understanding check' : 'Verificação rápida em sala',
+      question: L ? `What is the key idea behind "${core.title}"?` : `Qual é a ideia central de «${core.title}»?`,
+      options: [
+        clipChars(core.subtitle || (core.bullets && core.bullets[0]) || core.title, 110),
+        L ? 'None of the concepts discussed in this lesson.' : 'Nenhum dos conceitos abordados nesta aula.',
+        L ? 'It only applies outside the scope of this subject.' : 'Aplica-se apenas fora do âmbito desta disciplina.',
+      ],
+      correct: 0,
+      explanation: clipChars(core.subtitle || (core.bullets && core.bullets[0]) || core.title, 140),
+      handNote: L ? 'Vote before reveal! ✎' : 'Pensa antes de clicar! ✎',
+      handnote: L ? 'Vote before reveal! ✎' : 'Pensa antes de clicar! ✎',
+      teacherNote: L ? 'Give 30 seconds for students to vote before revealing the answer.' : 'Dê 30 segundos para a turma votar antes de revelar a resposta.',
+      notes: L ? 'Give 30 seconds for students to vote before revealing the answer.' : 'Dê 30 segundos para a turma votar antes de revelar a resposta.',
+    });
+  }
+
+  // Ensure SÍNTESE
+  if (!rebuilt.some((s) => s.layout === 'closing')) {
+    rebuilt.push({
+      id: 's-opt-closing',
+      layout: 'closing',
+      rhythm: L ? 'SYNTHESIS' : 'SÍNTESE',
+      kicker: L ? 'SYNTHESIS' : 'SÍNTESE',
+      title: L ? 'Recap & Exit Ticket' : 'Síntese & Bilhete de Saída',
+      bullets: rebuilt.slice(1, 4).map((s) => clipChars(s.title, 120)),
+      checkQuestions: [L ? 'Exit Ticket: Summarize today in 1 sentence.' : 'Bilhete de Saída: Resuma a aula de hoje em 1 frase.'],
+      handNote: L ? '1-min Exit Ticket ✓' : 'Bilhete de Saída ✎',
+      handnote: L ? '1-min Exit Ticket ✓' : 'Bilhete de Saída ✎',
+      teacherNote: L ? 'Recap the main takeaways and collect 1-minute exit tickets.' : 'Faça a síntese final e recolha o Bilhete de Saída em 1 minuto.',
+      notes: L ? 'Recap the main takeaways and collect 1-minute exit tickets.' : 'Faça a síntese final e recolha o Bilhete de Saída em 1 minuto.',
+    });
+  }
+
+  // Ensure >= 3 distinct layouts
+  const layouts = new Set(rebuilt.map((s) => s.layout));
+  if (layouts.size < 3 && rebuilt.length >= 3) {
+    rebuilt[1].layout = 'split';
+  }
+
+  rebuilt.forEach((s, i) => { s.index = i + 1; });
+  deck.slides = rebuilt;
+  if (deck.stats) deck.stats.slides = rebuilt.length;
+
+  const rubricResult = evaluateRubric(deck, { enforceCeuBrand });
+  deck.rubricScore = rubricResult.qualityScore;
+  deck.rubric = rubricResult.rubric;
+  deck.quality = auditDeck(deck);
+  return rubricResult;
+}
+
+export { auditDeck, improveDeck, evaluateRubric, optimizeTo100, slideWords, noteWords };

@@ -114,10 +114,11 @@
         <aside class="ceu-hero-card" aria-label="Cartão de estudante CEU Academy">
           <img src="assets/ceu-logo.png?v=1" alt="Logótipo CEU" class="ceu-hero-logo">
           <span class="ceu-card-kicker">CARTÃO DE ESTUDANTE UNIVERSITÁRIO · CEU.AO</span>
-          <b>CEU Academy</b>
+          <b>Núcleo CEU · Academy</b>
           <small>Comunidade Académica · Angola</small>
           <div class="ceu-card-line"></div>
           <span class="ceu-card-note">A IA funde o seu PDF com Wikipédia, imagens Wikimedia, YouTube e 3D interactivo para ensinar com clareza visual.</span>
+          <small style="margin-top:6px;opacity:.85;font:700 9.5px var(--font-m,monospace);letter-spacing:.08em">APP FEITO PELA HORIZONTE FUTURO</small>
         </aside>
       </div>
 
