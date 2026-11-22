@@ -335,6 +335,78 @@
 .pj-out-title{width:100%;padding:7px 9px;border-radius:9px;border:1px solid rgba(19,34,56,.2);background:#fff;color:#132238;font:700 13.5px var(--font-d)}
 .pj-out-bullets{margin:0;padding-left:16px;font-size:11.5px;line-height:1.45;color:var(--muted,#4b5b70)}
 
+/* Pro Classroom Projection: Laser, Chalk Whiteboard, 1-by-1 Reveal, Curtain, Editor, Fullscreen HUD */
+.pj-slide.is-laser{cursor:none}
+.pj-laser-dot{
+  position:absolute; left:0; top:0; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%;
+  background:radial-gradient(circle,#fff 0%,#ff3b30 42%,rgba(255,59,48,.0) 75%);
+  box-shadow:0 0 18px 6px rgba(255,59,48,.65); pointer-events:none; z-index:25; opacity:0; transition:opacity .15s;
+}
+.pj-draw-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:20;pointer-events:none}
+.pj-draw-canvas.active{pointer-events:auto;cursor:crosshair;touch-action:none}
+.pj-ink-picker{display:inline-flex;align-items:center;gap:5px;padding:3px 6px;border-radius:9px;background:var(--surface,#fff);border:1px solid var(--line,#d6e4f5)}
+.pj-ink-dot{width:18px;height:18px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.pj-ink-dot.on{border-color:#132238;transform:scale(1.18)}
+.pj-rev-hidden{opacity:.07!important;filter:blur(3px);transform:scale(.98)!important;transition:opacity .25s,filter .25s,transform .25s}
+.pj-rev-focus{outline:2px solid var(--s-accent,#00a4dc);box-shadow:0 8px 22px -12px rgba(0,164,220,.45)!important}
+.pj-rev-pill{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;background:#b8f36b;color:#132238;font:800 10.5px var(--font-m,monospace)}
+.pj-blackout{
+  position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+  background:rgba(7,14,24,.96); color:#eef6ff; text-align:center; padding:24px; cursor:pointer; backdrop-filter:blur(10px);
+}
+.pj-blackout strong{font-size:clamp(22px,3vw,38px);letter-spacing:-.03em}
+.pj-blackout p{margin:0;font-size:13px;opacity:.75}
+.pj-blackout kbd{padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.15);font-family:var(--font-m,monospace)}
+
+/* Inline Live Slide Editor */
+.pj-slide-editor{margin-top:14px;padding:16px 18px;border-radius:16px;border:1.5px solid #132238;box-shadow:0 4px 0 #132238}
+.pj-ed-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.pj-ed-grid{display:grid;grid-template-columns:1.3fr .8fr 1fr;gap:10px}
+.pj-slide-editor label{font-size:11.5px;font-weight:700;color:var(--muted,#4b5b70)}
+.pj-slide-editor input,.pj-slide-editor select,.pj-slide-editor textarea{
+  width:100%;margin-top:4px;padding:7px 9px;border-radius:9px;border:1px solid var(--line,#cbd5e1);background:var(--surface,#fff);color:var(--ink,#132238);font:500 13px var(--font-b);
+}
+
+/* Keynote-style Next Slide Preview inside Notes */
+.pj-next-preview{
+  margin:12px 0; padding:11px 13px; border-radius:12px; cursor:pointer;
+  background:var(--signal-soft,#edf5ff); border:1px dashed var(--line,#93c5fd); transition:transform .15s;
+}
+.pj-next-preview:hover{transform:translateY(-2px)}
+.pj-np-tag{display:block;font:800 9.5px var(--font-m,monospace);letter-spacing:.1em;color:#0084d1;margin-bottom:3px}
+.pj-next-preview b{display:block;font-size:13px;color:var(--ink,#132238)}
+.pj-next-preview small{display:block;margin-top:3px;font-size:11.5px;color:var(--muted,#4b5b70);line-height:1.4}
+
+/* True Cinema Fullscreen Stage + Floating Presenter HUD */
+.pj-workspace.is-fs-overlay{
+  position:fixed!important; inset:0!important; z-index:99999!important;
+  background:#070e18!important; padding:18px 20px 84px!important;
+  display:flex!important; flex-direction:column!important; justify-content:center!important; align-items:center!important; overflow:auto!important;
+}
+.pj-workspace.is-fs-overlay .pj-stage-wrap.is-fs{
+  width:min(96vw, calc(84vh * 16 / 9)); max-width:1440px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr); gap:16px; align-items:center;
+}
+.pj-workspace.is-fs-overlay .pj-stage-wrap.is-fs:has(.pj-notes-fs){grid-template-columns:minmax(0,1.55fr) minmax(260px,.65fr)}
+.pj-notes-fs{max-height:80vh;overflow:auto;background:#0f1d31!important;color:#eaf4ff!important;border-color:rgba(142,200,255,.25)!important}
+.pj-fs-hud{
+  position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:100000;
+  display:flex; flex-wrap:nowrap; align-items:center; gap:6px; padding:7px 12px; border-radius:999px;
+  background:rgba(10,20,36,.92); border:1px solid rgba(142,200,255,.28); box-shadow:0 16px 40px rgba(0,0,0,.55);
+  backdrop-filter:blur(12px); max-width:calc(100vw - 24px); overflow-x:auto; scrollbar-width:none;
+}
+.pj-fs-hud::-webkit-scrollbar{display:none}
+.pj-fs-hud button{
+  flex:none; padding:6px 11px; border-radius:999px; border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.07); color:#eef6ff; font:700 11.5px var(--font-b); cursor:pointer; white-space:nowrap;
+}
+.pj-fs-hud button.on{background:#b8f36b;color:#132238;border-color:#b8f36b}
+.pj-fs-hud button.pj-fs-exit{background:#ff6b57;color:#fff;border-color:#ff6b57}
+.pj-fs-hud button:disabled{opacity:.35;cursor:not-allowed}
+.pj-fs-hud i{width:1px;height:18px;background:rgba(255,255,255,.18);flex:none}
+.pj-fs-pos{font:800 12px var(--font-m,monospace);color:#8ec8ff;padding:0 6px;white-space:nowrap}
+
+@media(max-width:860px){.pj-ed-grid{grid-template-columns:minmax(0,1fr)}}
+
 @media(max-width:860px){
   .pj-layout-bullets.has-art,.pj-3d-grid,.pj-map-grid,.pj-v3-controls{grid-template-columns:minmax(0,1fr)}
   .pj-3d-canvas{height:220px}

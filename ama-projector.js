@@ -144,9 +144,126 @@
     selected3DNode: 0,
     explode3D: 0,
     activeFormulaVar: 0,
+    laserOn: false,
+    drawOn: false,
+    drawColor: '#ff6b57',
+    drawings: {}, // slideId -> Array<{ color, points: Array<[nx, ny]> }>
+    blackout: false,
+    revealMode: false,
+    revealStep: 99,
+    editingSlide: false,
     level: 'auto', // auto | basico | intermediario | avancado
     source: null,  // parâmetros originais, para reconstruir ao mudar o nível
   };
+
+  function getSlideRevealTotal(slide) {
+    if (!slide) return 0;
+    if (Array.isArray(slide.steps) && slide.steps.length) return slide.steps.length;
+    if (Array.isArray(slide.bullets) && slide.bullets.length) return slide.bullets.length;
+    return 0;
+  }
+
+  function mountProjectionOverlays(slide) {
+    setTimeout(() => {
+      const slideEl = document.querySelector('.pj-slide');
+      if (!slideEl || !slide) return;
+
+      // 1. Progressive 1-by-1 reveal
+      const items = slideEl.querySelectorAll('.pj-bullets > li, .pj-timeline-list > li, .pj-formula-steps ol > li, .pj-objectives > li, .pj-agenda-grid > li');
+      items.forEach((el, idx) => {
+        const hidden = P.revealMode && idx >= P.revealStep;
+        el.classList.toggle('pj-rev-hidden', hidden);
+        el.classList.toggle('pj-rev-focus', P.revealMode && idx === P.revealStep - 1);
+      });
+
+      // 2. Laser pointer tracking
+      const laserDot = slideEl.querySelector('.pj-laser-dot');
+      if (laserDot && P.laserOn) {
+        slideEl.onpointermove = (ev) => {
+          const rect = slideEl.getBoundingClientRect();
+          const x = ev.clientX - rect.left;
+          const y = ev.clientY - rect.top;
+          laserDot.style.opacity = '1';
+          laserDot.style.transform = `translate(${x}px, ${y}px)`;
+        };
+        slideEl.onpointerleave = () => { laserDot.style.opacity = '0'; };
+      }
+
+      // 3. Whiteboard chalk annotation canvas
+      const canvas = slideEl.querySelector('.pj-draw-canvas');
+      if (canvas) {
+        const rect = slideEl.getBoundingClientRect();
+        const w = Math.max(300, Math.round(rect.width));
+        const h = Math.max(180, Math.round(rect.height));
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        const sid = slide.id || `s-${P.slideIdx}`;
+        const strokes = P.drawings[sid] || [];
+        const redraw = () => {
+          ctx.clearRect(0, 0, w, h);
+          for (const st of strokes) {
+            if (!st.points || st.points.length < 2) continue;
+            ctx.beginPath();
+            ctx.strokeStyle = st.color || '#ff6b57';
+            ctx.lineWidth = 3.5;
+            ctx.moveTo(st.points[0][0] * w, st.points[0][1] * h);
+            for (let i = 1; i < st.points.length; i += 1) {
+              ctx.lineTo(st.points[i][0] * w, st.points[i][1] * h);
+            }
+            ctx.stroke();
+          }
+        };
+        redraw();
+
+        if (P.drawOn) {
+          let activeStroke = null;
+          canvas.onpointerdown = (ev) => {
+            ev.preventDefault();
+            canvas.setPointerCapture?.(ev.pointerId);
+            const r = canvas.getBoundingClientRect();
+            const nx = (ev.clientX - r.left) / Math.max(1, r.width);
+            const ny = (ev.clientY - r.top) / Math.max(1, r.height);
+            activeStroke = { color: P.drawColor, points: [[nx, ny]] };
+            strokes.push(activeStroke);
+            P.drawings[sid] = strokes;
+          };
+          canvas.onpointermove = (ev) => {
+            if (!activeStroke) return;
+            const r = canvas.getBoundingClientRect();
+            const nx = (ev.clientX - r.left) / Math.max(1, r.width);
+            const ny = (ev.clientY - r.top) / Math.max(1, r.height);
+            activeStroke.points.push([nx, ny]);
+            redraw();
+          };
+          const endDraw = () => { activeStroke = null; };
+          canvas.onpointerup = endDraw;
+          canvas.onpointercancel = endDraw;
+        }
+      }
+
+      // 4. Touch swipe navigation on mobile/tablet when not drawing or orbiting 3D
+      if (!P.drawOn && slide.layout !== 'scene-3d') {
+        let sx = 0, sy = 0;
+        slideEl.ontouchstart = (ev) => {
+          if (ev.touches && ev.touches[0]) { sx = ev.touches[0].clientX; sy = ev.touches[0].clientY; }
+        };
+        slideEl.ontouchend = (ev) => {
+          if (!ev.changedTouches || !ev.changedTouches[0]) return;
+          const dx = ev.changedTouches[0].clientX - sx;
+          const dy = ev.changedTouches[0].clientY - sy;
+          if (Math.abs(dx) > 54 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+            AMAProjector.step(dx < 0 ? 1 : -1);
+          }
+        };
+      }
+    }, 25);
+  }
 
   function S_() {
     return window.Study || null;
@@ -717,6 +834,7 @@
 
     if (slide.layout === 'scene-3d') mountActive3DScene(slide);
     else destroyActive3D();
+    mountProjectionOverlays(slide);
 
     const srcLabel = slide.page
       ? `${deck.sourceName ? deck.sourceName + ' · ' : ''}p.${slide.page}`
@@ -726,7 +844,9 @@
       <p>${esc(slide.web.text)}</p>
       <a href="${escAttr(slide.web.url || '#')}" target="_blank" rel="noopener noreferrer">${esc(slide.web.source || 'Fonte externa')} ↗</a>
     </div>` : '';
-    return `<div class="pj-slide pj-theme-${escAttr(P.theme)} ${slide.scene3d ? 'pj-scene3d' : ''}" style="--pj-slide-scale:${P.slideScale}%" role="region" aria-roledescription="slide" aria-label="Slide ${index + 1}: ${escAttr(slide.title || '')}" data-testid="projector-slide" data-slide-index="${index}">
+    const sid = slide.id || `s-${index}`;
+    const hasStrokes = Array.isArray(P.drawings[sid]) && P.drawings[sid].length > 0;
+    return `<div class="pj-slide pj-theme-${escAttr(P.theme)} ${slide.scene3d ? 'pj-scene3d' : ''} ${P.laserOn ? 'is-laser' : ''} ${P.drawOn ? 'is-draw' : ''}" style="--pj-slide-scale:${P.slideScale}%" role="region" aria-roledescription="slide" aria-label="Slide ${index + 1}: ${escAttr(slide.title || '')}" data-testid="projector-slide" data-slide-index="${index}">
       <div class="pj-slide-inner"><span class="pj-deco" aria-hidden="true"><i></i><i></i><i></i></span><span class="pj-ghost" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span><span class="pj-handnote" aria-hidden="true">${esc(slide.handnote || slide.handNote || 'Repara nisto ✎')}</span>${inner}</div>
       ${webStrip}
       <footer class="pj-slide-foot">
@@ -735,6 +855,13 @@
         <span class="pj-foot-num">${numStr}</span>
       </footer>
       <div class="pj-slide-progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
+      ${(P.drawOn || hasStrokes) ? `<canvas class="pj-draw-canvas ${P.drawOn ? 'active' : ''}" aria-label="Quadro de anotações do docente"></canvas>` : ''}
+      ${P.laserOn ? `<span class="pj-laser-dot" aria-hidden="true"></span>` : ''}
+      ${P.blackout ? `<div class="pj-blackout" role="dialog" aria-label="Cortina de atenção" onclick="AMAProjector.toggleBlackout()">
+        <span class="pj-kicker">PAUSA · ATENÇÃO AO DOCENTE</span>
+        <strong>${esc(deck.title)}</strong>
+        <p>Slide ${index + 1} de ${total} · Prima <kbd>B</kbd> ou clique para retomar a projeção</p>
+      </div>` : ''}
     </div>`;
   }
 
@@ -1043,6 +1170,15 @@
           <button type="button" title="Diminuir fonte do slide" onclick="AMAProjector.stepSlideScale(-8)">A−</button>
           <button type="button" title="Aumentar fonte do slide" onclick="AMAProjector.stepSlideScale(8)">A+</button>
         </div>` : ''}
+        <button type="button" class="btn btn-o btn-sm ${P.revealMode ? 'is-on' : ''}" title="Revelar pontos um a um com Espaço / seta direita (atalho S)" onclick="AMAProjector.toggleRevealMode()">◐ 1-a-1</button>
+        <button type="button" class="btn btn-o btn-sm ${P.laserOn ? 'is-on' : ''}" title="Ponteiro laser sobre o slide (atalho L)" onclick="AMAProjector.toggleLaser()">◎ Laser</button>
+        <button type="button" class="btn btn-o btn-sm ${P.drawOn ? 'is-on' : ''}" title="Desenhar / sublinhar sobre o slide (atalho D)" onclick="AMAProjector.toggleDraw()">✎ Desenhar</button>
+        ${P.drawOn ? `<div class="pj-ink-picker" role="group" aria-label="Cor da caneta">
+          ${[['#ff6b57', 'Coral'], ['#b8f36b', 'Lima'], ['#00a4dc', 'Azul']].map(([c, n]) => `<button type="button" class="pj-ink-dot ${P.drawColor === c ? 'on' : ''}" style="background:${c}" title="${n}" aria-label="Cor ${n}" onclick="AMAProjector.setDrawColor('${c}')"></button>`).join('')}
+          <button type="button" class="btn btn-o btn-sm" title="Limpar desenho deste slide (atalho C)" onclick="AMAProjector.clearDrawing()">Limpar</button>
+        </div>` : ''}
+        <button type="button" class="btn btn-o btn-sm ${P.blackout ? 'is-on' : ''}" title="Cortina escura de atenção ao docente (atalho B)" onclick="AMAProjector.toggleBlackout()">■ Cortina</button>
+        <button type="button" class="btn btn-o btn-sm ${P.editingSlide ? 'is-on' : ''}" title="Editar este slide ao vivo (atalho E)" onclick="AMAProjector.toggleEditSlide()">Editar</button>
         <button type="button" class="btn btn-o btn-sm ${P.timerRunning ? 'is-on' : ''}" title="Cronómetro de discussão em sala (atalho T)" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerRunning ? `${P.timerSec}s` : '60s'}</button>
         ${P.mode === 'slides' ? `<button type="button" class="btn btn-o btn-sm ${P.showNotes ? 'is-on' : ''}" aria-pressed="${P.showNotes}" onclick="AMAProjector.toggleNotes()">Notas</button>` : ''}
         <button type="button" class="btn btn-o btn-sm pj-score-btn" title="Auto-otimizar slides para 100/100 na rubrica pedagógica" onclick="AMAProjector.optimizeTo100()">✦ ${rubricScore}/100 · Otimizar</button>
@@ -1115,26 +1251,74 @@
         </button>`).join('')}
       </div>`;
     } else {
-      body = `${aiBar}${webBar}${planPanel}<div class="pj-stage-wrap ${P.fullscreen ? 'is-fs' : ''}">
+      const nextSlide = deck.slides[idx + 1] || null;
+      const revTotal = getSlideRevealTotal(slide);
+      const revBadge = (P.revealMode && revTotal > 0)
+        ? `<span class="pj-rev-pill">Revelar ${Math.min(P.revealStep, revTotal)}/${revTotal}</span>`
+        : '';
+      const inlineEditor = P.editingSlide && !P.fullscreen ? `<section class="card pj-slide-editor" data-testid="projector-inline-editor">
+        <div class="pj-ed-head"><b>Editar Slide ${idx + 1} ao vivo</b><button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleEditSlide()">Concluir</button></div>
+        <div class="pj-ed-grid">
+          <label>Título <input id="pj-ed-title" maxlength="65" value="${escAttr(slide.title || '')}" onchange="AMAProjector.saveInlineEdit()"></label>
+          <label>Layout
+            <select id="pj-ed-layout" onchange="AMAProjector.saveInlineEdit()">
+              ${[['bullets', 'Cartões'], ['concept', 'Conceito'], ['split', 'Visual 2-col'], ['formula', 'Fórmula'], ['comparison', 'Comparação'], ['animated-flow', 'Passo a Passo'], ['quote', 'Destaque'], ['closing', 'Síntese']]
+                .map(([v, l]) => `<option value="${v}" ${slide.layout === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select>
+          </label>
+          <label>Nota manuscrita (Caveat) <input id="pj-ed-hand" maxlength="42" value="${escAttr(slide.handnote || slide.handNote || '')}" onchange="AMAProjector.saveInlineEdit()"></label>
+        </div>
+        <label style="display:block;margin-top:8px">Intuição / Subtítulo <input id="pj-ed-sub" value="${escAttr(slide.intuition || slide.subtitle || '')}" onchange="AMAProjector.saveInlineEdit()"></label>
+        <label style="display:block;margin-top:8px">Pontos do slide (1 por linha, máx. 4) <textarea id="pj-ed-bullets" rows="4" onchange="AMAProjector.saveInlineEdit()">${esc(((slide.steps && slide.steps.length ? slide.steps : slide.bullets) || []).join('\n'))}</textarea></label>
+        <label style="display:block;margin-top:8px">Notas do Docente <textarea id="pj-ed-notes" rows="2" onchange="AMAProjector.saveInlineEdit()">${esc(slide.notes || slide.teacherNote || '')}</textarea></label>
+      </section>` : '';
+
+      const fsHud = P.fullscreen ? `<div class="pj-fs-hud" role="toolbar" aria-label="Controlos de projeção">
+        <button type="button" ${idx === 0 ? 'disabled' : ''} onclick="AMAProjector.step(-1)">←</button>
+        <span class="pj-fs-pos">${String(idx + 1).padStart(2, '0')} / ${String(deck.slides.length).padStart(2, '0')}</span>
+        <button type="button" ${idx >= deck.slides.length - 1 && (!P.revealMode || P.revealStep >= revTotal) ? 'disabled' : ''} onclick="AMAProjector.step(1)">→</button>
+        <i></i>
+        <button type="button" class="${P.revealMode ? 'on' : ''}" title="Revelar 1 a 1 (S)" onclick="AMAProjector.toggleRevealMode()">◐ 1-a-1</button>
+        <button type="button" class="${P.laserOn ? 'on' : ''}" title="Laser (L)" onclick="AMAProjector.toggleLaser()">◎ Laser</button>
+        <button type="button" class="${P.drawOn ? 'on' : ''}" title="Desenhar (D)" onclick="AMAProjector.toggleDraw()">✎ Desenhar</button>
+        ${P.drawOn ? `<button type="button" title="Limpar desenho (C)" onclick="AMAProjector.clearDrawing()">Limpar</button>` : ''}
+        <button type="button" class="${P.blackout ? 'on' : ''}" title="Cortina (B)" onclick="AMAProjector.toggleBlackout()">■ Cortina</button>
+        <button type="button" class="${P.timerRunning ? 'on' : ''}" title="Cronómetro 60s (T)" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerRunning ? `${P.timerSec}s` : '60s'}</button>
+        <button type="button" class="${P.showNotes ? 'on' : ''}" title="Notas (N)" onclick="AMAProjector.toggleNotes()">Notas</button>
+        <button type="button" class="pj-fs-exit" title="Sair ecrã inteiro (Esc)" onclick="AMAProjector.toggleFullscreen()">Sair ✕</button>
+      </div>` : '';
+
+      body = `${!P.fullscreen ? aiBar + webBar + planPanel : ''}<div class="pj-stage-wrap ${P.fullscreen ? 'is-fs' : ''}">
         <div class="pj-stage-main">
           ${renderSlideContent(slide, deck, idx, deck.slides.length)}
-          <div class="pj-nav-bar">
+          ${!P.fullscreen ? `<div class="pj-nav-bar">
             <button type="button" class="btn btn-o btn-sm" ${idx === 0 ? 'disabled' : ''} onclick="AMAProjector.step(-1)">${I.back} Anterior</button>
-            <span class="pj-nav-pos" aria-live="polite" data-testid="projector-counter">Slide <b>${idx + 1}</b> de ${deck.slides.length} · ~${slide.durationMin || 3} min</span>
-            <button type="button" class="btn btn-p btn-sm" ${idx >= deck.slides.length - 1 ? 'disabled' : ''} onclick="AMAProjector.step(1)">Próximo ${I.arrow}</button>
-          </div>
+            <span class="pj-nav-pos" aria-live="polite" data-testid="projector-counter">Slide <b>${idx + 1}</b> de ${deck.slides.length} · ~${slide.durationMin || 3} min ${revBadge}</span>
+            <button type="button" class="btn btn-p btn-sm" ${idx >= deck.slides.length - 1 && (!P.revealMode || P.revealStep >= revTotal) ? 'disabled' : ''} onclick="AMAProjector.step(1)">${P.revealMode && P.revealStep < revTotal ? 'Revelar passo' : 'Próximo'} ${I.arrow}</button>
+          </div>` : ''}
+          ${inlineEditor}
         </div>
-        ${P.showNotes && !P.fullscreen ? `<aside class="card pj-notes" data-testid="projector-notes">
-          <div class="pj-notes-h"><span>Notas do Docente</span><small>Slide ${idx + 1}</small></div>
-          <p>${esc(slide.notes || 'Sem notas adicionais para este slide.')}</p>
+        ${P.showNotes ? `<aside class="card pj-notes ${P.fullscreen ? 'pj-notes-fs' : ''}" data-testid="projector-notes">
+          <div class="pj-notes-h"><span>Notas do Docente</span><small>Slide ${idx + 1}/${deck.slides.length}</small></div>
+          <p>${esc(slide.notes || slide.teacherNote || 'Sem notas adicionais para este slide.')}</p>
+          ${nextSlide ? `<div class="pj-next-preview" onclick="AMAProjector.step(1)">
+            <span class="pj-np-tag">PRÓXIMO SLIDE · ${String(idx + 2).padStart(2, '0')}</span>
+            <b>${esc(nextSlide.title)}</b>
+            <small>${esc(nextSlide.subtitle || (nextSlide.bullets && nextSlide.bullets[0]) || nextSlide.rhythm || nextSlide.layout)}</small>
+          </div>` : `<div class="pj-next-preview"><span class="pj-np-tag">FIM DA AULA</span><b>Último slide da apresentação</b></div>`}
           <div class="pj-notes-keys">
             <span><kbd>←</kbd><kbd>→</kbd> Navegar</span>
-            <span><kbd>R</kbd> Leitura</span>
-            <span><kbd>N</kbd> Notas</span>
-            <span><kbd>F</kbd> Ecrã inteiro</span>
+            <span><kbd>S</kbd> 1-a-1</span>
+            <span><kbd>L</kbd> Laser</span>
+            <span><kbd>D</kbd> Desenhar</span>
+            <span><kbd>B</kbd> Cortina</span>
+            <span><kbd>T</kbd> 60s</span>
+            <span><kbd>E</kbd> Editar</span>
+            <span><kbd>F</kbd> Projetar</span>
           </div>
         </aside>` : ''}
       </div>
+      ${fsHud}
 
       ${!P.fullscreen ? `<div class="pj-strip" aria-label="Miniaturas dos slides">
         ${deck.slides.map((sl, i) => `<button type="button" class="pj-thumb ${i === idx ? 'on' : ''}" onclick="AMAProjector.jumpSlide(${i})">
@@ -1144,7 +1328,7 @@
       </div>` : ''}`;
     }
 
-    return `<div class="pj-workspace ${P.fullscreen ? 'is-fs-overlay' : ''}">${toolbar}${body}</div>`;
+    return `<div class="pj-workspace ${P.fullscreen ? 'is-fs-overlay' : ''}">${!P.fullscreen ? toolbar : ''}${body}</div>`;
   }
 
   function wrapShell(inner) {
@@ -1744,20 +1928,117 @@
       P.showNotes = !P.showNotes;
       render();
     },
+    toggleRevealMode() {
+      P.revealMode = !P.revealMode;
+      P.revealStep = P.revealMode ? 1 : 99;
+      toast(P.revealMode ? 'Modo Revelar 1-a-1 activado (prima Espaço ou → para revelar cada ponto).' : 'Todos os pontos visíveis ao mesmo tempo.');
+      render();
+    },
+    toggleLaser() {
+      P.laserOn = !P.laserOn;
+      if (P.laserOn) P.drawOn = false;
+      render();
+    },
+    toggleDraw() {
+      P.drawOn = !P.drawOn;
+      if (P.drawOn) P.laserOn = false;
+      render();
+    },
+    setDrawColor(col) {
+      P.drawColor = col || '#ff6b57';
+      render();
+    },
+    clearDrawing() {
+      if (!P.deck) return;
+      const slide = P.deck.slides[P.slideIdx];
+      const sid = (slide && slide.id) || `s-${P.slideIdx}`;
+      delete P.drawings[sid];
+      render();
+    },
+    toggleBlackout() {
+      P.blackout = !P.blackout;
+      render();
+    },
+    toggleEditSlide() {
+      P.editingSlide = !P.editingSlide;
+      if (P.editingSlide) P.fullscreen = false;
+      render();
+    },
+    saveInlineEdit() {
+      if (!P.deck) return;
+      const slide = P.deck.slides[P.slideIdx];
+      if (!slide) return;
+      const ti = document.getElementById('pj-ed-title');
+      const lay = document.getElementById('pj-ed-layout');
+      const hand = document.getElementById('pj-ed-hand');
+      const sub = document.getElementById('pj-ed-sub');
+      const bul = document.getElementById('pj-ed-bullets');
+      const nt = document.getElementById('pj-ed-notes');
+      if (ti && ti.value.trim()) slide.title = ti.value.trim().slice(0, 65);
+      if (lay && lay.value) slide.layout = lay.value;
+      if (hand) { slide.handnote = hand.value.trim().slice(0, 42); slide.handNote = slide.handnote; }
+      if (sub) {
+        if (slide.intuition !== undefined) slide.intuition = sub.value.trim().slice(0, 200);
+        else slide.subtitle = sub.value.trim().slice(0, 200);
+      }
+      if (bul) {
+        const lines = bul.value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 4);
+        if (slide.layout === 'animated-flow' || slide.layout === 'timeline') slide.steps = lines;
+        else slide.bullets = lines;
+      }
+      if (nt) { slide.notes = nt.value.trim(); slide.teacherNote = slide.notes; }
+      saveDeck(P.deck);
+      render();
+    },
     step(delta) {
       if (!P.deck) return;
-      P.slideIdx = Math.max(0, Math.min(P.deck.slides.length - 1, P.slideIdx + delta));
+      const slide = P.deck.slides[P.slideIdx];
+      const revTotal = getSlideRevealTotal(slide);
+      if (delta > 0 && P.revealMode && revTotal > 0 && P.revealStep < revTotal) {
+        P.revealStep += 1;
+        render();
+        return;
+      }
+      if (delta < 0 && P.revealMode && P.revealStep > 1 && revTotal > 0) {
+        P.revealStep -= 1;
+        render();
+        return;
+      }
+      const nextIdx = Math.max(0, Math.min(P.deck.slides.length - 1, P.slideIdx + delta));
+      if (nextIdx !== P.slideIdx) {
+        P.slideIdx = nextIdx;
+        P.revealStep = P.revealMode ? 1 : 99;
+        P.blackout = false;
+      }
       render();
     },
     jumpSlide(i) {
       if (!P.deck) return;
       P.slideIdx = Math.max(0, Math.min(P.deck.slides.length - 1, Number(i) || 0));
+      P.revealStep = P.revealMode ? 1 : 99;
+      P.blackout = false;
       P.mode = 'slides';
       render();
     },
     toggleFullscreen() {
       P.fullscreen = !P.fullscreen;
-      if (P.fullscreen) P.mode = 'slides';
+      if (P.fullscreen) {
+        P.mode = 'slides';
+        P.editingSlide = false;
+        P.showNotes = false;
+        try {
+          if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => { });
+          }
+        } catch { }
+      } else {
+        P.blackout = false;
+        try {
+          if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => { });
+          }
+        } catch { }
+      }
       render();
     },
     setReadTheme(t) { P.readTheme = t; render(); },
@@ -1956,6 +2237,14 @@
     if (reveal) reveal.hidden = false;
   });
 
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && P.fullscreen) {
+      P.fullscreen = false;
+      P.blackout = false;
+      if (/^#\/projetor/.test(location.hash)) render();
+    }
+  });
+
   // Keyboard shortcuts for Projector Mode
   document.addEventListener('keydown', (ev) => {
     if (!/^#\/projetor/.test(location.hash) || !P.deck || P.showCreator) return;
@@ -1963,20 +2252,35 @@
     const t = ev.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     const k = ev.key;
+    const kl = k.toLowerCase();
     if (P.mode === 'slides' && (k === 'ArrowRight' || k === 'PageDown' || k === ' ')) {
       ev.preventDefault(); AMAProjector.step(1);
     } else if (P.mode === 'slides' && (k === 'ArrowLeft' || k === 'PageUp')) {
       ev.preventDefault(); AMAProjector.step(-1);
-    } else if (k.toLowerCase() === 'r') {
+    } else if (kl === 'r') {
       ev.preventDefault(); AMAProjector.setMode(P.mode === 'reading' ? 'slides' : 'reading');
-    } else if (k.toLowerCase() === 'n' && P.mode === 'slides') {
+    } else if (kl === 'n' && P.mode === 'slides') {
       ev.preventDefault(); AMAProjector.toggleNotes();
-    } else if (k.toLowerCase() === 't' && P.mode === 'slides') {
+    } else if (kl === 't' && P.mode === 'slides') {
       ev.preventDefault(); AMAProjector.toggleTimer();
-    } else if (k.toLowerCase() === 'f') {
+    } else if (kl === 's' && P.mode === 'slides') {
+      ev.preventDefault(); AMAProjector.toggleRevealMode();
+    } else if (kl === 'l' && P.mode === 'slides') {
+      ev.preventDefault(); AMAProjector.toggleLaser();
+    } else if (kl === 'd' && P.mode === 'slides') {
+      ev.preventDefault(); AMAProjector.toggleDraw();
+    } else if (kl === 'c' && P.mode === 'slides' && P.drawOn) {
+      ev.preventDefault(); AMAProjector.clearDrawing();
+    } else if (kl === 'b' && P.mode === 'slides') {
+      ev.preventDefault(); AMAProjector.toggleBlackout();
+    } else if (kl === 'e' && P.mode === 'slides') {
+      ev.preventDefault(); AMAProjector.toggleEditSlide();
+    } else if (kl === 'f') {
       ev.preventDefault(); AMAProjector.toggleFullscreen();
-    } else if (k === 'Escape' && P.fullscreen) {
-      ev.preventDefault(); P.fullscreen = false; render();
+    } else if (k === 'Escape' && (P.fullscreen || P.blackout)) {
+      ev.preventDefault();
+      if (P.blackout) { P.blackout = false; render(); }
+      else AMAProjector.toggleFullscreen();
     }
   });
 })();

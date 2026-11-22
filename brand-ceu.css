@@ -47,7 +47,8 @@
 :root[data-brand="ceu"] .pj-theme-editorial.pj-slide{background-image:
   radial-gradient(1000px 480px at 90% -14%,rgba(11,99,197,.16),transparent 62%),
   linear-gradient(155deg,#ffffff,#eef5ff)}
-:root[data-brand="ceu"] .pj-slide::after{color:rgba(120,190,255,.06)}
+:root[data-brand="ceu"] .pj-slide::after{content:"CEU"!important;color:rgba(142,200,255,.06)}
+:root[data-brand="ceu"] .hero::after{content:"CEU"!important}
 :root[data-brand="ceu"] .pj-layout-cover::before{
   background:conic-gradient(from 0deg,transparent 0 58%,rgba(120,190,255,.5) 72%,transparent 88%)}
 
