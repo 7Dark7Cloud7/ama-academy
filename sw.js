@@ -3,7 +3,7 @@
    explicação. Este worker não pré-carrega nada: guarda o que o navegador já
    pediu e serve esse cache quando a rede falha. Por isso o código da app é
    "rede primeiro" — um ficheiro velho em cache seria uma versão fantasma. */
-const CODIGO = 'ama-codigo-v3';
+const CODIGO = 'ama-codigo-v4';
 const TIPOS = 'ama-tipos-v1';
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -26,7 +26,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const u = new URL(req.url);
   if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
-  if (u.pathname.endsWith('/sw.js')) return;
+  if (u.pathname.endsWith('/sw.js') || u.pathname.startsWith('/api/')) return;
 
   /* Tipos de letra do Google: mudam raramente e sem eles a app perde a marca,
      por isso aqui o cache ganha à rede. */
@@ -45,7 +45,7 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     let res = null;
     try {
-      res = await fetch(req);
+      res = await fetch(req, (req.mode === 'navigate' || req.destination === 'document') ? { cache: 'no-store' } : undefined);
       if (res && res.ok && mesmaOrigem && estavel(u.search)) guardar(req, res.clone(), CODIGO);
     } catch {
       const emCache = await caches.match(req);

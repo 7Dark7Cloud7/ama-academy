@@ -217,6 +217,9 @@
     tour3DRunning: false,
     imgGallery: [],
     imgGalleryBusy: false,
+    transition: (() => { try { return localStorage.getItem('ceu-pj-trans') || 'slide'; } catch { return 'slide'; } })(),
+    shareModalUrl: '',
+    showShortcuts: false,
   };
 
   function getSlideRevealTotal(slide) {
@@ -1031,7 +1034,7 @@
     const sid = slide.id || `s-${index}`;
     const hasStrokes = Array.isArray(P.drawings[sid]) && P.drawings[sid].length > 0;
     const showHand = deck.docType === 'aula' && (slide.handnote || slide.handNote);
-    return `<div class="pj-slide pj-slide-anim pj-theme-${escAttr(P.theme)} ${slide.scene3d ? 'pj-scene3d' : ''} ${P.laserOn && !P.drawOn && P.fullscreen ? 'is-laser' : ''} ${P.drawOn ? 'is-draw' : ''}" style="--pj-slide-scale:${P.slideScale}%" role="region" aria-roledescription="slide" aria-label="Slide ${index + 1}: ${escAttr(slide.title || '')}" data-testid="projector-slide" data-slide-index="${index}">
+    return `<div class="pj-slide pj-tr-${escAttr(P.transition || 'slide')} pj-theme-${escAttr(P.theme)} ${slide.scene3d ? 'pj-scene3d' : ''} ${P.laserOn && !P.drawOn && P.fullscreen ? 'is-laser' : ''} ${P.drawOn ? 'is-draw' : ''}" style="--pj-slide-scale:${P.slideScale}%" role="region" aria-roledescription="slide" aria-label="Slide ${index + 1}: ${escAttr(slide.title || '')}" data-testid="projector-slide" data-slide-index="${index}">
       <div class="pj-slide-inner"><span class="pj-ghost" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>${showHand ? `<span class="pj-handnote" aria-hidden="true">${esc(slide.handnote || slide.handNote)}</span>` : ''}${inner}</div>
       <footer class="pj-slide-foot">
         <span class="pj-foot-brand">${nucleoName()} · ${esc(deck.title)} · APP FEITO PELA HORIZONTE FUTURO</span>
@@ -1398,6 +1401,10 @@
           <button type="button" onclick="AMAProjector.stepSlideScale(-8)">Letra A−</button>
           <button type="button" onclick="AMAProjector.stepSlideScale(8)">Letra A+</button>
         </div>
+        <div class="pj-mp-row" style="margin-top:6px">
+          ${[['slide', 'Deslizar'], ['fade', 'Suave'], ['zoom', 'Zoom'], ['none', 'Sem']]
+            .map(([k, l]) => `<button type="button" class="${P.transition === k ? 'on' : ''}" onclick="AMAProjector.setTransition('${k}')">${l}</button>`).join('')}
+        </div>
       </div>
       <div class="pj-mp-sec">
         <span class="pj-mp-h">Sala de Aula (atalhos)</span>
@@ -1411,6 +1418,7 @@
           <button type="button" class="${P.blackout ? 'on' : ''}" onclick="AMAProjector.toggleBlackout()">Cortina (B)</button>
           <button type="button" class="${P.timerRunning ? 'on' : ''}" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerRunning ? `${P.timerSec}s` : '60s'} (T)</button>
           <button type="button" class="${P.laserOn ? 'on' : ''}" onclick="AMAProjector.toggleLaser()">Laser Auto (L)</button>
+          <button type="button" onclick="AMAProjector.toggleShortcuts()">⌨ Atalhos (?)</button>
         </div>
       </div>
       <div class="pj-mp-sec">
@@ -1430,7 +1438,7 @@
       <div class="pj-mp-sec">
         <span class="pj-mp-h">Exportar &amp; Partilha</span>
         <div class="pj-mp-row">
-          <button type="button" onclick="AMAProjector.shareDeck()">🔗 Partilhar link</button>
+          <button type="button" onclick="AMAProjector.shareDeck()">📱 Partilhar / QR (Q)</button>
           <button type="button" onclick="AMAProjector.exportPptx()">.PPTX</button>
           <button type="button" onclick="AMAProjector.exportPrintPdf()">PDF</button>
           <button type="button" onclick="AMAProjector.exportOfflineHtml()">HTML Offline</button>
@@ -1495,11 +1503,24 @@
       body = `${renderReadingMode(deck)}`;
     } else if (P.mode === 'grid') {
       body = `${planPanel}<div class="pj-grid-view" data-testid="projector-grid">
-        ${deck.slides.map((sl, i) => `<button type="button" class="pj-grid-card ${i === idx ? 'on' : ''}" onclick="AMAProjector.jumpSlide(${i})">
-          <span class="pj-gc-n">${String(i + 1).padStart(2, '0')} · ${esc(sl.layout)}</span>
-          <strong>${esc(sl.title)}</strong>
-          <small>${esc(sl.subtitle || (sl.bullets && sl.bullets[0]) || sl.kicker)}</small>
-        </button>`).join('')}
+        ${deck.slides.map((sl, i) => `<div class="pj-grid-card ${i === idx ? 'on' : ''}">
+          <button type="button" class="pj-gc-open" onclick="AMAProjector.jumpSlide(${i})">
+            <span class="pj-gc-n">${String(i + 1).padStart(2, '0')} · ${esc(sl.layout)}${sl.visual ? ' · 🖼' : ''}${sl.layout === 'scene-3d' || sl.mode3d ? ' · 3D' : ''}</span>
+            <strong>${esc(sl.title)}</strong>
+            <small>${esc(sl.subtitle || (sl.bullets && sl.bullets[0]) || sl.kicker)}</small>
+          </button>
+          <div class="pj-gc-acts">
+            <button type="button" title="Mover antes" ${i === 0 ? 'disabled' : ''} onclick="AMAProjector.moveSlideAt(${i}, -1)">←</button>
+            <button type="button" title="Mover depois" ${i === deck.slides.length - 1 ? 'disabled' : ''} onclick="AMAProjector.moveSlideAt(${i}, 1)">→</button>
+            <button type="button" title="Duplicar slide" onclick="AMAProjector.duplicateSlideAt(${i})">⧉</button>
+            ${deck.slides.length > 2 ? `<button type="button" title="Apagar slide" onclick="AMAProjector.deleteSlideAt(${i})">✕</button>` : ''}
+          </div>
+        </div>`).join('')}
+        <button type="button" class="pj-grid-card pj-gc-add" onclick="AMAProjector.addSlide()">
+          <span>＋</span>
+          <strong>Novo Slide</strong>
+          <small>Inserir ponto personalizado</small>
+        </button>
       </div>`;
     } else {
       const nextSlide = deck.slides[idx + 1] || null;
@@ -1601,7 +1622,54 @@
       </div>` : ''}`;
     }
 
-    return `<div class="pj-workspace ${P.fullscreen ? 'is-fs-overlay' : ''}" onclick="if(window.AMAProjector&&AMAProjector.closeMore)AMAProjector.closeMore()">${!P.fullscreen ? toolbar : ''}${body}</div>`;
+    const qrModal = P.shareModalUrl ? (() => {
+      const qr = window.Study && window.Study.QR && typeof window.Study.QR.renderQrSvg === 'function'
+        ? window.Study.QR.renderQrSvg(P.shareModalUrl, { size: 220, fg: '#00217e', bg: '#ffffff', label: `QR Code de ${deck.title}` })
+        : '';
+      return `<div class="pj-modal-bg" role="dialog" aria-modal="true" aria-label="Partilhar apresentação com QR Code" onclick="AMAProjector.closeShareModal()">
+        <div class="pj-modal-card" onclick="event.stopPropagation()">
+          <div class="pj-modal-head">
+            <div><span class="pj-kicker">PARTILHA EM SALA · QR OFFLINE</span><h3>${esc(deck.title)}</h3></div>
+            <button type="button" class="icon-btn" aria-label="Fechar" onclick="AMAProjector.closeShareModal()">✕</button>
+          </div>
+          <p class="pj-modal-sub">Os estudantes podem apontar a câmara do telemóvel para o ecrã do projetor para abrir estes slides imediatamente.</p>
+          <div class="pj-qr-box" data-testid="projector-qr-box">${qr}</div>
+          <div class="pj-voice-row" style="margin-top:12px">
+            <input id="pj-share-url-in" readonly value="${escAttr(P.shareModalUrl)}" onclick="this.select()">
+            <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.copyShareUrl()">📋 Copiar</button>
+          </div>
+        </div>
+      </div>`;
+    })() : '';
+
+    const shortcutsModal = P.showShortcuts ? `<div class="pj-modal-bg" role="dialog" aria-modal="true" aria-label="Atalhos de teclado do Projetor" onclick="AMAProjector.toggleShortcuts()">
+      <div class="pj-modal-card pj-modal-keys" onclick="event.stopPropagation()">
+        <div class="pj-modal-head">
+          <div><span class="pj-kicker">MODO DOCENTE</span><h3>Atalhos de Teclado</h3></div>
+          <button type="button" class="icon-btn" aria-label="Fechar" onclick="AMAProjector.toggleShortcuts()">✕</button>
+        </div>
+        <div class="pj-keys-grid">
+          <div><kbd>←</kbd> <kbd>→</kbd> / <kbd>Espaço</kbd><span>Mudar slide / revelar passo</span></div>
+          <div><kbd>F</kbd><span>Projetar em ecrã inteiro</span></div>
+          <div><kbd>G</kbd><span>Grelha visual de slides</span></div>
+          <div><kbd>Q</kbd><span>Abrir QR Code para a turma</span></div>
+          <div><kbd>V</kbd><span>Narrar aula em voz alta</span></div>
+          <div><kbd>N</kbd><span>Mostrar / ocultar notas</span></div>
+          <div><kbd>P</kbd><span>Pulso rápido da turma</span></div>
+          <div><kbd>S</kbd><span>Revelar pontos 1-a-1</span></div>
+          <div><kbd>D</kbd> / <kbd>C</kbd><span>Caneta no slide / limpar</span></div>
+          <div><kbd>L</kbd><span>Ligar / desligar laser auto</span></div>
+          <div><kbd>B</kbd><span>Cortina de atenção</span></div>
+          <div><kbd>T</kbd><span>Cronómetro 60 segundos</span></div>
+          <div><kbd>E</kbd><span>Editar slide atual</span></div>
+          <div><kbd>R</kbd><span>Alternar Modo Leitura</span></div>
+          <div><kbd>?</kbd><span>Mostrar esta ajuda</span></div>
+          <div><kbd>Esc</kbd><span>Sair / fechar janela</span></div>
+        </div>
+      </div>
+    </div>` : '';
+
+    return `<div class="pj-workspace ${P.fullscreen ? 'is-fs-overlay' : ''}" onclick="if(window.AMAProjector&&AMAProjector.closeMore)AMAProjector.closeMore()">${!P.fullscreen ? toolbar : ''}${body}${qrModal}${shortcutsModal}</div>`;
   }
 
   function wrapShell(inner) {
@@ -1993,18 +2061,78 @@
       toast('Slide removido.');
       render();
     },
+    moveSlideAt(fromIdx, delta) {
+      if (!P.deck || !Array.isArray(P.deck.slides)) return;
+      const to = fromIdx + delta;
+      if (to < 0 || to >= P.deck.slides.length) return;
+      const arr = P.deck.slides;
+      [arr[fromIdx], arr[to]] = [arr[to], arr[fromIdx]];
+      arr.forEach((s, i) => { s.index = i + 1; });
+      if (P.slideIdx === fromIdx) P.slideIdx = to;
+      saveDeck(P.deck);
+      render();
+    },
+    duplicateSlideAt(idx) {
+      if (!P.deck || !Array.isArray(P.deck.slides) || !P.deck.slides[idx]) return;
+      const copy = JSON.parse(JSON.stringify(P.deck.slides[idx]));
+      copy.id = `s-dup-${Date.now()}`;
+      copy.title = `${copy.title || 'Slide'} (cópia)`.slice(0, 65);
+      P.deck.slides.splice(idx + 1, 0, copy);
+      P.deck.slides.forEach((s, i) => { s.index = i + 1; });
+      if (P.deck.stats) P.deck.stats.slides = P.deck.slides.length;
+      saveDeck(P.deck);
+      toast('Slide duplicado.');
+      render();
+    },
+    deleteSlideAt(idx) {
+      if (!P.deck || !Array.isArray(P.deck.slides) || P.deck.slides.length <= 2) return;
+      P.deck.slides.splice(idx, 1);
+      P.deck.slides.forEach((s, i) => { s.index = i + 1; });
+      if (P.deck.stats) P.deck.stats.slides = P.deck.slides.length;
+      P.slideIdx = Math.max(0, Math.min(P.slideIdx, P.deck.slides.length - 1));
+      saveDeck(P.deck);
+      toast('Slide removido.');
+      render();
+    },
+    setTransition(tr) {
+      P.transition = ['slide', 'fade', 'zoom', 'none'].includes(tr) ? tr : 'slide';
+      try { localStorage.setItem('ceu-pj-trans', P.transition); } catch { }
+      render();
+    },
+    toggleShortcuts() {
+      P.moreOpen = false;
+      P.showShortcuts = !P.showShortcuts;
+      render();
+    },
+    closeShareModal() {
+      P.shareModalUrl = '';
+      render();
+    },
+    async copyShareUrl() {
+      const url = P.shareModalUrl;
+      if (!url) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+          return toast('🔗 Link partilhável copiado!');
+        }
+      } catch { }
+      const el = document.getElementById('pj-share-url-in');
+      if (el) { el.select(); document.execCommand?.('copy'); toast('🔗 Link selecionado para copiar.'); }
+    },
     async shareDeck() {
       P.moreOpen = false;
       if (!P.deck) return;
       saveDeck(P.deck);
       const url = `${location.origin}${location.pathname}#/projetor?deck=${encodeURIComponent(P.deck.id)}`;
+      P.shareModalUrl = url;
+      render();
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(url);
-          return toast('🔗 Link partilhável copiado! Qualquer pessoa pode abrir esta apresentação.');
+          toast('📱 QR Code aberto & link copiado para partilhar com a turma!');
         }
       } catch { }
-      window.prompt('Copie o link partilhável desta apresentação:', url);
     },
     async exportBackup() {
       P.moreOpen = false;
@@ -3065,11 +3193,20 @@
       ev.preventDefault(); AMAProjector.toggleNarrate();
     } else if (kl === 'p' && P.mode === 'slides') {
       ev.preventDefault(); AMAProjector.togglePulse();
+    } else if (kl === 'g') {
+      ev.preventDefault(); AMAProjector.setMode(P.mode === 'grid' ? 'slides' : 'grid');
+    } else if (kl === 'q') {
+      ev.preventDefault(); AMAProjector.shareDeck();
+    } else if (k === '?') {
+      ev.preventDefault(); AMAProjector.toggleShortcuts();
     } else if (kl === 'f') {
       ev.preventDefault(); AMAProjector.toggleFullscreen();
-    } else if (k === 'Escape' && (P.fullscreen || P.blackout)) {
+    } else if (k === 'Escape' && (P.shareModalUrl || P.showShortcuts || P.moreOpen || P.fullscreen || P.blackout)) {
       ev.preventDefault();
-      if (P.blackout) { P.blackout = false; render(); }
+      if (P.shareModalUrl) { P.shareModalUrl = ''; render(); }
+      else if (P.showShortcuts) { P.showShortcuts = false; render(); }
+      else if (P.moreOpen) { P.moreOpen = false; render(); }
+      else if (P.blackout) { P.blackout = false; render(); }
       else AMAProjector.toggleFullscreen();
     }
   });

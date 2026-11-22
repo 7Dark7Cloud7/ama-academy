@@ -9,6 +9,7 @@ import { buildStandaloneOfflineHtml } from '../engine/export-engine.js';
 import { detectDocumentType, analyzeDocument, buildAdaptiveDocumentDeck } from '../engine/doc-analyzer.js';
 import { pickCoherent3DMode, synthesizeAndFuseDeck, parseCreativeBrief, autoSelfAnalyzeAndHeal, getExternalAIPrompt, buildDeckFromExternalBlueprint } from '../engine/ai-engine.js';
 import { buildCoherentImageQueries } from '../engine/web-enrichment.js';
+import { generateQrMatrix, renderQrSvg } from '../engine/qr-svg.js';
 import { FIXTURES_10, PDF_SAMPLE_MULTI_PAGE, PDF_SAMPLE_STEM, PDF_SAMPLE_SCANNED } from './fixtures/ceu-v3.fixtures.mjs';
 
 test('10/10 fixtures (5 PT + 5 EN) generate with qualityScore === 100 and zero Núcleo AMA leaks', () => {
@@ -205,4 +206,23 @@ test('External Super-IA (ChatGPT/Gemini) prompt generator and blueprint parser w
   assert.equal(dk.slides[2].mode3d, 'flow');
   assert.equal(dk.slides[2].nodes3d.length, 4);
   assert.equal(dk.slides[2].sceneSpec.links.length, 3);
+});
+
+test('Offline ISO QR Code SVG generator creates valid matrices and crisp SVG', () => {
+  const shortQr = generateQrMatrix('https://ceu.ao');
+  assert.equal(shortQr.version, 1);
+  assert.equal(shortQr.size, 21);
+  // Top-left finder outer border & 3x3 center must be dark, separator must be light
+  assert.equal(shortQr.modules[0][0], 1);
+  assert.equal(shortQr.modules[3][3], 1);
+  assert.equal(shortQr.modules[1][1], 0);
+  assert.equal(shortQr.modules[7][0], 0);
+  // Dark module at (4*version + 9, 8)
+  assert.equal(shortQr.modules[13][8], 1);
+
+  const url = 'https://ceu-academy.com/#/projetor?deck=super-ia-energia-solar-2026';
+  const longQr = generateQrMatrix(url);
+  assert.ok(longQr.version >= 4 && longQr.size >= 33, 'Expected auto-scaled QR version for URL');
+  const svg = renderQrSvg(url, { size: 200, fg: '#00217e', bg: '#ffffff', label: 'QR Aula' });
+  assert.ok(svg.startsWith('<svg') && svg.includes('viewBox=') && svg.includes('path d="M'), 'Expected valid SVG path');
 });

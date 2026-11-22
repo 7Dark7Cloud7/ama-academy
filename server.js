@@ -116,14 +116,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static assets from project root with cache rules matching vercel.json.
+// Serve static assets from project root with fresh HTML/JS/CSS headers.
 app.use(
   express.static(__dirname, {
     index: 'index.html',
     dotfiles: 'ignore',
     setHeaders(res, filePath) {
-      if (/\.(css|js)$/i.test(filePath)) {
-        res.setHeader('Cache-Control', 'no-cache');
+      if (/\.(html|css|js)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-store, must-revalidate');
       }
     },
   })
@@ -135,6 +135,7 @@ app.use((req, res, next) => {
   if (path.extname(req.path)) {
     return res.status(404).type('text/plain').send('Not found');
   }
+  res.setHeader('Cache-Control', 'no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 

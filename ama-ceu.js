@@ -193,6 +193,15 @@
     let decks = [];
     try { decks = JSON.parse(localStorage.getItem('ama-projector-v1') || '[]'); } catch { decks = []; }
     const unis = ['ISPTEC', 'UCAN', 'Universidade de Luanda', 'UMA', 'IMETRO', 'INSUTEC', 'Unibelas', 'UGS', 'Universidade Agostinho Neto'];
+    const verifyUrl = `https://ceu.ao/verify?num=${encodeURIComponent(card.numero)}&uni=${encodeURIComponent(card.universidade)}`;
+    let cardQr = '';
+    if (window.Study && window.Study.QR && typeof window.Study.QR.renderQrSvg === 'function') {
+      cardQr = window.Study.QR.renderQrSvg(verifyUrl, { size: 88, fg: '#00217e', bg: '#ffffff', label: `QR Cartão CEU ${card.numero}` });
+    } else {
+      window.addEventListener('study-ready', () => {
+        if (/^#\/cartao-ceu/.test(location.hash) && typeof render === 'function') render();
+      }, { once: true });
+    }
     const inner = `<section class="ceu-landing" style="padding-top:24px">
       <div class="page-h" style="margin-bottom:20px">
         <div>
@@ -202,6 +211,7 @@
         </div>
         <div class="flex wrap" style="gap:8px">
           <a class="btn btn-p btn-sm" href="#/projetor">✦ Novo slide PDF</a>
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUHome.printCard()">🖨 Imprimir Cartão</button>
           <button type="button" class="btn btn-o btn-sm" onclick="if(window.AMAProjector)AMAProjector.exportBackup()">↓ Backup BD (.json)</button>
         </div>
       </div>
@@ -217,8 +227,13 @@
             <span class="ceu-id-status">ACTIVO</span>
           </div>
           <div class="ceu-id-body">
-            <h2 id="ceu-id-name">${esc(card.nome)}</h2>
-            <p id="ceu-id-uni">${esc(card.universidade)} · ${esc(card.curso)}</p>
+            <div class="ceu-id-top">
+              <div>
+                <h2 id="ceu-id-name">${esc(card.nome)}</h2>
+                <p id="ceu-id-uni">${esc(card.universidade)} · ${esc(card.curso)}</p>
+              </div>
+              ${cardQr ? `<div class="ceu-id-qr" title="Código QR de verificação CEU" data-testid="ceu-card-qr">${cardQr}</div>` : ''}
+            </div>
             <div class="ceu-id-meta">
               <div><small>NÚMERO</small><b id="ceu-id-num">${esc(card.numero)}</b></div>
               <div><small>ANO</small><b id="ceu-id-ano">${esc(card.ano)}</b></div>
@@ -303,6 +318,38 @@
       }
       if (typeof toast === 'function') toast('Cartão CEU guardado na base de dados!');
       if (typeof render === 'function') render();
+    },
+    printCard() {
+      const card = loadLocalCard();
+      const verifyUrl = `https://ceu.ao/verify?num=${encodeURIComponent(card.numero)}&uni=${encodeURIComponent(card.universidade)}`;
+      const qr = (window.Study && window.Study.QR && typeof window.Study.QR.renderQrSvg === 'function')
+        ? window.Study.QR.renderQrSvg(verifyUrl, { size: 120, fg: '#00217e', bg: '#ffffff', label: `QR ${card.numero}` })
+        : '';
+      const w = window.open('', 'ceu-print-card', 'width=640,height=440');
+      if (!w) return typeof toast === 'function' && toast('Permita janelas popup para imprimir o Cartão CEU.');
+      w.document.open();
+      w.document.write(`<!doctype html><html lang="pt-AO"><head><meta charset="utf-8"><title>Cartão CEU · ${esc(card.nome)}</title>
+      <style>
+        *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f0f6fc;font-family:system-ui,sans-serif}
+        .card{width:460px;padding:26px;border-radius:22px;background:linear-gradient(135deg,#00217e,#0052a8 62%,#00a4dc);color:#fff;box-shadow:0 18px 40px rgba(0,33,126,.35)}
+        .top{display:flex;justify-content:space-between;align-items:center;gap:14px}
+        .k{font:700 10px monospace;letter-spacing:.12em;color:#8ee4ff}.st{padding:4px 10px;border-radius:999px;background:#b8f36b;color:#0b1c3d;font:800 10px monospace}
+        .mid{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:18px 0}
+        h1{margin:0 0 4px;font-size:24px}p{margin:0;color:#d6ecff;font-size:13.5px}
+        .qr{padding:6px;background:#fff;border-radius:12px;flex:none}
+        .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px;border-radius:12px;background:rgba(0,18,64,.38)}
+        .meta small{display:block;font:700 9px monospace;color:#8ee4ff}.meta b{font:700 12.5px monospace}
+        .ft{margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.22);font:700 10px monospace;display:flex;justify-content:space-between;color:#cfe4ff}
+        @media print{body{background:#fff}.card{box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+      </style></head><body>
+      <div class="card">
+        <div class="top"><div><div class="k">CARTÃO NACIONAL DE ESTUDANTE · CEU.AO</div><b>CEU Academy</b></div><span class="st">ACTIVO</span></div>
+        <div class="mid"><div><h1>${esc(card.nome)}</h1><p>${esc(card.universidade)} · ${esc(card.curso)}</p></div>${qr ? `<div class="qr">${qr}</div>` : ''}</div>
+        <div class="meta"><div><small>NÚMERO</small><b>${esc(card.numero)}</b></div><div><small>ANO</small><b>${esc(card.ano)}</b></div><div><small>VALIDADE</small><b>2026 / 2027</b></div></div>
+        <div class="ft"><span>APP FEITO PELA HORIZONTE FUTURO</span><span>ceu.ao</span></div>
+      </div>
+      <script>setTimeout(()=>window.print(),250);</script></body></html>`);
+      w.document.close();
     },
     install() {
       if (!installEvent) return;

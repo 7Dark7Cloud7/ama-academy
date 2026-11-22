@@ -22,6 +22,7 @@ import * as worksheetEngine from './worksheet-engine.js?v=1';
 import * as exportEngine from './export-engine.js?v=2';
 import * as docAnalyzer from './doc-analyzer.js?v=1';
 import * as mvpDb from './mvp-db.js?v=1';
+import * as qrSvg from './qr-svg.js?v=1';
 
 window.Study = {
   ...summary, ...review, ...teacher, ...attendance, ...planner, ...quiz, ...projector, ...nucleo3d,
@@ -41,6 +42,7 @@ window.Study = {
   Export: exportEngine,
   DocAnalyzer: docAnalyzer,
   MvpDB: mvpDb,
+  QR: qrSvg,
 };
 try { mvpDb.migrateLocalStorageDecks().then(() => mvpDb.syncWithServer()).catch(() => {}); } catch { }
 window.dispatchEvent(new Event('study-ready'));
