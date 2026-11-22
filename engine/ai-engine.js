@@ -919,13 +919,15 @@ export function autoSelfAnalyzeAndHeal(deck) {
     }
   });
 
+  const totalStats = deck.slides.filter((s) => s.layout === 'stat-spotlight').length;
+  const totalBento = deck.slides.filter((s) => s.layout === 'bento-grid').length;
   deck.selfAudit = {
     layoutsFixed,
-    statsHighlighted,
-    bentoUpgraded,
+    statsHighlighted: totalStats,
+    bentoUpgraded: totalBento,
     cognitiveTrimmed,
     mayerScore: 100,
-    summary: `Auto-análise Mayer: ${statsHighlighted} destaque(s) numérico(s), ${bentoUpgraded} grelha(s) Bento, ${layoutsFixed} variação(ões) de layout e ${cognitiveTrimmed} otimização(ões) de carga cognitiva.`,
+    summary: `Auto-análise Mayer: ${totalStats} destaque(s) numérico(s), ${totalBento} grelha(s) Bento, ${layoutsFixed} variação(ões) de layout e ${cognitiveTrimmed} otimização(ões) de carga cognitiva.`,
   };
 
   if (deck.plan && Array.isArray(deck.plan.steps)) {
