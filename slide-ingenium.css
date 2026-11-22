@@ -302,9 +302,20 @@
 
 /* Handwritten aside — assinatura Ingenium 3.0 */
 .pj-handnote{
-  position:absolute; right:4%; bottom:8%; z-index:2; color:var(--ig-coral);
-  font:700 clamp(14px,1.45vw,20px) Caveat,"Comic Sans MS",cursive; transform:rotate(-4deg); pointer-events:none;
+  position:absolute; right:4%; bottom:9%; z-index:2; color:var(--ig-coral); max-width:44%; text-align:right;
+  font:700 clamp(13px,1.35vw,19px) Caveat,"Comic Sans MS",cursive; transform:rotate(-3deg); pointer-events:none;
 }
+.pj-doc-banner{
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;
+  padding:11px 15px; margin-bottom:12px; border-radius:14px;
+  background:linear-gradient(120deg,rgba(0,164,220,.12),rgba(184,243,107,.16));
+  border:1.5px solid #132238; box-shadow:0 4px 0 #132238; font-size:12.5px;
+}
+:root[data-theme="dark"] .pj-doc-banner{background:rgba(0,164,220,.15);border-color:rgba(142,200,255,.35);box-shadow:none;color:#eef6ff}
+.pj-doc-banner-main{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 280px}
+.pj-doc-banner-main strong{font-size:13.5px}
+.pj-doc-banner-main span{font-size:12px;opacity:.88;line-height:1.4}
+.pj-doc-banner select{padding:5px 9px;border-radius:9px;border:1px solid var(--line,#cbd5e1);background:var(--surface,#fff);color:var(--ink,#132238);font:700 11.5px var(--font-b)}
 
 /* v3: Slide Font Scaling + Score Pill + Outline Editor + PDF Range Picker */
 .pj-slide{font-size:var(--pj-slide-scale,100%)}

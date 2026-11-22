@@ -6,6 +6,7 @@ import { buildEditableOutline, buildDeckFromOutline, moveOutlineCard, toggleOutl
 import { evaluateRubric, optimizeTo100 } from '../engine/quality-engine.js';
 import { buildWorksheet, renderWorksheetHtml } from '../engine/worksheet-engine.js';
 import { buildStandaloneOfflineHtml } from '../engine/export-engine.js';
+import { detectDocumentType, analyzeDocument, buildAdaptiveDocumentDeck } from '../engine/doc-analyzer.js';
 import { FIXTURES_10, PDF_SAMPLE_MULTI_PAGE, PDF_SAMPLE_STEM, PDF_SAMPLE_SCANNED } from './fixtures/ceu-v3.fixtures.mjs';
 
 test('10/10 fixtures (5 PT + 5 EN) generate with qualityScore === 100 and zero Núcleo AMA leaks', () => {
@@ -93,4 +94,33 @@ test('Outline editor operations: reorder, toggle, add, and optimizeTo100 fixes b
   assert.ok(before.qualityScore < 50);
   const after = optimizeTo100(flawed, { enforceCeuBrand: true });
   assert.equal(after.qualityScore, 100);
+});
+
+test('DocAnalyzer detects Ata de Reunião, extracts decisions/owners/deadlines & builds tailored executive slides', () => {
+  const ataText = `Ata n.º 14 da Reunião Ordinária da Direcção Académica.
+Aos 18 dias do mês de Novembro de 2026, na Sala de Conferências em Luanda, estiveram presentes: Ana Silva, Nelson Duarte e Sofia Mateus.
+Ordem de Trabalhos: 1. Expansão de projetores; 2. Calendário de exames.
+Deliberou-se por unanimidade aprovar a instalação de 12 projetores até 10 de Dezembro.
+Ficou encarregue Ana Silva de coordenar a entrega até 5 de Dezembro.
+Ponto pendente: aguarda confirmação da fibra óptica no polo de Viana para a próxima reunião.`;
+
+  const det = detectDocumentType(ataText, 'Ata 14', 'Ata-14.pdf');
+  assert.equal(det.docType, 'ata');
+  const analysis = analyzeDocument(ataText, { title: 'Ata n.º 14', sourceName: 'Ata-14.pdf' });
+  assert.ok(analysis.extracted.decisions.length >= 1, 'Expected decisions extracted');
+  assert.ok(analysis.extracted.actionItems.length >= 1, 'Expected action items extracted');
+  assert.ok(analysis.extracted.actionItems.some((a) => /Ana Silva/i.test(a.owner)), 'Expected Ana Silva extracted as owner');
+  assert.ok(analysis.extracted.openIssues.length >= 1, 'Expected open issues extracted');
+
+  const deck = buildAdaptiveDocumentDeck(ataText, { title: 'Ata n.º 14', sourceName: 'Ata-14.pdf' });
+  assert.equal(deck.ok, true);
+  assert.equal(deck.docType, 'ata');
+  assert.ok(deck.slides.some((s) => s.rhythm === 'DECISÕES APROVADAS'));
+  assert.ok(deck.slides.some((s) => s.rhythm === 'PLANO DE AÇÃO'));
+
+  // Also verify Regulamento & Relatório classification
+  const reg = detectDocumentType('Artigo 1.º O estudante tem direito ao cartão. Artigo 2.º É obrigatório cumprir os prazos sob pena de sanção.', 'Regulamento Interno', 'regulamento.pdf');
+  assert.equal(reg.docType, 'regulamento');
+  const rep = detectDocumentType('Relatório Trimestral de Desempenho: a receita cresceu 24% atingindo 18.500.000 Kz. Recomenda-se investir em logística.', 'Relatório Q3', 'relatorio.pdf');
+  assert.equal(rep.docType, 'relatorio');
 });

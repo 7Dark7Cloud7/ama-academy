@@ -17,9 +17,10 @@ import * as slideWeb from './web-enrichment.js?v=9';
 import * as aiEngine from './ai-engine.js?v=2';
 import * as quality from './quality-engine.js?v=12';
 import * as pdfEngine from './pdf-engine.js?v=1';
-import * as outlineEngine from './outline-engine.js?v=1';
+import * as outlineEngine from './outline-engine.js?v=2';
 import * as worksheetEngine from './worksheet-engine.js?v=1';
 import * as exportEngine from './export-engine.js?v=1';
+import * as docAnalyzer from './doc-analyzer.js?v=1';
 
 window.Study = {
   ...summary, ...review, ...teacher, ...attendance, ...planner, ...quiz, ...projector, ...nucleo3d,
@@ -37,5 +38,6 @@ window.Study = {
   Outline: outlineEngine,
   Worksheet: worksheetEngine,
   Export: exportEngine,
+  DocAnalyzer: docAnalyzer,
 };
 window.dispatchEvent(new Event('study-ready'));

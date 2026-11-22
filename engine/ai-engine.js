@@ -309,9 +309,21 @@ export async function improvePlan(plan, meta = {}) {
   if (!blocks.length) throw new Error('sem blocos para melhorar');
 
   const webItems = Array.isArray(meta.web?.items) ? meta.web.items.slice(0, 5) : [];
+  const docType = String(meta.docType || 'aula');
+  const docTone = String(meta.docTone || 'Didáctico claro e visual');
   const payload = {
     title: String(meta.title || ''),
     subject: String(meta.subject || ''),
+    documentType: docType,
+    presentationTone: docTone,
+    coreMessage: String(meta.coreMessage || ''),
+    instruction: docType === 'ata'
+      ? 'Este documento é uma ATA DE REUNIÃO. NÃO cries perguntas escolares: foca em explicar a mensagem central, destacar decisões aprovadas, responsáveis e prazos com linguagem executiva clara.'
+      : (docType === 'relatorio'
+          ? 'Este documento é um RELATÓRIO/PROPOSTA. Destaca indicadores, diagnóstico claro, riscos e recomendações práticas para decisores.'
+          : (docType === 'regulamento'
+              ? 'Este documento é um REGULAMENTO/NORMA. Traduz o texto jurídico em português claro: o que é permitido, obrigatório e os prazos.'
+              : 'Funde o ficheiro com o contexto web e explica com intuição visual clara estilo Ingenium 3.0.')),
     webContext: webItems.map((w) => ({ title: w.title, summary: clean(w.text, 220), source: w.source || 'Wikipédia' })),
     blocks: blocks.map((b) => ({
       heading: b.heading,

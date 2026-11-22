@@ -98,6 +98,21 @@
         },
       ],
     },
+    ata: {
+      title: 'Ata n.º 14 — Reunião da Direcção Académica',
+      subject: 'geral',
+      sourceName: 'Ata-14-Direccao-Academica-Luanda.pdf',
+      pageTexts: [
+        {
+          page: 1,
+          text: 'Ata n.º 14 da Reunião Ordinária da Direcção Académica\nAos 18 dias do mês de Novembro de 2026, na Sala de Conferências da Universidade em Luanda, reuniram sob presidência do Prof. Manuel António os seguintes presentes: Ana Silva, Nelson Duarte, Sofia Mateus e Carlos Mendes.\nOrdem de Trabalhos: 1. Expansão das salas digitais com projetores; 2. Lançamento do Cartão de Estudante digital; 3. Calendário de exames do 2.º semestre.',
+        },
+        {
+          page: 2,
+          text: 'Deliberações e Decisões Aprovadas\nDeliberou-se por unanimidade aprovar a instalação de 12 projetores interactivos nas salas do bloco B até 10 de Dezembro.\nDecidiu-se aprovar o orçamento de 4.500.000 Kz para formação dos docentes em ferramentas de ensino visual com IA.\nFicou encarregue Ana Silva de coordenar a entrega dos equipamentos e apresentar o relatório de instalação até 5 de Dezembro.\nFicou encarregue Nelson Duarte de preparar o calendário final de exames e enviar às turmas até 28 de Novembro.\nPonto pendente: aguarda confirmação da ligação de fibra óptica no polo de Viana para a próxima reunião agendada para 12 de Dezembro.',
+        },
+      ],
+    },
   };
 
   let active3DCtrl = null;
@@ -140,6 +155,7 @@
     eduLevel: 'universitario', // secundario | universitario | profissional
     eduLang: 'auto', // auto | pt | en
     density: 'completo', // essencial | completo | detalhado
+    docType: 'auto', // auto | ata | relatorio | regulamento | cientifico | plano | aula
     extraLinks: '',
     selected3DNode: 0,
     explode3D: 0,
@@ -270,28 +286,59 @@
   }
 
   /* Guarda os parâmetros originais para poder reconstruir o deck quando o
-     docente muda o nível da turma — sem perder as páginas extraídas do PDF. */
+     docente muda o nível ou o tipo de documento — sem perder o PDF extraído. */
   function buildDeck(params) {
     P.source = { ...params };
     const eng = S_();
     if (!eng || !eng.buildProjectorDeck) return null;
-    const deck = eng.buildProjectorDeck({
-      ...params,
-      theme: P.theme,
-      level: P.level,
-      author: params.author || ((typeof S !== 'undefined' && S.user && S.user.nome) || `Docente ${brandName()}`),
-    });
+    const rawText = String(params.text || (Array.isArray(params.pageTexts) ? params.pageTexts.map((p) => p.text).join('\n\n') : '')).trim();
+    const author = params.author || ((typeof S !== 'undefined' && S.user && S.user.nome) || `Docente ${brandName()}`);
+
+    // 1. Análise inteligente do tipo de documento (Ata, Relatório, Regulamento, Científico, Plano vs Aula)
+    let deck = null;
+    if (eng.DocAnalyzer && typeof eng.DocAnalyzer.buildAdaptiveDocumentDeck === 'function') {
+      try {
+        deck = eng.DocAnalyzer.buildAdaptiveDocumentDeck(rawText, {
+          title: params.title,
+          sourceName: params.sourceName,
+          forcedType: params.docType || P.docType || 'auto',
+          author,
+          theme: P.theme,
+          language: P.eduLang === 'en' ? 'en' : 'pt',
+        });
+      } catch { deck = null; }
+    }
+
+    // 2. Se for aula académica ('aula'), usa o motor didáctico Ingenium 3.0 completo
+    if (!deck) {
+      deck = eng.buildProjectorDeck({
+        ...params,
+        theme: P.theme,
+        level: P.level,
+        author,
+      });
+      if (deck && deck.ok && eng.DocAnalyzer && typeof eng.DocAnalyzer.analyzeDocument === 'function') {
+        try {
+          const da = eng.DocAnalyzer.analyzeDocument(rawText, { title: params.title, sourceName: params.sourceName, forcedType: 'aula' });
+          deck.docType = 'aula';
+          deck.docTypeMeta = da.meta;
+          deck.docAnalysis = da;
+        } catch { }
+      }
+    }
+
     if (deck && deck.ok) {
       if (document.documentElement.dataset.brand === 'ceu') {
         deck.brand = 'Núcleo CEU';
         deck.credit = 'APP FEITO PELA HORIZONTE FUTURO';
       }
-      if (window.Study && window.Study.AI && typeof window.Study.AI.synthesizeAndFuseDeck === 'function') {
+      // Para Atas/Regulamentos, preservar a estrutura executiva sem injetar 3D académico fora do contexto
+      if (deck.docType === 'aula' && window.Study && window.Study.AI && typeof window.Study.AI.synthesizeAndFuseDeck === 'function') {
         try { window.Study.AI.synthesizeAndFuseDeck(deck, deck.web || null); } catch { }
       }
       if (window.Study && window.Study.Quality) {
         try {
-          window.Study.Quality.improveDeck(deck);
+          if (deck.docType === 'aula') window.Study.Quality.improveDeck(deck);
           if (typeof window.Study.Quality.evaluateRubric === 'function') {
             const rb = window.Study.Quality.evaluateRubric(deck, { enforceCeuBrand: document.documentElement.dataset.brand === 'ceu' });
             deck.rubricScore = rb.qualityScore;
@@ -338,6 +385,11 @@
   async function enrichDeckWithWeb(deck, force = false) {
     const web = (window.Study && window.Study.SlideStudioWeb) || null;
     if (!deck || !web || typeof web.enrichFromWeb !== 'function') return null;
+    if (!force && deck.docType === 'ata') {
+      P.webStatus = 'Ata de Reunião analisada localmente: decisões, responsáveis e prazos preservados sem ruído externo.';
+      if (P.deck && P.deck.id === deck.id) render();
+      return null;
+    }
     if (!force && deck.web && deck.web.items && deck.web.items.length) return deck.web;
     P.webBusy = true;
     P.webStatus = 'A pesquisar Wikipédia, imagens Wikimedia Commons e vídeos YouTube para fundir nos slides…';
@@ -404,6 +456,9 @@
       const result = await ai.improvePlan(deck.plan, {
         title: deck.title,
         subject: deck.subject,
+        docType: deck.docType || 'aula',
+        docTone: (deck.docTypeMeta && deck.docTypeMeta.tone) || '',
+        coreMessage: (deck.docAnalysis && deck.docAnalysis.extracted && deck.docAnalysis.extracted.coreMessage) || '',
         web: deck.web || null,
         onProgress: (msg) => { P.aiStatus = msg; render(); },
       });
@@ -975,7 +1030,8 @@
           <p class="muted">A camada de IA local lê cada página, retira ruído de PDF, escolhe as ideias centrais e escreve objectivos, notas e verificação. O resultado são slides 16:9 prontos a projetar — processados neste navegador, sem enviar o ficheiro para fora.</p>
         </div>
         <div class="pj-samples">
-          <span>Testar com aula pronta:</span>
+          <span>Testar com exemplo pronto:</span>
+          <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.loadSample('ata')">📋 Ata de Reunião</button>
           <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('fisica')">Física · Newton</button>
           <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('financas')">Finanças · Kz</button>
           <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('programacao')">Python · Algoritmos</button>
@@ -1044,21 +1100,25 @@
             </div>
           </div>
           <div class="pj-v3-controls">
-            <div class="field"><label for="pj-edu-level">Ensino</label>
+            <div class="field"><label for="pj-doctype">Tipo de ficheiro</label>
+              <select id="pj-doctype" onchange="AMAProjector.setV3Opt('docType', this.value)">
+                <option value="auto" ${P.docType === 'auto' ? 'selected' : ''}>✨ Auto-detectar</option>
+                <option value="ata" ${P.docType === 'ata' ? 'selected' : ''}>📋 Ata de Reunião</option>
+                <option value="relatorio" ${P.docType === 'relatorio' ? 'selected' : ''}>📊 Relatório / Proposta</option>
+                <option value="regulamento" ${P.docType === 'regulamento' ? 'selected' : ''}>⚖️ Regulamento / Norma</option>
+                <option value="cientifico" ${P.docType === 'cientifico' ? 'selected' : ''}>🔬 Artigo / Monografia</option>
+                <option value="plano" ${P.docType === 'plano' ? 'selected' : ''}>🗺️ Plano / Manual</option>
+                <option value="aula" ${P.docType === 'aula' ? 'selected' : ''}>🎓 Aula / Sebenta</option>
+              </select>
+            </div>
+            <div class="field"><label for="pj-edu-level">Ensino / Público</label>
               <select id="pj-edu-level" onchange="AMAProjector.setV3Opt('eduLevel', this.value)">
                 <option value="secundario" ${P.eduLevel === 'secundario' ? 'selected' : ''}>Ensino Secundário</option>
                 <option value="universitario" ${P.eduLevel === 'universitario' ? 'selected' : ''}>Universitário</option>
                 <option value="profissional" ${P.eduLevel === 'profissional' ? 'selected' : ''}>Formação Profissional</option>
               </select>
             </div>
-            <div class="field"><label for="pj-edu-lang">Idioma</label>
-              <select id="pj-edu-lang" onchange="AMAProjector.setV3Opt('eduLang', this.value)">
-                <option value="auto" ${P.eduLang === 'auto' ? 'selected' : ''}>Auto (PT/EN)</option>
-                <option value="pt" ${P.eduLang === 'pt' ? 'selected' : ''}>Português (PT)</option>
-                <option value="en" ${P.eduLang === 'en' ? 'selected' : ''}>English (EN)</option>
-              </select>
-            </div>
-            <div class="field"><label for="pj-density">Densidade</label>
+            <div class="field"><label for="pj-density">Densidade · Idioma</label>
               <select id="pj-density" onchange="AMAProjector.setV3Opt('density', this.value)">
                 <option value="essencial" ${P.density === 'essencial' ? 'selected' : ''}>Essencial (6–7)</option>
                 <option value="completo" ${P.density === 'completo' ? 'selected' : ''}>Completo (10–11)</option>
@@ -1288,7 +1348,20 @@
         <button type="button" class="pj-fs-exit" title="Sair ecrã inteiro (Esc)" onclick="AMAProjector.toggleFullscreen()">Sair ✕</button>
       </div>` : '';
 
-      body = `${!P.fullscreen ? aiBar + webBar + planPanel : ''}<div class="pj-stage-wrap ${P.fullscreen ? 'is-fs' : ''}">
+      const docBanner = (!P.fullscreen && deck.docTypeMeta) ? `<div class="pj-doc-banner" data-testid="projector-doc-banner">
+        <div class="pj-doc-banner-main">
+          <strong>${esc(deck.docTypeMeta.icon)} Ficheiro interpretado como: ${esc(deck.docTypeMeta.label)}</strong>
+          <span>${esc((deck.docAnalysis && deck.docAnalysis.extracted && deck.docAnalysis.extracted.coreMessage) || deck.docTypeMeta.tone)}</span>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:11.5px">Modo:
+          <select aria-label="Reinterpretar documento como" onchange="AMAProjector.setDocType(this.value)">
+            ${[['auto', '✨ Auto'], ['ata', '📋 Ata'], ['relatorio', '📊 Relatório'], ['regulamento', '⚖️ Norma'], ['cientifico', '🔬 Artigo'], ['plano', '🗺️ Plano'], ['aula', '🎓 Aula']]
+              .map(([v, l]) => `<option value="${v}" ${(deck.docType === v || (P.docType === v)) ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </label>
+      </div>` : '';
+
+      body = `${!P.fullscreen ? docBanner + aiBar + webBar + planPanel : ''}<div class="pj-stage-wrap ${P.fullscreen ? 'is-fs' : ''}">
         <div class="pj-stage-main">
           ${renderSlideContent(slide, deck, idx, deck.slides.length)}
           ${!P.fullscreen ? `<div class="pj-nav-bar">
@@ -1434,6 +1507,18 @@
       render();
     },
     setV3Opt(key, val) { P[key] = val; },
+    setDocType(type) {
+      P.docType = type || 'auto';
+      if (!P.source) return render();
+      const deck = buildDeck({ ...P.source, docType: P.docType });
+      if (deck && deck.ok) {
+        P.deck = deck;
+        P.slideIdx = 0;
+        saveDeck(deck);
+        toast(`Ficheiro reinterpretado como ${(deck.docTypeMeta && deck.docTypeMeta.label) || type} (${deck.slides.length} slides).`);
+      }
+      render();
+    },
     setPageRange(start, end) {
       if (start !== null) P.pageStart = Math.max(1, Number(start) || 1);
       if (end !== null) P.pageEnd = Math.max(P.pageStart, Number(end) || P.pageStart);
@@ -1501,6 +1586,7 @@
         level: P.eduLevel,
         language: P.eduLang,
         density: P.density,
+        forcedDocType: P.docType,
       });
       toast(`Roteiro pronto com ${P.outline.cards.length} cartões — edite, reordene ou gere os slides!`);
       render();

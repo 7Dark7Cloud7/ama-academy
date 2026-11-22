@@ -4,6 +4,8 @@
 // Teachers can reorder, toggle, edit, add cards, choose level/language/density,
 // and then render Stage 2 slides cleanly with zero wall-of-text density.
 
+import { buildAdaptiveDocumentDeck, detectDocumentType } from './doc-analyzer.js?v=1';
+
 const clean = (s, max = 180) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
 export const CANONICAL_RHYTHM = {
@@ -125,9 +127,52 @@ export function buildEditableOutline({
   level = 'universitario',
   language = 'auto',
   density = 'completo',
+  forcedDocType = 'auto',
 } = {}) {
   const combinedText = String(text || (Array.isArray(pageTexts) ? pageTexts.map((p) => p.text).join('\n\n') : '')).trim();
   const lang = language === 'auto' ? detectLanguage(combinedText) : (language === 'en' ? 'en' : 'pt');
+
+  // If this is an Ata, Relatório, Regulamento, Científico, or Plano, build a domain-tailored outline!
+  const adaptive = buildAdaptiveDocumentDeck(combinedText, {
+    title,
+    sourceName,
+    forcedType: forcedDocType,
+    language: lang,
+  });
+  if (adaptive && adaptive.ok && Array.isArray(adaptive.slides) && adaptive.slides.length) {
+    return {
+      id: `outline-${Date.now().toString(36)}`,
+      docType: adaptive.docType,
+      docTypeMeta: adaptive.docTypeMeta,
+      coreMessage: adaptive.docAnalysis?.extracted?.coreMessage || '',
+      title: adaptive.title,
+      subject: adaptive.docType,
+      sourceName: adaptive.sourceName,
+      level,
+      language: lang,
+      density,
+      targetSlides: adaptive.slides.length,
+      rawText: combinedText.slice(0, 24000),
+      cards: adaptive.slides.map((s, idx) => ({
+        id: s.id || `out-doc-${idx + 1}`,
+        enabled: true,
+        rhythm: s.rhythm || adaptive.docTypeMeta.shortLabel.toUpperCase(),
+        title: s.title,
+        layout: s.layout,
+        bullets: s.bullets && s.bullets.length ? s.bullets : (s.steps && s.steps.length ? s.steps : (s.subtitle ? [s.subtitle] : [])),
+        page: s.page || 1,
+        left: s.left || '',
+        right: s.right || '',
+        steps: s.steps || [],
+        quote: s.quote || '',
+        intuition: s.intuition || '',
+        handNote: s.handNote || s.handnote || 'Mensagem-chave ✎',
+        teacherNote: s.notes || s.teacherNote || '',
+        sourceAnchor: adaptive.sourceName,
+      })),
+    };
+  }
+
   const L = lang === 'en';
   const prof = LEVEL_PROFILES[level] || LEVEL_PROFILES.universitario;
   const dens = DENSITY_PROFILES[density] || DENSITY_PROFILES.completo;
