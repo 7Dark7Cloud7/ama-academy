@@ -937,3 +937,211 @@ export function autoSelfAnalyzeAndHeal(deck) {
   }
   return deck;
 }
+
+/* ------------------------------------------------------------------ */
+/* 6. MODO SUPER-IA EXTERNA (ChatGPT / Gemini / Claude -> CEU Slides) */
+/*    Prompt pré-definido + parser resiliente (JSON ou Markdown)      */
+/* ------------------------------------------------------------------ */
+export function getExternalAIPrompt(extraBrief = '') {
+  const extra = clean(extraBrief, 220);
+  return `Atua como Arquitecto Pedagógico & Designer Visual da CEU Academy (Angola).
+Vou enviar-te um PDF, documento ou texto (pode ser Aula, Ata de Reunião, Relatório, Regulamento ou Artigo).
+
+A TUA MISSÃO:
+1. Analisa profundamente o ficheiro, retém a mensagem central e REESCREVE / ADAPTA o conteúdo para ensinar com máxima clareza (NUNCA copies parágrafos crus).
+2. Aplica os Princípios de Mayer (máx. 3–4 pontos curtos por slide, sem sobrecarga visual, 1 ideia forte por ecrã) e acrescenta exemplos concretos (contexto de Angola quando fizer sentido) e nuances importantes.
+3. Escolhe layouts variados (nunca repitas 2 seguidos): "cover", "agenda", "stat-spotlight", "bento-grid", "split", "formula", "comparison", "animated-flow", "scene-3d", "quiz", "closing".
+4. Inclui obrigatoriamente 1 slide "scene-3d" com uma explicação 3D dinâmica ("shape": "flow" | "layers" | "pyramid" | "network" | "physics" | "finance" | "code" | "bio"), 4 a 6 nós ligados ("nodes" + "links") e explicação passo a passo.
+5. Para CADA slide visual, indica "imageQuery" em inglês curto e concreto (ex.: "rocket launch thrust physics", "compound interest growth chart", "university conference room") para o nosso motor procurar fotos reais em toda a web.${extra ? `\n6. Preferência do docente: ${extra}` : ''}
+
+DEVOLVE APENAS UM BLOCO JSON VÁLIDO (sem texto antes nem depois) NESTE FORMATO:
+{
+  "title": "Título claro da apresentação",
+  "subject": "fisica|matematica|financas|programacao|biologia|historia|geral",
+  "docType": "aula|ata|relatorio|regulamento|cientifico|plano",
+  "theme": "ceu|dark|editorial|pine",
+  "slides": [
+    {
+      "layout": "cover",
+      "kicker": "ABERTURA",
+      "title": "Título impactante",
+      "subtitle": "Mensagem central numa frase envolvente",
+      "imageQuery": "modern university science lab",
+      "narration": "Guião natural em português para o docente falar neste slide"
+    },
+    {
+      "layout": "stat-spotlight",
+      "kicker": "DESTAQUE",
+      "title": "O número que muda tudo",
+      "heroStat": { "value": "4.500.000 Kz", "label": "Investimento", "context": "Explicação directa do impacto deste número" },
+      "bullets": ["Ponto 1: explicação curta", "Ponto 2: aplicação prática"],
+      "narration": "Guião conversacional do docente"
+    },
+    {
+      "layout": "bento-grid",
+      "kicker": "CONCEITOS-CHAVE",
+      "title": "Como funciona na prática",
+      "bullets": ["Essência: explicação clara", "Mecanismo: causa e efeito", "Exemplo em Angola: caso real", "Atenção: erro comum a evitar"],
+      "imageQuery": "clear scientific concept photo",
+      "narration": "Guião do docente"
+    },
+    {
+      "layout": "scene-3d",
+      "kicker": "MODELO 3D INTERACTIVO",
+      "title": "Explorar a estrutura em 3D",
+      "subtitle": "Arraste para rodar e clique em cada nó para ver a explicação dinâmica",
+      "scene3d": {
+        "shape": "flow",
+        "centerLabel": "SISTEMA",
+        "nodes": [
+          { "label": "Entrada", "short": "01", "note": "Explicação passo a passo do nó 1" },
+          { "label": "Processo", "short": "02", "note": "Como o nó 1 activa o nó 2" },
+          { "label": "Resultado", "short": "03", "note": "Impacto final medido" },
+          { "label": "Controlo", "short": "04", "note": "Verificação e ajuste contínuo" }
+        ],
+        "links": [[0,1],[1,2],[2,3],[3,0]]
+      },
+      "narration": "Guião para conduzir a exploração 3D com a turma"
+    }
+  ]
+}`;
+}
+
+export function buildDeckFromExternalBlueprint(rawInput = '', opts = {}) {
+  const text = String(rawInput || '').trim();
+  if (!text || text.length < 30) return { ok: false, error: 'Cole o JSON ou guião devolvido pelo ChatGPT / Gemini.' };
+
+  let parsed = null;
+  try {
+    parsed = extractJson(text);
+  } catch {
+    // Fallback resiliente: se o ChatGPT respondeu em Markdown (## Slide...), converte automaticamente!
+    const chunks = text.split(/\n(?=#{1,3}\s+)/).map((c) => c.trim()).filter(Boolean);
+    if (chunks.length >= 2) {
+      const firstTitle = clean(chunks[0].replace(/^#+\s*/, '').split('\n')[0], 72);
+      parsed = {
+        title: firstTitle || 'Apresentação Super-IA',
+        subject: 'geral',
+        docType: 'aula',
+        theme: opts.theme || 'ceu',
+        slides: chunks.map((ch, idx) => {
+          const lines = ch.split('\n').map((l) => l.trim()).filter(Boolean);
+          const heading = clean((lines[0] || '').replace(/^#+\s*/, '').replace(/^slide\s*\d+[:.\-\s]*/i, ''), 65) || `Slide ${idx + 1}`;
+          const bullets = lines.slice(1).map((l) => clean(l.replace(/^[-*•\d.)\s]+/, ''), 150)).filter((l) => l.length > 5).slice(0, 4);
+          return {
+            layout: idx === 0 ? 'cover' : (idx === chunks.length - 1 ? 'closing' : (bullets.length >= 3 ? 'bento-grid' : 'split')),
+            kicker: idx === 0 ? 'SUPER-IA' : `PARTE ${String(idx).padStart(2, '0')}`,
+            title: heading,
+            subtitle: idx === 0 ? (bullets[0] || '') : '',
+            bullets: idx === 0 ? [] : bullets,
+            narration: bullets.join('. '),
+          };
+        }),
+      };
+    }
+  }
+
+  if (!parsed || !Array.isArray(parsed.slides) || !parsed.slides.length) {
+    return { ok: false, error: 'Não foi possível ler slides neste texto. Copie o bloco JSON completo devolvido pelo ChatGPT.' };
+  }
+
+  const title = clean(parsed.title || 'Apresentação Super-IA CEU', 78);
+  const subject = clean(parsed.subject || 'geral', 24).toLowerCase();
+  const docType = clean(parsed.docType || 'aula', 24).toLowerCase();
+  const validLayouts = new Set(['cover', 'agenda', 'objectives', 'stat-spotlight', 'bento-grid', 'bullets', 'concept', 'split', 'formula', 'comparison', 'animated-flow', 'timeline', 'scene-3d', 'quiz', 'quote', 'closing']);
+
+  const slides = parsed.slides.slice(0, 18).map((s, idx) => {
+    const rawLay = String(s.layout || (idx === 0 ? 'cover' : 'bento-grid')).toLowerCase();
+    const layout = validLayouts.has(rawLay) ? rawLay : 'bento-grid';
+    const bullets = Array.isArray(s.bullets) ? s.bullets.map((b) => clean(b, 170)).filter(Boolean).slice(0, 4) : [];
+    const steps = Array.isArray(s.steps) ? s.steps.map((b) => clean(b, 170)).filter(Boolean).slice(0, 4) : (layout === 'animated-flow' || layout === 'timeline' ? bullets : []);
+    const sceneSpec = s.scene3d && typeof s.scene3d === 'object' ? s.scene3d : null;
+    const nodes3d = sceneSpec && Array.isArray(sceneSpec.nodes)
+      ? sceneSpec.nodes.slice(0, 6).map((n, ni) => ({
+          label: clean(n.label || `Nó ${ni + 1}`, 24),
+          short: clean(n.short || String(ni + 1).padStart(2, '0'), 5),
+          note: clean(n.note || '', 180),
+        }))
+      : null;
+
+    return {
+      id: `ext-${idx + 1}`,
+      index: idx + 1,
+      layout,
+      rhythm: clean(s.rhythm || s.kicker || (idx === 0 ? 'ABERTURA' : `SLIDE ${idx + 1}`), 32).toUpperCase(),
+      kicker: clean(s.kicker || (idx === 0 ? 'SUPER-IA EXTERNA' : `SECÇÃO ${String(idx).padStart(2, '0')}`), 42),
+      title: clean(s.title || `Slide ${idx + 1}`, 68),
+      subtitle: clean(s.subtitle || '', 190),
+      bullets,
+      steps,
+      heroStat: s.heroStat && s.heroStat.value ? {
+        value: clean(s.heroStat.value, 24),
+        label: clean(s.heroStat.label || 'Destaque', 32),
+        context: clean(s.heroStat.context || '', 160),
+      } : null,
+      formula: clean(s.formula || '', 120),
+      left: clean(s.left || '', 90),
+      right: clean(s.right || '', 90),
+      question: clean(s.question || '', 160),
+      options: Array.isArray(s.options) ? s.options.map((o) => clean(o, 110)).slice(0, 4) : [],
+      correct: Number(s.correct) || 0,
+      explanation: clean(s.explanation || '', 180),
+      checkQuestions: Array.isArray(s.checkQuestions) ? s.checkQuestions.map((q) => clean(q, 140)).slice(0, 3) : [],
+      visualPrompt: clean(s.imageQuery || s.visualPrompt || '', 80),
+      scene3d: layout === 'scene-3d',
+      mode3d: (sceneSpec && sceneSpec.shape) || pickCoherent3DMode(subject, docType, `${title} ${s.title || ''}`),
+      sceneSpec,
+      nodes3d,
+      handnote: clean(s.handnote || '', 42),
+      notes: clean(s.notes || s.narration || '', 420),
+      narration: clean(s.narration || s.notes || s.subtitle || '', 360),
+      durationMin: Number(s.durationMin) || 3,
+      meta: idx === 0 ? { author: opts.author || 'Docente CEU Academy' } : undefined,
+      aiRewritten: true,
+    };
+  });
+
+  const deck = {
+    ok: true,
+    id: `ext-deck-${Date.now()}`,
+    title,
+    subject,
+    docType,
+    docTypeMeta: { icon: '🤖', label: 'Super-IA Externa', tone: 'Guião estruturado via ChatGPT / IA externa' },
+    sourceName: 'Instruções ChatGPT / Super-IA',
+    brand: opts.brand || 'Núcleo CEU',
+    credit: 'APP FEITO PELA HORIZONTE FUTURO',
+    theme: parsed.theme || opts.theme || 'ceu',
+    createdAt: new Date().toISOString(),
+    slides,
+    stats: {
+      slides: slides.length,
+      words: text.split(/\s+/).length,
+      pages: slides.length,
+      estMinutes: Math.max(5, slides.length * 3),
+      keywords: slides.map((s) => s.visualPrompt).filter(Boolean).slice(0, 6),
+    },
+    reading: {
+      centralIdea: slides[0]?.subtitle || title,
+      fullText: slides.map((s) => `${s.title}\n${(s.bullets || []).join('\n')}`).join('\n\n'),
+      sections: slides.map((s, i) => ({
+        id: `ext-sec-${i + 1}`,
+        number: i + 1,
+        page: i + 1,
+        heading: s.title,
+        paragraphs: [s.subtitle, ...(s.bullets || []), s.notes].filter(Boolean),
+      })),
+      definitions: [],
+    },
+    plan: {
+      condensed: { sentencesRead: slides.length * 4, ideasKept: slides.length * 3 },
+      blocks: slides.map((s, i) => ({ key: `b-${i}`, heading: s.title, page: i + 1, read: 4, kept: (s.bullets || []).length || 1, slideIndexes: [i + 1], objective: s.subtitle || s.title })),
+      steps: ['Blueprint importado de IA Externa (ChatGPT / Gemini / Claude) com cenas 3D voláteis e pesquisa de imagens em toda a web.'],
+      keywords: slides.map((s) => s.visualPrompt).filter(Boolean).slice(0, 6),
+    },
+    ai: { engine: 'external-chatgpt-blueprint', state: 'ready', blocksImproved: slides.length },
+  };
+
+  autoSelfAnalyzeAndHeal(deck);
+  return deck;
+}

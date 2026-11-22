@@ -118,7 +118,9 @@
   let active3DCtrl = null;
   let classTimerId = null;
   let activeSpeechRec = null;
+  let tour3DId = null;
   function destroyActive3D() {
+    if (tour3DId) { clearInterval(tour3DId); tour3DId = null; }
     if (active3DCtrl && typeof active3DCtrl.destroy === 'function') {
       try { active3DCtrl.destroy(); } catch { }
     }
@@ -178,6 +180,8 @@
     narrating: false,
     pulseOpen: false,
     pulseVotes: { ok: 0, mid: 0, rev: 0 },
+    creatorTab: 'direct', // 'direct' | 'chatgpt'
+    tour3DRunning: false,
   };
 
   function getSlideRevealTotal(slide) {
@@ -549,6 +553,7 @@
       active3DCtrl = eng.mountNucleo3D(canvas, {
         initialMode: mode3d,
         mini: !isFull3D,
+        sceneSpec: slide.sceneSpec || null,
         customNodes: nodes.map((n, i) => ({ id: `n-${i}`, label: n.label, short: n.short || String(i + 1), note: n.note })),
         brand: document.documentElement.dataset.brand === 'ceu' ? 'ceu' : 'ama',
         onSelectNode: isFull3D ? (id) => {
@@ -717,13 +722,14 @@
           <div class="pj-3d-stage-box">
             <canvas class="pj-3d-canvas" aria-label="Modelo 3D interactivo de ${escAttr(deck.title)}"></canvas>
             <div class="pj-3d-controls">
-              <button type="button" onclick="AMAProjector.set3DMode('physics')">Física 3D</button>
-              <button type="button" onclick="AMAProjector.set3DMode('finance')">Barras 3D</button>
-              <button type="button" onclick="AMAProjector.set3DMode('code')">Árvore 3D</button>
-              <button type="button" onclick="AMAProjector.set3DMode('bio')">Hélice 3D</button>
-              <button type="button" onclick="AMAProjector.set3DMode('wave')">Onda 3D</button>
-              <button type="button" class="pj-3d-hi" onclick="AMAProjector.toggle3DExplode()">${P.explode3D ? 'Juntar' : 'Explodir'}</button>
-              <button type="button" onclick="AMAProjector.toggle3DSpin()">↻ Rodar</button>
+              <button type="button" class="pj-3d-hi" onclick="AMAProjector.toggle3DTour()">${P.tour3DRunning ? '⏹ Parar Guia' : '▶ Explicar 3D'}</button>
+              <button type="button" onclick="AMAProjector.set3DMode('flow')">Fluxo</button>
+              <button type="button" onclick="AMAProjector.set3DMode('layers')">Camadas</button>
+              <button type="button" onclick="AMAProjector.set3DMode('network')">Rede</button>
+              <button type="button" onclick="AMAProjector.set3DMode('physics')">Física</button>
+              <button type="button" onclick="AMAProjector.set3DMode('finance')">Barras</button>
+              <button type="button" onclick="AMAProjector.set3DMode('bio')">Hélice</button>
+              <button type="button" onclick="AMAProjector.toggle3DExplode()">${P.explode3D ? 'Juntar' : 'Explodir'}</button>
             </div>
           </div>
           <div class="pj-3d-side">
@@ -1124,18 +1130,52 @@
         <div>
           <span class="eyebrow-t">${I.doc} PDF &amp; TEXTO → SLIDES INTELIGENTES</span>
           <h2 style="margin-top:6px">Carregue um ficheiro — a IA adapta, ilustra e cria os slides</h2>
-          <p class="muted">Detecta automaticamente se é Aula, Ata, Relatório ou Regulamento, reescreve para ensinar com clareza, junta imagens, 3D coerente e notas do docente.</p>
+          <p class="muted">Detecta automaticamente se é Aula, Ata, Relatório ou Regulamento, busca imagens em toda a web (Openverse, NASA, Wikimedia, OpenAlex) e monta cenas 3D dinâmicas.</p>
         </div>
-        <div class="pj-samples">
-          <span>Experimentar:</span>
-          <button type="button" class="pj-sample-pill is-hi" onclick="AMAProjector.loadSample('ata')">📋 Ata</button>
-          <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('fisica')">Física</button>
-          <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('financas')">Finanças</button>
-          <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('programacao')">Python</button>
-          <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('biologia')">Biologia</button>
+        <div class="pj-creator-tabs" role="tablist" aria-label="Modo de criação">
+          <button type="button" role="tab" aria-selected="${P.creatorTab !== 'chatgpt'}" class="${P.creatorTab !== 'chatgpt' ? 'on' : ''}" onclick="AMAProjector.setCreatorTab('direct')">📄 PDF / Texto Direto</button>
+          <button type="button" role="tab" aria-selected="${P.creatorTab === 'chatgpt'}" class="${P.creatorTab === 'chatgpt' ? 'on' : ''}" onclick="AMAProjector.setCreatorTab('chatgpt')">✨ Super-IA (ChatGPT / Gemini)</button>
         </div>
       </div>
 
+      ${P.creatorTab === 'chatgpt' ? `<div class="pj-chatgpt-panel" data-testid="projector-chatgpt-tab">
+        <div class="pj-cg-steps">
+          <div class="pj-cg-step">
+            <span class="pj-b-idx">01</span>
+            <div>
+              <b>Copie o Prompt Profissional CEU-3D</b>
+              <p>Este prompt pede ao ChatGPT, Gemini ou Claude para analisar o seu PDF e devolver instruções estruturadas com layouts, imagens e cena 3D volátil à medida.</p>
+              <div class="flex wrap" style="gap:8px;margin-top:8px">
+                <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.copyExternalPrompt()">📋 Copiar Prompt CEU-3D</button>
+                <a class="btn btn-o btn-sm" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Abrir ChatGPT ↗</a>
+                <a class="btn btn-o btn-sm" href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">Abrir Gemini ↗</a>
+              </div>
+              <details class="pj-adv-opts" style="margin-top:10px">
+                <summary>Ver texto completo do prompt pré-definido</summary>
+                <pre class="pj-prompt-preview">${esc((window.Study && window.Study.AI && window.Study.AI.getExternalAIPrompt ? window.Study.AI.getExternalAIPrompt(P.brief) : ''))}</pre>
+              </details>
+            </div>
+          </div>
+          <div class="pj-cg-step">
+            <span class="pj-b-idx">02</span>
+            <div>
+              <b>Envie o seu PDF + Prompt ao ChatGPT e cole a resposta aqui</b>
+              <textarea id="pj-ext-json" rows="7" style="width:100%;margin-top:8px" placeholder='Cole aqui o bloco JSON (ou guião) devolvido pelo ChatGPT / Gemini…'></textarea>
+              <div class="flex wrap" style="gap:10px;margin-top:10px;align-items:center">
+                <button type="button" class="btn btn-p" onclick="AMAProjector.importExternalBlueprint()">✦ Construir Slides Super-IA + 3D + Imagens</button>
+                ${P.deck ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleCreator(false)">Voltar aos slides</button>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>` : `<div class="pj-samples" style="margin-bottom:14px">
+        <span>Experimentar:</span>
+        <button type="button" class="pj-sample-pill is-hi" onclick="AMAProjector.loadSample('ata')">📋 Ata</button>
+        <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('fisica')">Física</button>
+        <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('financas')">Finanças</button>
+        <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('programacao')">Python</button>
+        <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('biologia')">Biologia</button>
+      </div>
       <div class="pj-creator-grid">
         <div class="pj-dropzone">
           <label class="pj-drop-label" for="pj-file-input">
@@ -1242,7 +1282,7 @@
             </div>
           </details>
         </div>
-      </div>
+      </div>`}
 
       ${P.outline ? renderOutlineEditor(P.outline) : ''}
 
@@ -1342,6 +1382,7 @@
             .map(([k, l]) => `<button type="button" class="${P.level === k ? 'on' : ''}" onclick="AMAProjector.setLevel('${k}')">${l}</button>`).join('')}
         </div>
         <div class="pj-mp-row" style="margin-top:6px">
+          <button type="button" onclick="AMAProjector.openChatGPTTab()">✨ Modo ChatGPT</button>
           <button type="button" onclick="AMAProjector.promptBrief()">🎙 Descrever estilo/imagens</button>
           <button type="button" onclick="AMAProjector.togglePlanPanel()">${P.showPlan ? 'Ocultar Plano' : 'Ver Plano IA'}</button>
           <button type="button" onclick="AMAProjector.improveAI()">Refinar IA</button>
@@ -1868,6 +1909,102 @@
     },
     toggle3DSpin() {
       if (active3DCtrl && typeof active3DCtrl.toggleSpin === 'function') active3DCtrl.toggleSpin();
+    },
+    toggle3DTour() {
+      if (tour3DId) {
+        clearInterval(tour3DId);
+        tour3DId = null;
+        P.tour3DRunning = false;
+        if (active3DCtrl && typeof active3DCtrl.setExplode === 'function') active3DCtrl.setExplode(0);
+        toast('Explicação guiada 3D pausada.');
+        return render();
+      }
+      const slide = P.deck && P.deck.slides[P.slideIdx];
+      const nodes = (slide && slide.nodes3d) || [];
+      if (!nodes.length || !active3DCtrl) return;
+      P.tour3DRunning = true;
+      let cur = 0;
+      const visit = () => {
+        if (!P.tour3DRunning || !active3DCtrl) return;
+        P.selected3DNode = cur;
+        if (typeof active3DCtrl.focusNode === 'function') active3DCtrl.focusNode(cur);
+        else AMAProjector.select3DNode(cur);
+        cur = (cur + 1) % nodes.length;
+      };
+      render();
+      setTimeout(() => {
+        visit();
+        tour3DId = setInterval(visit, 3400);
+      }, 60);
+      toast('▶ Explicação dinâmica 3D em curso — a câmara foca cada conceito automaticamente.');
+    },
+    setCreatorTab(tab) {
+      P.creatorTab = tab === 'chatgpt' ? 'chatgpt' : 'direct';
+      render();
+    },
+    openChatGPTTab() {
+      P.moreOpen = false;
+      P.showCreator = true;
+      P.creatorTab = 'chatgpt';
+      P.fullscreen = false;
+      document.body.classList.remove('pj-is-fs');
+      render();
+    },
+    async copyExternalPrompt() {
+      const ai = window.Study && window.Study.AI;
+      const promptText = ai && typeof ai.getExternalAIPrompt === 'function' ? ai.getExternalAIPrompt(P.brief) : '';
+      if (!promptText) return toast('Motor de IA a carregar…');
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(promptText);
+          return toast('📋 Prompt CEU-3D copiado! Cole no ChatGPT/Gemini juntamente com o seu PDF.');
+        }
+      } catch { }
+      window.prompt('Copie o prompt pré-definido:', promptText);
+    },
+    async importExternalBlueprint() {
+      const ai = window.Study && window.Study.AI;
+      const web = window.Study && window.Study.SlideStudioWeb;
+      if (!ai || typeof ai.buildDeckFromExternalBlueprint !== 'function') return toast('Motor Super-IA a carregar…');
+      const raw = String((document.getElementById('pj-ext-json') || {}).value || '').trim();
+      const deck = ai.buildDeckFromExternalBlueprint(raw, {
+        author: (typeof S !== 'undefined' && S.user && S.user.nome) || `Docente ${brandName()}`,
+        theme: P.theme,
+        brand: document.documentElement.dataset.brand === 'ceu' ? 'Núcleo CEU' : 'Núcleo AMA',
+      });
+      if (!deck || !deck.ok) return toast(deck && deck.error ? deck.error : 'Cole o bloco JSON devolvido pelo ChatGPT.');
+      if (deck.theme) P.theme = deck.theme;
+      P.deck = deck;
+      P.slideIdx = 0;
+      P.mode = 'slides';
+      P.showCreator = false;
+      P.moreOpen = false;
+      saveDeck(deck);
+      toast(`✨ Apresentação Super-IA criada (${deck.slides.length} slides)! A procurar imagens em toda a web…`);
+      render();
+
+      // Para cada slide que trouxe imageQuery do ChatGPT, procurar imagem real aberta em toda a web (Openverse + NASA + Wikimedia)
+      if (web && typeof web.searchCoherentImage === 'function') {
+        P.webBusy = true;
+        render();
+        const imgSlides = deck.slides.filter((s) => s.visualPrompt && !['scene-3d', 'quiz', 'agenda'].includes(s.layout)).slice(0, 8);
+        let foundCount = 0;
+        await Promise.allSettled(imgSlides.map(async (sl) => {
+          const img = await web.searchCoherentImage(sl.visualPrompt);
+          if (img && img.url) {
+            sl.visual = img.url;
+            sl.visualAlt = img.alt || sl.title;
+            sl.visualCredit = { text: img.credit || `Web · ${sl.visualPrompt}`, url: img.page || '' };
+            if (sl.layout === 'cover') sl.webHero = { url: img.url, credit: img.credit || 'Web Educativa' };
+            foundCount += 1;
+          }
+        }));
+        P.webBusy = false;
+        deck.synthesis = { ...(deck.synthesis || {}), imagesEmbedded: foundCount, has3D: true };
+        saveDeck(deck);
+        if (P.deck && P.deck.id === deck.id) render();
+        if (foundCount) toast(`🌐 ${foundCount} imagem(ns) da web ligadas ao guião do ChatGPT!`);
+      }
     },
     select3DNode(idx) {
       P.selected3DNode = Number(idx) || 0;

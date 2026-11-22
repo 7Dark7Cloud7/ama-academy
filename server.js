@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import webSearchHandler from './api/web-search.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,6 +38,8 @@ function writeMvpDb(db) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
 }
+
+app.get('/api/web-search', (req, res) => webSearchHandler(req, res));
 
 app.get('/api/mvp', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');

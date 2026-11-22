@@ -57,7 +57,7 @@ function shadeColor(r, g, b, intensity) {
   return `rgb(${Math.min(255, Math.round(r * k))},${Math.min(255, Math.round(g * k))},${Math.min(255, Math.round(b * k))})`;
 }
 
-export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core', customNodes = null, brand = '', mini = false } = {}) {
+export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core', customNodes = null, brand = '', mini = false, sceneSpec = null } = {}) {
   if (!canvas || typeof canvas.getContext !== 'function') return null;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
@@ -527,7 +527,81 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
     ctx.font = '800 10px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('DECISÃO', center[0], center[1]);
+    ctx.fillText((sceneSpec && sceneSpec.centerLabel ? String(sceneSpec.centerLabel).slice(0, 9).toUpperCase() : 'DECISÃO'), center[0], center[1]);
+  }
+
+  // Modo 3D Volátil / Dinâmico (camadas, pirâmide, fluxo direcional ou rede adaptada ao tema/ChatGPT)
+  function drawDynamicMode(shape, cx, cy, fov, dist) {
+    const exp = state.explode * 0.48;
+    const count = Math.max(3, Math.min(6, activeNodes.length));
+    const pts3 = [];
+    for (let i = 0; i < count; i += 1) {
+      const t = i / Math.max(1, count - 1);
+      if (shape === 'layers') {
+        const y = (t - 0.5) * (2.1 + exp * 1.4);
+        pts3.push([Math.sin(state.time * 0.8 + i) * 0.2, y, Math.cos(state.time * 0.8 + i) * 0.2]);
+      } else if (shape === 'pyramid') {
+        const lvl = i === 0 ? 1.15 + exp * 0.4 : (i <= 2 ? 0.15 : -0.85 - exp * 0.3);
+        const rad = i === 0 ? 0.01 : (i <= 2 ? 0.95 + exp * 0.3 : 1.55 + exp * 0.5);
+        const ang = (i * 2.1) + state.time * 0.22;
+        pts3.push([Math.cos(ang) * rad, lvl, Math.sin(ang) * rad]);
+      } else if (shape === 'flow') {
+        const x = (t - 0.5) * (3.1 + exp * 0.8);
+        const y = Math.sin(t * Math.PI * 1.5 + state.time * 1.1) * 0.45;
+        const z = Math.cos(t * Math.PI + state.time * 0.6) * 0.45;
+        pts3.push([x, y, z]);
+      } else {
+        // network / volatile cluster
+        const ang = (i / count) * TAU + state.time * 0.28;
+        const rad = 1.45 + exp * 0.6 + Math.sin(state.time * 1.4 + i) * 0.15;
+        pts3.push([Math.cos(ang) * rad, Math.sin(ang * 1.7 + i) * 0.72, Math.sin(ang) * rad]);
+      }
+    }
+
+    // Translucent floating planes for 'layers'
+    if (shape === 'layers') {
+      pts3.forEach((p, idx) => {
+        const r = 1.25 - idx * 0.08;
+        const corners = [
+          [-r, p[1], -r], [r, p[1], -r], [r, p[1], r], [-r, p[1], r],
+        ].map((c) => projectPoint(rotatePoint(c, state.rx, state.ry), cx, cy, fov, dist));
+        ctx.beginPath();
+        ctx.moveTo(corners[0][0], corners[0][1]);
+        for (let k = 1; k < 4; k += 1) ctx.lineTo(corners[k][0], corners[k][1]);
+        ctx.closePath();
+        ctx.fillStyle = idx === 0 ? 'rgba(0,164,220,0.22)' : 'rgba(184,243,107,0.14)';
+        ctx.fill();
+        ctx.strokeStyle = PAL.edge;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      });
+    }
+
+    // Directional links + glowing traveling energy pulses
+    const links = Array.isArray(sceneSpec && sceneSpec.links) && sceneSpec.links.length
+      ? sceneSpec.links
+      : pts3.map((_, i) => [i, (i + 1) % pts3.length]).concat(shape === 'network' ? [[0, Math.floor(count / 2)]] : []);
+    const proj = pts3.map((p) => projectPoint(rotatePoint(p, state.rx, state.ry), cx, cy, fov, dist));
+
+    links.forEach(([u, v], li) => {
+      const a = proj[u % proj.length];
+      const b = proj[v % proj.length];
+      if (!a || !b) return;
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.strokeStyle = li % 2 === 0 ? PAL.ring1 : '#b8f36b';
+      ctx.lineWidth = 2.1;
+      ctx.stroke();
+      // Traveling glowing pulse particle along each link
+      const pulseT = (state.time * 0.55 + li * 0.27) % 1;
+      const px = a[0] + (b[0] - a[0]) * pulseT;
+      const py = a[1] + (b[1] - a[1]) * pulseT;
+      ctx.beginPath();
+      ctx.arc(px, py, 4.2, 0, TAU);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    });
   }
 
   function renderFrame(dt) {
@@ -573,6 +647,7 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
     else if (state.mode === 'code') drawCodeMode(cx, cy, fov, dist);
     else if (state.mode === 'bio') drawBioMode(cx, cy, fov, dist);
     else if (state.mode === 'meeting') drawMeetingMode(cx, cy, fov, dist);
+    else if (['layers', 'pyramid', 'flow', 'network', 'volatile'].includes(state.mode)) drawDynamicMode(state.mode === 'volatile' ? ((sceneSpec && sceneSpec.shape) || 'network') : state.mode, cx, cy, fov, dist);
     else if (state.mode === 'matrix' || state.mode === 'finance') drawMatrixMode(cx, cy, fov, dist);
     else drawCoreMode(cx, cy, fov, dist);
 
@@ -715,6 +790,15 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
       else if (preset === 'front') { state.targetRx = 0.08; state.targetRy = 0; }
       else { state.targetRx = 0.42; state.targetRy = 0.65; }
       if (reducedMotion) { state.rx = state.targetRx; state.ry = state.targetRy; renderFrame(0.016); }
+    },
+    focusNode(idx) {
+      const n = activeNodes[Number(idx) || 0];
+      if (!n) return;
+      state.activeNode = n.id;
+      state.targetRy = -(n.angle + state.time * 0.16) + Math.PI * 0.5;
+      state.targetRx = Math.max(-0.85, Math.min(0.85, -n.elev * 0.9 + 0.25));
+      state.targetExplode = 0.65;
+      if (typeof onSelectNode === 'function') onSelectNode(n.id);
     },
     toggleSpin() {
       state.autoSpin = !state.autoSpin;

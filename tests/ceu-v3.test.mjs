@@ -7,7 +7,7 @@ import { evaluateRubric, optimizeTo100 } from '../engine/quality-engine.js';
 import { buildWorksheet, renderWorksheetHtml } from '../engine/worksheet-engine.js';
 import { buildStandaloneOfflineHtml } from '../engine/export-engine.js';
 import { detectDocumentType, analyzeDocument, buildAdaptiveDocumentDeck } from '../engine/doc-analyzer.js';
-import { pickCoherent3DMode, synthesizeAndFuseDeck, parseCreativeBrief, autoSelfAnalyzeAndHeal } from '../engine/ai-engine.js';
+import { pickCoherent3DMode, synthesizeAndFuseDeck, parseCreativeBrief, autoSelfAnalyzeAndHeal, getExternalAIPrompt, buildDeckFromExternalBlueprint } from '../engine/ai-engine.js';
 import { buildCoherentImageQueries } from '../engine/web-enrichment.js';
 import { FIXTURES_10, PDF_SAMPLE_MULTI_PAGE, PDF_SAMPLE_STEM, PDF_SAMPLE_SCANNED } from './fixtures/ceu-v3.fixtures.mjs';
 
@@ -179,4 +179,30 @@ test('Coherent 3D selection and pedagogical rewriting adapt raw PDF text for tea
   assert.equal(rawDeck.slides[3].layout, 'bento-grid', 'Expected 3-bullet slide upgraded to bento-grid');
   assert.ok(rawDeck.slides.every((s) => typeof s.narration === 'string' && s.narration.length > 10), 'Expected voice narration generated on every slide');
   assert.ok(rawDeck.selfAudit && rawDeck.selfAudit.mayerScore === 100, 'Expected selfAudit report attached');
+});
+
+test('External Super-IA (ChatGPT/Gemini) prompt generator and blueprint parser with volatile 3D', () => {
+  const prompt = getExternalAIPrompt('foco em exemplos de engenharia');
+  assert.ok(prompt.includes('scene3d') && prompt.includes('imageQuery'), 'Expected scene3d and imageQuery in external AI prompt');
+
+  const sampleChatGptReply = 'Aqui está o teu plano:\n```json\n' + JSON.stringify({
+    title: 'Energia Solar em Angola',
+    subject: 'fisica',
+    docType: 'aula',
+    theme: 'ceu',
+    slides: [
+      { layout: 'cover', kicker: 'ABERTURA', title: 'Energia Solar em Angola', subtitle: 'Como a luz vira electricidade limpa', imageQuery: 'solar panels desert sunlight' },
+      { layout: 'stat-spotlight', kicker: 'IMPACTO', title: 'Potencial Solar', heroStat: { value: '2.200 h/ano', label: 'Insolação', context: 'Angola tem uma das maiores radiações solares do continente.' }, bullets: ['Produção limpa', 'Baixo custo operacional'] },
+      { layout: 'scene-3d', kicker: 'MODELO 3D', title: 'Fluxo Fotovoltaico 3D', scene3d: { shape: 'flow', centerLabel: 'SOLAR', nodes: [{ label: 'Fotões', short: 'hν', note: 'Luz solar atinge o silício' }, { label: 'Célula', short: 'Si', note: 'Liberta electrões' }, { label: 'Inversor', short: 'AC', note: 'Converte DC em AC' }, { label: 'Rede', short: 'kW', note: 'Alimenta casas e escolas' }], links: [[0, 1], [1, 2], [2, 3]] } },
+    ],
+  }) + '\n```';
+
+  const dk = buildDeckFromExternalBlueprint(sampleChatGptReply, { author: 'Docente CEU' });
+  assert.equal(dk.ok, true);
+  assert.equal(dk.slides.length, 3);
+  assert.equal(dk.slides[0].visualPrompt, 'solar panels desert sunlight');
+  assert.equal(dk.slides[2].layout, 'scene-3d');
+  assert.equal(dk.slides[2].mode3d, 'flow');
+  assert.equal(dk.slides[2].nodes3d.length, 4);
+  assert.equal(dk.slides[2].sceneSpec.links.length, 3);
 });

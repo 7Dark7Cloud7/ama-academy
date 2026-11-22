@@ -239,16 +239,109 @@ export function buildCoherentImageQueries({ title = '', text = '', sections = []
   return queries.slice(0, 8);
 }
 
-/* Pesquisa directa de 1 imagem coerente para um pedido específico de um slide */
+/* Pesquisa aberta na web educativa (Openverse, NASA, OpenAlex, DuckDuckGo via /api/web-search ou CORS directo). */
+export async function openWebSearch(term, { kind = 'all', signal } = {}) {
+  const q = clean(term, 72);
+  if (!q || q.length < 2) return { images: [], items: [] };
+  // 1. Tenta o agregador multi-fonte /api/web-search (Express local / Vercel Serverless)
+  if (typeof location !== 'undefined' && /^https?:/i.test(location.protocol)) {
+    try {
+      const apiUrl = new URL('/api/web-search', location.origin);
+      apiUrl.searchParams.set('q', q);
+      apiUrl.searchParams.set('kind', kind);
+      const data = await jsonFetch(apiUrl, signal, 6500);
+      if (data && data.ok && ((data.images && data.images.length) || (data.items && data.items.length))) {
+        return { images: data.images || [], items: data.items || [] };
+      }
+    } catch { /* fallback para chamadas CORS directas abaixo */ }
+  }
+  // 2. Fallback directo por CORS (Openverse + NASA + OpenAlex — 100% abertos sem chave)
+  const images = [];
+  const items = [];
+  const tasks = [];
+  if (kind !== 'info') {
+    tasks.push(
+      jsonFetch(new URL(`https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&page_size=4&mature=false`), signal, 5500)
+        .then((d) => {
+          (d?.results || []).forEach((r) => {
+            if (!r || !(r.thumbnail || r.url)) return;
+            images.push({
+              url: String(r.thumbnail || r.url),
+              alt: clean(r.title || q, 110),
+              title: clean(r.title || q, 72),
+              credit: `Openverse · ${clean(r.creator || r.source || 'Web', 40)}`,
+              page: String(r.foreign_landing_url || r.url || ''),
+              term: q,
+              isDiagram: /diagram|chart|graph|vector|schema/i.test(`${r.title || ''} ${q}`),
+            });
+          });
+        }).catch(() => {})
+    );
+    if (/rocket|space|physics|force|earth|energy|planet|solar|orbit|forest|climate|foguet|f[ií]sic|planeta/i.test(q)) {
+      tasks.push(
+        jsonFetch(new URL(`https://images-api.nasa.gov/search?q=${encodeURIComponent(q)}&media_type=image&page_size=2`), signal, 5500)
+          .then((d) => {
+            (d?.collection?.items || []).slice(0, 2).forEach((it) => {
+              const link = (it.links || []).find((l) => l.href);
+              const meta = (it.data || [])[0] || {};
+              if (link) {
+                images.push({
+                  url: String(link.href),
+                  alt: clean(meta.title || q, 110),
+                  title: clean(meta.title || q, 72),
+                  credit: 'NASA Image Library',
+                  page: meta.nasa_id ? `https://images.nasa.gov/details/${encodeURIComponent(meta.nasa_id)}` : 'https://images.nasa.gov/',
+                  term: q,
+                  isDiagram: false,
+                });
+              }
+            });
+          }).catch(() => {})
+      );
+    }
+  }
+  if (kind !== 'images') {
+    tasks.push(
+      jsonFetch(new URL(`https://api.openalex.org/works?search=${encodeURIComponent(q)}&per-page=2&select=id,display_name,publication_year,doi,primary_location`), signal, 5500)
+        .then((d) => {
+          (d?.results || []).forEach((w) => {
+            const srcName = w?.primary_location?.source?.display_name || 'OpenAlex Académico';
+            items.push({
+              kind: 'insight',
+              term: q,
+              title: clean(w.display_name || q, 90),
+              text: clean(`Referência académica (${w.publication_year || ''}, ${srcName}): ${w.display_name}.`, 260),
+              sentences: [clean(`Estudo académico (${w.publication_year || ''}) publicado em ${srcName}: ${w.display_name}.`, 200)],
+              source: `OpenAlex · ${clean(srcName, 30)}`,
+              url: String(w.doi || w.id || 'https://openalex.org/'),
+              image: null,
+            });
+          });
+        }).catch(() => {})
+    );
+  }
+  await Promise.allSettled(tasks);
+  return { images, items };
+}
+
+/* Pesquisa directa de 1 imagem coerente em TODA A WEB (Openverse + NASA + Wikimedia Commons) */
 export async function searchCoherentImage(query, signal) {
   const qList = buildCoherentImageQueries({ briefQueries: [query] });
   const target = qList[0]?.query || clean(query, 64);
   if (!target) return null;
-  const imgs = await commonsImageSearch(target, signal, 4);
-  if (imgs.length) return imgs[0];
+  const [openRes, wikiImgs] = await Promise.all([
+    openWebSearch(target, { kind: 'images', signal }).catch(() => ({ images: [] })),
+    commonsImageSearch(target, signal, 4).catch(() => []),
+  ]);
+  if (openRes.images && openRes.images.length) return openRes.images[0];
+  if (wikiImgs.length) return wikiImgs[0];
   if (target !== query) {
-    const fallback = await commonsImageSearch(clean(query, 64), signal, 3);
-    if (fallback.length) return fallback[0];
+    const [openFb, wikiFb] = await Promise.all([
+      openWebSearch(clean(query, 64), { kind: 'images', signal }).catch(() => ({ images: [] })),
+      commonsImageSearch(clean(query, 64), signal, 3).catch(() => []),
+    ]);
+    if (openFb.images && openFb.images.length) return openFb.images[0];
+    if (wikiFb.length) return wikiFb[0];
   }
   return null;
 }
@@ -529,7 +622,7 @@ export async function enrichFromWeb(analysis = {}, opts = {}) {
       })
   );
 
-  // 4. Imagens coerentes e relevantes na Wikimedia Commons (priorizando a descrição do utilizador + conceitos reais)
+  // 4. Imagens e informação aberta de TODA A WEB (Openverse, NASA, DuckDuckGo, OpenAlex + Wikimedia Commons)
   const coherentQs = buildCoherentImageQueries({
     title: analysis.title || '',
     text: sourceText || '',
@@ -540,9 +633,20 @@ export async function enrichFromWeb(analysis = {}, opts = {}) {
   const imageSearchTerms = coherentQs.length
     ? coherentQs
     : primaryTerms.slice(0, 5).map((t) => ({ query: t, tag: t }));
-  const imageTasks = imageSearchTerms.slice(0, 6).map(({ query, tag }, qIdx) =>
+  const briefLen = (brief && brief.imageQueries && brief.imageQueries.length) || 0;
+
+  const openWebTasks = imageSearchTerms.slice(0, 4).map(({ query, tag }, qIdx) =>
+    openWebSearch(query, { kind: 'all', signal })
+      .then((res) => {
+        (res.images || []).forEach((im) => pushImage({ ...im, tag, fromBrief: qIdx < briefLen }));
+        (res.items || []).forEach((it) => pushItem(it));
+      })
+      .catch(() => {})
+  );
+
+  const imageTasks = imageSearchTerms.slice(0, 5).map(({ query, tag }, qIdx) =>
     commonsImageSearch(query, signal, 3)
-      .then((imgs) => imgs.forEach((im) => pushImage({ ...im, tag, fromBrief: qIdx < ((brief && brief.imageQueries && brief.imageQueries.length) || 0) })))
+      .then((imgs) => imgs.forEach((im) => pushImage({ ...im, tag, fromBrief: qIdx < briefLen })))
       .catch((err) => {
         if (err && err.name !== 'AbortError') errors.push(`imagens ${query}: ${err.message}`);
       })
@@ -555,7 +659,7 @@ export async function enrichFromWeb(analysis = {}, opts = {}) {
       .catch(() => {})
   );
 
-  await Promise.allSettled([...linkTasks, ...wikiTasks, ...imageTasks, ...videoTasks]);
+  await Promise.allSettled([...linkTasks, ...wikiTasks, ...openWebTasks, ...imageTasks, ...videoTasks]);
 
   // 6. Locais reais (quando o ficheiro cita Luanda/Angola ou geografia)
   const places = [];

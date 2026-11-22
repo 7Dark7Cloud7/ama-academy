@@ -9,12 +9,12 @@ import * as attendance from './attendance.js?v=2';
 import * as planner from './planner-engine.js?v=2';
 import * as quiz from './quiz-engine.js?v=5';
 import * as projector from './projector-engine.js?v=22';
-import * as nucleo3d from './nucleo-3d.js?v=5';
+import * as nucleo3d from './nucleo-3d.js?v=6';
 import * as slideSpec from './slide-spec.js?v=4';
 import * as slideStudio from './slide-studio-engine.js?v=10';
-// Camada de investigação Wikipédia/Wikimedia/Wikidata YouTube/Mapas — fundida nos slides por omissão.
-import * as slideWeb from './web-enrichment.js?v=12';
-import * as aiEngine from './ai-engine.js?v=6';
+// Camada de investigação aberta na web (Openverse, NASA, OpenAlex, DuckDuckGo, Wikipédia/Wikimedia/YouTube)
+import * as slideWeb from './web-enrichment.js?v=13';
+import * as aiEngine from './ai-engine.js?v=7';
 import * as quality from './quality-engine.js?v=12';
 import * as pdfEngine from './pdf-engine.js?v=1';
 import * as outlineEngine from './outline-engine.js?v=2';
