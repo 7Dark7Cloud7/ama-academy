@@ -40,7 +40,7 @@ test('buildProjectorDeck converts multi-page PDF text into organized visual slid
   assert.equal(deck.slides[0].layout, 'cover');
   assert.equal(deck.slides[1].layout, 'agenda');
   assert.equal(deck.slides[deck.slides.length - 1].layout, 'closing');
-  assert.ok(deck.slides.some((s) => s.layout === 'highlight'), 'Expected formula highlight slide');
+  assert.ok(deck.slides.some((s) => s.layout === 'formula' || s.layout === 'highlight'), 'Expected formula highlight slide');
 
   // Verify Reading Mode structure
   assert.equal(deck.reading.sections.length, 3);

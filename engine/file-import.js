@@ -99,21 +99,51 @@ export function filenameToTitle(name) {
   return title.slice(0, 90).trim();
 }
 
-export function inferImportTitle({ filename = '', metaTitle = '', text = '', lang = 'pt' } = {}) {
+const GENERIC_IMPORT_TITLE = /^(?:untitled|sem t[íi]tulo|document|documento|microsoft word|powerpoint|pdf|scan(?:ned)?(?: document)?|resumo|sum[áa]rio|[íi]ndice|introdu[çc][aã]o|capa|folha|p[áa]gina|cap[íi]tulo\s*\d*|capitulo\s*\d*)$/i;
+
+/* O título do ficheiro é uma pista fraca: "foto-2026.pdf" quase nunca descreve
+   a aula. Quando o próprio documento traz um cabeçalho, ele deve ganhar sempre. */
+function titleFromExtractedText(text) {
+  const lines = String(text || '')
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  for (const raw of lines) {
+    const line = raw
+      .replace(/^#{1,6}\s*/, '')
+      .replace(/^(?:[-•*–—·]\s*)+/, '')
+      .replace(/[.:;,\s]+$/, '')
+      .trim();
+    if (line.length < 5 || line.length > 90) continue;
+    if (PAGE_NUMBER_LINE.test(line) || GENERIC_IMPORT_TITLE.test(line)) continue;
+    if (/[.!?…]$/.test(line)) continue; // frase normal, não título
+    if (!/[\p{L}]{3}/u.test(line)) continue;
+    if (/^(?:por|de|da|do|em|com|para|num|numa)\s+/i.test(line)) continue;
+    return line.charAt(0).toLocaleUpperCase('pt-AO') + line.slice(1);
+  }
+  return '';
+}
+
+export function inferImportTitle({ filename = '', metaTitle = '', text = '', headingCandidates = [], lang = 'pt' } = {}) {
   const isPt = lang !== 'en';
   const meta = String(metaTitle || '').replace(/\s+/g, ' ').trim();
-  if (meta.length >= 3 && meta.length <= 90 && !/^(untitled|document|documento|sem título|sem titulo|microsoft word|powerpoint|pdf|scan(?:ned)?(?: document)?)$/i.test(meta)) {
+  // O cabeçalho visível do documento é a fonte mais fiável: os metadados de PDFs
+  // gerados por Word/Google Docs costumam repetir o nome do ficheiro.
+  const fromHeading = titleFromExtractedText((Array.isArray(headingCandidates) ? headingCandidates : []).join('\n'));
+  if (fromHeading) return fromHeading;
+  const metaLooksLikeFile = /\.(?:pdf|docx?|pptx?|txt|md|odt)\b/i.test(meta)
+    || /[_-]{2,}|\d{4,}/.test(meta)
+    || GENERIC_IMPORT_TITLE.test(meta);
+  if (meta.length >= 3 && meta.length <= 90 && !metaLooksLikeFile) {
     return meta;
   }
+  const fromText = titleFromExtractedText(text);
+  if (fromText) return fromText;
   const fromName = filenameToTitle(filename);
   if (fromName && fromName.length >= 3 && !/^(img|image|imagem|scan|digitaliza(?:ção|cao)|document|documento|file|ficheiro|photo|foto|whatsapp)(?:[\s_-]*\d+)?$/i.test(fromName)) {
     return fromName;
   }
-  const firstLine = String(text || '')
-    .split('\n')
-    .map((line) => line.replace(/\s+/g, ' ').trim())
-    .find((line) => line.length >= 8 && line.length <= 90 && /[\p{L}]{3}/u.test(line));
-  if (firstLine) return firstLine.replace(/[.:;,\s]+$/, '').slice(0, 90);
   return isPt ? 'Documento importado' : 'Imported document';
 }
 
@@ -197,6 +227,36 @@ export function pdfItemsToText(items = []) {
   return text.replace(/[ \t]+\n/g, '\n').replace(/[ \t]+$/, '');
 }
 
+/* pdf.js expõe a altura da fonte em cada fragmento de texto. Em manuais e
+   sebentas, os títulos não vêm marcados semanticamente — só são maiores do que
+   o corpo. Capturamos essas linhas para que o título e as secções dos slides
+   venham do documento, não do nome do ficheiro. */
+export function pdfHeadingCandidates(items = [], max = 6) {
+  const sizes = [];
+  const rows = new Map();
+  for (const item of Array.isArray(items) ? items : []) {
+    const str = typeof item?.str === 'string' ? item.str.trim() : '';
+    if (!str) continue;
+    const height = Math.abs(Number(item.height) || (Array.isArray(item.transform) ? Number(item.transform[3]) : 0) || 0);
+    if (height > 0) sizes.push(height);
+    const y = Math.round(Number(item.transform?.[5] || 0) / 3) * 3;
+    const row = rows.get(y) || { text: '', size: 0 };
+    row.text += (row.text ? ' ' : '') + str;
+    row.size = Math.max(row.size, height);
+    rows.set(y, row);
+  }
+  if (sizes.length < 4) return [];
+  const sorted = sizes.sort((a, b) => a - b);
+  const body = sorted[Math.floor(sorted.length * 0.6)] || 0;
+  if (!body) return [];
+  return [...rows.values()]
+    .filter((r) => r.size >= body * 1.16 && r.text.length >= 5 && r.text.length <= 90)
+    .sort((a, b) => b.size - a.size || a.text.length - b.text.length)
+    .slice(0, max)
+    .map((r) => cleanExtractedText(r.text).replace(/\s+/g, ' ').trim())
+    .filter((line) => line && !PAGE_NUMBER_LINE.test(line) && !GENERIC_IMPORT_TITLE.test(line) && !/[.!?…]$/.test(line));
+}
+
 export function suggestSubject(text) {
   const haystack = String(text || '').toLowerCase();
   const hasTerm = (word) => {
@@ -208,8 +268,13 @@ export function suggestSubject(text) {
   const groups = [
     { subject: 'chemistry', words: ['química', 'chemistry', 'mol', 'átomo', 'atomo', 'reação', 'reacao', 'ligação química', 'ph', 'ácido', 'acido', 'base', 'oxid'] },
     { subject: 'algebra', words: ['álgebra', 'algebra', 'matriz', 'matrizes', 'determinante', 'vetor', 'vector', 'espaço vetorial', 'transformação linear', 'autovalor'] },
-    { subject: 'physics', words: ['física', 'physics', 'velocidade', 'velocity', 'aceleração', 'acceleration', 'força', 'forca', 'energia', 'energy', 'cinemática', 'cinematica', 'newton', 'atrito', 'friction', 'projétil', 'projectile', 'momento', 'torque'] },
+    { subject: 'physics', words: ['física', 'physics', 'velocidade', 'velocity', 'aceleração', 'acceleration', 'força', 'forca', 'energia', 'energy', 'cinemática', 'cinematica', 'newton', 'atrito', 'friction', 'projétil', 'projectile', 'momento', 'torque', 'electricidade', 'eletricidade', 'painel solar', 'painéis solares', 'bateria', 'luminosidade', 'corrente eléctrica', 'voltagem'] },
     { subject: 'math', words: ['matemática', 'mathematics', 'função', 'funcao', 'derivada', 'integral', 'limite', 'equação', 'equacao', 'trigonometria', 'sucessão', 'sucessao', 'sequência', 'sequencia', 'logaritmo'] },
+    { subject: 'financas', words: ['finanças', 'financas', 'juro', 'inflação', 'inflacao', 'kwanza', 'lucro', 'preço', 'preco', 'orçamento', 'orcamento', 'poupança', 'poupanca'] },
+    { subject: 'programacao', words: ['programação', 'programacao', 'algoritmo', 'código', 'codigo', 'python', 'variável', 'variavel', 'função', 'funcao', 'base de dados'] },
+    { subject: 'biologia', words: ['biologia', 'célula', 'celula', 'fotossíntese', 'fotossintese', 'ecossistema', 'herança', 'genética', 'genetica', 'digestão', 'digestao'] },
+    { subject: 'historia', words: ['história', 'historia', 'independência', 'independencia', 'colonialismo', 'guerra', 'constituição', 'constituicao', 'Angola'] },
+    { subject: 'empreendedorismo', words: ['comunicação', 'comunicacao', 'marketing', 'negócio', 'negocio', 'cliente', 'marca', 'empreendedor', 'público-alvo'] },
   ];
   let best = { subject: 'general', score: 0 };
   for (const group of groups) {
@@ -416,6 +481,7 @@ async function extractPdf(file, { buffer, hash, onProgress }) {
   const pageCount = Math.min(totalPages, IMPORT_LIMITS.maxPages);
   const chunks = [];
   const pageTexts = [];
+  const headings = [];
   let chars = 0;
   let textPages = 0;
   let ocrPages = 0;
@@ -428,9 +494,13 @@ async function extractPdf(file, { buffer, hash, onProgress }) {
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
       let pageText = '';
+      let pageHeading = '';
       try {
         const content = await page.getTextContent();
         pageText = cleanExtractedText(pdfItemsToText(content.items));
+        const candidates = pdfHeadingCandidates(content.items, 3);
+        candidates.forEach((heading) => headings.push({ page: pageNumber, text: heading }));
+        pageHeading = candidates[0] || '';
       } catch {
         pageText = '';
       }
@@ -438,7 +508,7 @@ async function extractPdf(file, { buffer, hash, onProgress }) {
       if (usableLength >= IMPORT_LIMITS.textPageThreshold) {
         textPages += 1;
         chunks.push(pageText);
-        pageTexts.push({ page: pageNumber, text: pageText, source: 'text' });
+        pageTexts.push({ page: pageNumber, text: pageText, source: 'text', heading: pageHeading });
         chars += pageText.length;
       } else if (ocrPages < IMPORT_LIMITS.maxOcrPages) {
         onProgress({ phase: 'ocr-init', progress: 0.1 + (pageNumber / Math.max(1, pageCount)) * 0.06, page: pageNumber });
@@ -497,7 +567,8 @@ async function extractPdf(file, { buffer, hash, onProgress }) {
     method: resultMethod({ kind: 'pdf', textPages, ocrPages }),
     fileName: file.name,
     fileSize: file.size,
-    title: inferImportTitle({ filename: file.name, metaTitle, text }),
+    title: inferImportTitle({ filename: file.name, metaTitle, text, headingCandidates: headings.map((h) => h.text) }),
+    headings: headings.slice(0, 12),
     pages: usedPages,
     totalPages,
     pageTexts: capPageTexts(pageTexts),

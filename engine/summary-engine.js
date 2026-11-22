@@ -11,6 +11,9 @@ const CAUSAL_WORDS = /\b(porque|pois|logo|portanto|assim|consequ[eê]ncia|result
 const EXAMPLE_WORDS = /\b(exemplo|por exemplo|e\.g\.|for example|for instance|ilustra)\b/i;
 const NUMBER_UNIT = /(?:\d+(?:[.,]\d+)?\s*(?:%|°|m\/s|km\/h|m\/s²|m|cm|mm|km|s|min|h|kg|g|mg|mol|n|j|w|v|a|pa|l|ml|g\/mol|m²|cm²|m³|cm³|km²|hz|ω|°c|k)\b)|\b\d+(?:[.,]\d+)?\b/i;
 const CONCLUSION_WORDS = /\b(em resumo|concluindo|conclus[aã]o|portanto|assim|in summary|to sum up|in conclusion|overall)\b/i;
+// Uma frase de resumo não deve virar ideia central só por causa de "é":
+// "A desvantagem é..." é detalhe secundário, não o tema do documento.
+const SECONDARY_WORDS = /\b(desvantagem|limita[çc][aã]o|exce[çc][aã]o|por outro lado|no entanto|contudo|por[ée]m|apesar|embora|mas|however|although|but|drawback|limitation)\b/i;
 
 const PT_MONTHS = new Set(["janeiro", "fevereiro", "março", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]);
 const EN_MONTHS = new Set(["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]);
@@ -294,6 +297,8 @@ function scoreSentences(sentences, keywords, title) {
       if (index > total * 0.8) score += 0.35;
       if (CAUSAL_WORDS.test(sentence)) score += 0.9;
       if (/\b(é|são|significa|consiste|is|are|means)\b/i.test(sentence)) score += 0.8;
+      if (SECONDARY_WORDS.test(sentence)) score -= 1.4;
+      if (EXAMPLE_WORDS.test(sentence)) score -= 0.5;
       if (NUMBER_UNIT.test(sentence)) score += 0.4;
       if (length > 38) score -= 0.6;
       if (/[?]$/.test(sentence.trim())) score -= 0.8;

@@ -1,5 +1,11 @@
 {
   "cleanUrls": false,
+  "rewrites": [
+    { "source": "/ceu", "destination": "/index.html?marca=ceu" },
+    { "source": "/ceu/", "destination": "/index.html?marca=ceu" },
+    { "source": "/ama", "destination": "/ama.html?marca=ama" },
+    { "source": "/ama/", "destination": "/ama.html?marca=ama" }
+  ],
   "outputDirectory": ".",
   "headers": [
     {

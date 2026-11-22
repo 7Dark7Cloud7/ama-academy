@@ -1645,7 +1645,7 @@ a.logo:hover .logo-sym,a.brand:hover .logo-sym,a.logo:focus-visible .logo-sym,a.
 .vf-cta{display:flex;justify-content:center;gap:12px;margin:26px 0 8px;flex-wrap:wrap}
 @media(max-width:640px){.vf-wrap{padding:0 14px}.vf-cta .btn{flex:1;min-width:0;white-space:normal;text-align:center;justify-content:center}}
 
-/* ---- Open Mind AI dock ---- */
+/* ---- Kuzaya AI dock ---- */
 .oma-fab{position:fixed;right:22px;bottom:22px;z-index:55;display:inline-flex;align-items:center;gap:9px;border:none;cursor:pointer;color:#fff;font-weight:800;font-size:13.5px;font-family:var(--font-b);
   background:linear-gradient(135deg,#16744a,#c7e86a);padding:14px 19px;border-radius:999px;box-shadow:0 12px 28px -8px rgba(22,116,74,.55),0 3px 0 rgba(76,29,149,.9);transition:transform .18s,box-shadow .18s,opacity .18s}
 .oma-fab svg{width:22px;height:22px;flex:none}
@@ -1900,7 +1900,7 @@ a.brand:focus-visible{outline:2px solid var(--green);outline-offset:3px;border-r
 .band .hero-blobs ellipse{opacity:.09}
 
 /* ============================================================
-   v33 — blob no footer e na banda "Conheça o Open Mind AI",
+   v33 — blob no footer e na banda "Conheça a Kuzaya AI",
    chip da marca com anel interior (lê-se sobre o navy), e
    sidebar colapsável em rail de ícones (só desktop; o
    hamburguer mobile continua a usar .sidebar.open).

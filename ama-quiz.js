@@ -7,6 +7,7 @@
 
   const HIST_KEY = 'ama-quiz-history-v1';
   const STUDY_KEY = 'ama-study-v1';
+  const PJ_KEY = 'ama-quiz-projector-v1';
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const escAttr = esc;
@@ -71,6 +72,19 @@
       const raw = JSON.parse(localStorage.getItem(STUDY_KEY) || '{}');
       return Array.isArray(raw.recs) ? raw.recs : [];
     } catch { return []; }
+  }
+
+  /* O deck do projetor é guardado só nesta sessão: basta para voltar ao quiz
+     depois de navegar, sem transformar conteúdo importado em dado persistente. */
+  function loadProjectorPayload() {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem(PJ_KEY) || 'null');
+      return raw && Array.isArray(raw.questions) && raw.questions.length ? raw : null;
+    } catch { return null; }
+  }
+
+  function saveProjectorPayload(payload) {
+    try { sessionStorage.setItem(PJ_KEY, JSON.stringify(payload)); } catch { }
   }
 
   function mapCategoryToSubject(cat) {
@@ -183,6 +197,7 @@
             <div class="qz-res-actions">
               ${m.missedQuestions.length ? `<button type="button" class="btn btn-f" onclick="AMAQuiz.retryMissed('${prefix}')">${I.spark} Refazer ${m.missedQuestions.length} erro${m.missedQuestions.length === 1 ? '' : 's'}</button>` : ''}
               <button type="button" class="btn btn-p" onclick="AMAQuiz.restart('${prefix}')">Repetir quiz</button>
+              ${session.sourceType === 'projector' && !inline ? `<button type="button" class="btn btn-o" onclick="AMAQuiz.backToProjector()">Voltar ao projetor</button>` : ''}
               ${!inline ? `<button type="button" class="btn btn-o" onclick="AMAQuiz.backToPicker()">Escolher outra aula</button>` : ''}
             </div>
           </div>
@@ -210,7 +225,7 @@
       <header class="qz-hud">
         <div class="qz-hud-top">
           <div class="qz-title-wrap">
-            ${!inline ? `<button type="button" class="qz-back-btn" onclick="AMAQuiz.backToPicker()" aria-label="Voltar à lista de aulas">${I.back} Aulas</button>` : ''}
+            ${!inline ? `<button type="button" class="qz-back-btn" onclick="${session.sourceType === 'projector' ? 'AMAQuiz.backToProjector()' : 'AMAQuiz.backToPicker()'}" aria-label="${session.sourceType === 'projector' ? 'Voltar ao projetor' : 'Voltar à lista de aulas'}">${I.back} ${session.sourceType === 'projector' ? 'Projetor' : 'Aulas'}</button>` : ''}
             <div>
               <span class="qz-kicker">${esc(kindLabel)} · Pergunta ${session.currentIndex + 1} de ${m.total}</span>
               <h2 class="qz-lesson-name">${esc(session.title)}</h2>
@@ -403,6 +418,19 @@
       waitForStudy(() => { if (/^#\/quiz/.test(location.hash)) render(); });
       return wrapShell('<div class="spinner"></div>');
     }
+    if (q && q.pj) {
+      const saved = loadProjectorPayload();
+      if (saved && (!Q.session || Q.session.id !== saved.id)) {
+        Q.session = S_().createQuizSession({
+          id: saved.id,
+          title: saved.title,
+          subject: saved.subject,
+          sourceType: 'projector',
+          questions: saved.questions,
+        });
+        if (Q.session) { Q.session.deckId = saved.deckId; Q.savedHistoryForId = null; }
+      }
+    }
     if (q && q.rec && (!Q.session || Q.session.id !== `rec-${q.rec}`)) {
       const rec = loadNotebooks().find((r) => r.id === q.rec);
       if (rec) {
@@ -495,6 +523,39 @@
       Q.savedHistoryForId = null;
       if (!/^#\/quiz/.test(location.hash)) go('/quiz');
       else render();
+    },
+    /* Recebe um deck já gerado pelo Projetor e transforma as suas próprias
+       secções, definições, mnemónicos e perguntas socráticas em prática. */
+    startProjectorDeck(deck) {
+      const eng = S_();
+      if (!deck || !deck.reading || !eng || !eng.buildProjectorQuizQuestions) {
+        return toast('Motor de quiz a carregar.');
+      }
+      const questions = eng.buildProjectorQuizQuestions({ deck, maxQuestions: 8 });
+      if (!questions.length) return toast('Não foi possível extrair perguntas deste ficheiro.');
+      const id = `pj-${deck.id || Date.now()}-${Date.now()}`;
+      const sess = eng.createQuizSession({
+        id,
+        title: `Prática · ${deck.title}`,
+        subject: deck.subject || 'geral',
+        sourceType: 'projector',
+        questions,
+      });
+      saveProjectorPayload({
+        id,
+        deckId: deck.id || '',
+        title: sess.title,
+        subject: sess.subject,
+        questions: sess.questions,
+      });
+      sess.deckId = deck.id || '';
+      Q.session = sess;
+      Q.savedHistoryForId = null;
+      if (!/^#\/quiz/.test(location.hash)) go('/quiz?pj=1');
+      else render();
+    },
+    backToProjector() {
+      go('/projetor');
     },
     inlineTabHtml(rec) {
       if (!rec || !S_() || !S_().buildQuizQuestions) {

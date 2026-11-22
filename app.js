@@ -300,6 +300,7 @@ function shellPublic(content, active = '') {
         </div></div></span>
       <a href="#/ao-vivo" class="lnk ${active == 'live' ? 'on' : ''}">Aulas ao vivo</a>
       <a href="#/universidade" class="lnk ${active == 'universidade' ? 'on' : ''}">Universidade</a>
+      <a href="#/projetor" class="lnk ${active == 'projetor' ? 'on' : ''}" title="PDF → slides → projetor (uma só ferramenta)">Projetor &amp; Slides</a>
       <a href="#/workshops" class="lnk ${active == 'workshops' ? 'on' : ''}">Workshops</a>
       <a href="#/publicar" class="lnk ${active == 'publicar' ? 'on' : ''}">Publicar</a>
       ${S.user ? `<a href="#/${homePath()}" class="lnk ${active == 'painel' ? 'on' : ''}">Meu painel</a>` : ''}
@@ -369,7 +370,7 @@ function footer() {
   return `<footer class="ft">${blobSvgShort()}<div class="in">
     <div class="ft-brand">
       <a class="logo" href="#/"><span class="logo-chip">${LOGO}</span><span class="lw">AMA<b>ARISTIDES MIGUEL</b></span></a>
-      <p>A academia online feita em Angola. Cursos gravados, aulas ao vivo e tutor IA — conhecimento que abre portas, dos nossos mentores para o seu futuro.</p>
+      <p>A academia online feita em Angola. Cursos gravados, aulas ao vivo e Kuzaya AI — conhecimento que abre portas, dos nossos mentores para o seu futuro.</p>
       <div class="soc">${soc.map(([k, d]) => `<a class="soc-i" href="#/" aria-label="${k}"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="${d}"/></svg></a>`).join('')}</div>
     </div>
     <div class="ft-col"><h4>Explorar</h4><a href="#/catalogo">Catálogo de cursos</a><a href="#/workshops">Workshops e eventos</a><a href="#/ao-vivo">Aulas ao vivo</a><a href="#/boas-vindas">Como funciona</a><a href="#/registo">Criar conta</a></div>
@@ -396,7 +397,7 @@ window.sbHover = (on) => {
 
 function panelShell(active, content, items, opts = {}) {
   const initials = S.user.nome.split(' ').map(w => w[0]).slice(0, 2).join('');
-  const dicas = ['Marque uma aula como concluída para o tutor IA sugerir o próximo passo.', 'Pergunte ao Tutor AMA: ele responde citando a aula exata do seu curso.', 'Aulas ao vivo ficam gravadas — reveja quando quiser no seu painel.', 'O assistente no canto inferior direito também encontra cursos para si.'];
+  const dicas = ['Marque uma aula como concluída para o Kuzaya AI sugerir o próximo passo.', 'Pergunte ao Kuzaya AI: ele responde citando a aula exata do seu curso.', 'Aulas ao vivo ficam gravadas — reveja quando quiser no seu painel.', 'O assistente no canto inferior direito também encontra cursos para si.'];
   const dica = dicas[new Date().getDate() % dicas.length];
   return `<div class="shell${opts.full ? ' shell-full' : ''}">
   <div class="sb-scrim" id="sb-scrim" onclick="closeSide()"></div>
@@ -418,7 +419,7 @@ function panelShell(active, content, items, opts = {}) {
       <div class="sp"></div>
       ${themeBtn()}
       <a class="icon-btn" href="#/ao-vivo" title="Aulas ao vivo">${I.live}</a>
-      <button class="icon-btn tb-spark" title="Assistente IA" aria-label="Abrir assistente Tutor AMA" onclick="omaToggle()">${I.spark}</button>
+      <button class="icon-btn tb-spark" title="Kuzaya AI" aria-label="Abrir Kuzaya AI" onclick="omaToggle()">${I.spark}</button>
       <div class="dd notif-dd" id="notif-dd">
         <button class="icon-btn tb-notif" title="Notificações" aria-label="Notificações" aria-haspopup="true" onclick="ddToggle(event);notifToggle(event)">${I.bell}<b class="nb" id="notif-n" hidden>0</b></button>
         <div class="dd-menu notif-menu" id="notif-menu"></div>
@@ -699,7 +700,7 @@ on('/', async () => {
       </div>
     </section>
 
-    <section class="ama-dual-cta" aria-label="Workshops e Tutor AMA">
+    <section class="ama-dual-cta" aria-label="Workshops e Kuzaya AI">
       <article class="ama-split-card light">
         <div class="asc-top">
           <span class="eyebrow-t">WORKSHOPS &amp; EVENTOS</span>
@@ -712,9 +713,9 @@ on('/', async () => {
       </article>
       <article class="ama-split-card dark">
         <span class="asc-ic">${I.spark}</span>
-        <span class="bt-badge lime">TUTOR AMA · 24/7</span>
+        <span class="bt-badge lime">KUZAYA AI · 24/7</span>
         <h2>Uma dúvida na aula? Comece uma conversa.</h2>
-        <p>O Tutor AMA consulta o conteúdo dos seus cursos e responde citando a aula exata de origem — sem invenções.</p>
+        <p>O Kuzaya AI consulta o conteúdo dos seus cursos e responde citando a aula exata de origem — sem invenções.</p>
         <div class="asc-actions">
           <a class="btn btn-p btn-lg" href="${S.user ? '#/assistente' : '#/entrar'}">Perguntar ao tutor ${I.arrow}</a>
           <a class="btn btn-o btn-ghost-d" href="#/estudar">Espaço de estudo</a>
@@ -887,7 +888,7 @@ const REVIEW_POOL = [
   ['Lurdes Neto', 'O ritmo das aulas é certo e os exemplos são do nosso mercado. Refiz os exercícios duas vezes e saiu tudo a funcionar.'],
   ['Edson Kiala', 'Explicações claras, sem enrolação. O módulo final virou o meu portfólio e já me rendeu uma entrevista.'],
   ['Marta Cassoma', 'As aulas ao vivo de dúvidas valem o preço sozinhas. O professor responde mesmo, não fica só no gravado.'],
-  ['Nelson Prata', 'Comecei do zero absoluto e consegui acompanhar. O tutor IA ajuda a rever exatamente a aula onde fiquei preso.'],
+  ['Nelson Prata', 'Comecei do zero absoluto e consegui acompanhar. O Kuzaya AI ajuda a rever exatamente a aula onde fiquei preso.'],
   ['Isabel Kanda', 'Conteúdo direto ao ponto e bem organizado por módulos. Paguei por MULTICAIXA e comecei no mesmo minuto.'],
   ['Tiago Bumba', 'Bom equilíbrio entre teoria e prática. Os quizzes no fim de cada módulo ajudam a fixar antes de avançar.'],
 ];
@@ -987,7 +988,7 @@ on('/curso/:id', async ({ args }) => {
              <p class="bc-inst">ou <b>${kz(Math.round(curso.preco_kz / 3))}</b> × 3 com MULTICAIXA</p>
              <button class="btn btn-f btn-lg" style="width:100%;justify-content:center" onclick="openCheckout(${curso.id})">Comprar curso</button>
              <button class="btn btn-o" style="width:100%;margin-top:10px" onclick="go('/aprender/${curso.id}/${(seccoes[0].aulas.find(a=>a.livre)||{}).id||''}')">${I.play} Assistir aula grátis</button>`}
-        <ul class="bc-perks"><li>✓ Acesso vitalício + certificado</li><li>✓ Aulas ao vivo com o professor</li><li>✓ Tutor IA AMA incluído</li><li>✓ Pagamento em Kz · garantia 7 dias</li></ul>
+        <ul class="bc-perks"><li>✓ Acesso vitalício + certificado</li><li>✓ Aulas ao vivo com o professor</li><li>✓ Kuzaya AI incluído</li><li>✓ Pagamento em Kz · garantia 7 dias</li></ul>
       </div>
       <div class="instrutor-panel rv">
         <span class="ip-eyebrow">SEU INSTRUTOR</span>
@@ -1084,7 +1085,7 @@ on('/registo', async () => { if (S.user) go('/' + homePath()); return `<div clas
   <div class="art angola-bg"><a class="brand" href="#/" title="AMA · Aristides Miguel Academy" aria-label="Ir para a página inicial"><span class="logo-chip">${LOGO}</span><div><b style="font-family:var(--font-d);font-size:19px;color:#fff">AMA</b><span class="brand-sub">ARISTIDES MIGUEL</span></div></a>
     <div><h2 style="color:#fff;font-size:30px">Crie a sua conta.<br>O primeiro curso é ${mark('oferta')}.</h2>
       <ul style="margin-top:20px;list-style:none;font-size:14.5px;color:#c3cbc4;display:flex;flex-direction:column;gap:10px">
-        <li>✓ Curso de Inteligência Emocional grátis 7 dias</li><li>✓ Acesso a aulas ao vivo semanais</li><li>✓ Tutor IA disponível 24/7</li><li>✓ Pague em Kz com MULTICAIXA Express</li></ul></div>
+        <li>✓ Curso de Inteligência Emocional grátis 7 dias</li><li>✓ Acesso a aulas ao vivo semanais</li><li>✓ Kuzaya AI disponível 24/7</li><li>✓ Pague em Kz com MULTICAIXA Express</li></ul></div>
     <span class="muted" style="color:#7d867f;font-size:12.5px">Sem cartão de crédito. Cancele quando quiser.</span></div>
   <div class="form">
     <div class="auth-top-m"><a class="logo" href="#/"><span class="logo-chip">${LOGO}</span><span class="lw">AMA<b>ARISTIDES MIGUEL</b></span></a>
@@ -1110,7 +1111,7 @@ on('/boas-vindas', async () => {
   const steps = [
     [I.book, 'ic-v', 'Escolha o seu curso', 'Explore o catálogo por categoria, nível e preço — tudo em kwanzas, com pagamento MULTICAIXA Express e Unitel Money.'],
     [I.play, 'ic-f', 'Aprenda no seu ritmo', 'Vídeo com transcrição, progresso guardado automaticamente e notas por aula. Continue de onde parou em qualquer dispositivo.'],
-    [I.spark, 'ic-t', 'Pergunte ao Tutor AMA', 'O tutor IA responde com base apenas nas aulas dos seus cursos e cita sempre a aula de origem. Disponível 24/7.'],
+    [I.spark, 'ic-t', 'Pergunte ao Kuzaya AI', 'O Kuzaya AI responde com base apenas nas aulas dos seus cursos e cita sempre a aula de origem. Disponível 24/7.'],
     [I.live, 'ic-b', 'Viva a aula ao vivo', 'Todas as semanas os mentores abrem salas ao vivo: pergunte, participe e a aula fica gravada no seu curso.'],
     [I.cert, 'ic-g', 'Receba o certificado', 'Ao concluir 100% das aulas, o certificado verificável é emitido automaticamente com código de validação.'],
   ];
@@ -1494,7 +1495,7 @@ const aprenderView = async ({ args }) => {
       <div class="side-tabs">
         <div class="tabs"><button class="on" data-t="conteudo" onclick="playerTab(this)">Conteúdo</button>
           <button data-t="estudo" onclick="playerTab(this)">Resumo IA</button>
-          <button data-t="ia" onclick="playerTab(this)">Tutor IA</button>
+          <button data-t="ia" onclick="playerTab(this)">Kuzaya AI</button>
           <button data-t="resumo" onclick="playerTab(this)">Notas</button></div>
         <div class="tab-body" id="tab-body">
           ${seccoes.map(s => `<div class="nav-h lh-sec">${esc(s.titulo)}<b>${s.aulas.filter(a => done.has(a.id)).length}/${s.aulas.length}</b></div>` + s.aulas.map(a =>
@@ -1527,8 +1528,8 @@ window.playerTab = (btn) => {
     return;
   }
   body.innerHTML = `<div id="ai-log"></div><div class="flex wrap" style="gap:7px;margin-bottom:12px">${['resume esta aula','dá-me um exemplo prático','recomenda-me um curso relacionado'].map(s => `<span class="chip" style="cursor:pointer" onclick="askAI('${escAttr(s)}')">${esc(s)}</span>`).join('')}</div>
-    <div class="chat-in" style="border-top:1px solid var(--line);padding:12px 0"><input id="ai-in" placeholder="Pergunte ao Tutor AMA…" onkeydown="if(event.key==='Enter')askAI()"><button class="btn btn-p btn-sm" onclick="askAI()">➤</button></div>`;
-  aiLog = $('#ai-log'); addAI('me', 'Olá! Sou o Tutor AMA. Respondo com base nas transcrições das aulas a que tem acesso, sempre com a fonte — e também encontro cursos para si.');
+    <div class="chat-in" style="border-top:1px solid var(--line);padding:12px 0"><input id="ai-in" placeholder="Pergunte ao Kuzaya AI…" onkeydown="if(event.key==='Enter')askAI()"><button class="btn btn-p btn-sm" onclick="askAI()">➤</button></div>`;
+  aiLog = $('#ai-log'); addAI('me', 'Olá! Sou o Kuzaya AI. Respondo com base nas transcrições das aulas a que tem acesso, sempre com a fonte — e também encontro cursos para si.');
 };
 window.saveAulaNota = async () => {
   try {
@@ -1724,7 +1725,7 @@ on('/publicar', async () => {
         <span class="bt-badge soft">CURSO GRAVADO</span>
         <h2>Criar e dar um curso</h2>
         <p>Use um modelo pronto, adicione módulos e aulas, veja o cartão em tempo real e publique no catálogo em 1 clique.</p>
-        <ul class="pub-list"><li>Modelos prontos para começar rápido</li><li>Pré-visualização ao vivo do cartão</li><li>Partilha direta, sala ao vivo e Tutor IA</li></ul>
+        <ul class="pub-list"><li>Modelos prontos para começar rápido</li><li>Pré-visualização ao vivo do cartão</li><li>Partilha direta, sala ao vivo e Kuzaya AI</li></ul>
         <a class="btn btn-p" href="${user ? '#/instrutor/criar' : '#/entrar'}">Abrir estúdio de cursos ${I.arrow}</a>
       </article>
 
@@ -1880,7 +1881,7 @@ on('/instrutor/criar', async () => {
     ${pub ? `<div class="card cr-launched">
       <span class="bt-badge lime">CURSO PUBLICADO</span>
       <h2>«${esc(pub.titulo)}» está pronto a ensinar!</h2>
-      <p>O curso já aparece no catálogo local, tem sala de aulas pronta e está ligado ao Tutor AMA.</p>
+      <p>O curso já aparece no catálogo local, tem sala de aulas pronta e está ligado ao Kuzaya AI.</p>
       <div class="flex" style="gap:10px;flex-wrap:wrap;margin-top:14px">
         <a class="btn btn-p" href="#/curso/${pub.id}">${I.book} Ver página pública</a>
         <a class="btn btn-f" href="#/aprender/${pub.id}">${I.play} Abrir aulas como aluno</a>
@@ -1935,7 +1936,7 @@ on('/instrutor/criar', async () => {
                     <input class="cr-dur" type="number" min="2" max="180" value="${a.duracao_min || 10}" oninput="crSetLesson(${mi},${ai},'duracao_min',this.value)" title="Duração (min)">
                     <button type="button" class="cr-del" onclick="crDelLesson(${mi},${ai})" title="Remover aula">✕</button>
                   </div>
-                  <textarea rows="2" oninput="crSetLesson(${mi},${ai},'transcript',this.value)" placeholder="Texto/guião da aula (usado pelo aluno, pelo Tutor AMA e pelo Núcleo AMA)…">${esc(a.transcript || '')}</textarea>
+                  <textarea rows="2" oninput="crSetLesson(${mi},${ai},'transcript',this.value)" placeholder="Texto/guião da aula (usado pelo aluno, pelo Kuzaya AI e pelo Núcleo AMA)…">${esc(a.transcript || '')}</textarea>
                 </div>`).join('')}
               </div>
             </div>`).join('')}
@@ -2677,17 +2678,17 @@ window.toggleHost = async (rid, estado) => {
 };
 window.leaveLive = () => { cleanupLive(); go('/ao-vivo'); };
 
-/* ====================== Tutor AMA — dock flutuante ====================== */
+/* ====================== Kuzaya AI — dock flutuante ====================== */
 const OMA_QUICK = ['Recomenda-me um curso para perder o medo de falar em público', 'Quanto custa o curso de Python?', 'Como funciona o certificado?', 'Resume a técnica STOP'];
 function omaDockHTML() {
   return `
-  <button class="oma-fab" id="oma-fab" title="Tutor AMA — assistente" aria-label="Abrir assistente Tutor AMA" onclick="omaToggle()">
-    <span class="fab-halo" aria-hidden="true"></span>${I.spark}<span class="fab-lbl">Tutor AMA</span></button>
+  <button class="oma-fab" id="oma-fab" title="Kuzaya AI — assistente" aria-label="Abrir Kuzaya AI" onclick="omaToggle()">
+    <span class="fab-halo" aria-hidden="true"></span>${I.spark}<span class="fab-lbl">Kuzaya AI</span></button>
   <div class="oma-scrim" id="oma-scrim" onclick="omaToggle(false)"></div>
-  <aside class="oma-panel" id="oma-panel" role="dialog" aria-label="Assistente Tutor AMA">
+  <aside class="oma-panel" id="oma-panel" role="dialog" aria-label="Kuzaya AI">
     <header class="oma-head">${blobSvgShort()}
       <span class="oma-av">${LOGO_SM}</span>
-      <div class="oma-id"><b>Tutor AMA</b><small><i class="on-dot"></i>Online · responde com fontes dos seus cursos</small></div>
+      <div class="oma-id"><b>Kuzaya AI</b><small><i class="on-dot"></i>Online · responde com fontes dos seus cursos</small></div>
       <button class="icon-btn oma-x" onclick="omaToggle(false)" aria-label="Fechar assistente">${I.close}</button>
     </header>
     <div class="oma-tabs"><button class="on" onclick="omaTab(this, 'log')">Assistente</button><button onclick="omaTab(this, 'hist')">Histórico</button></div>
@@ -2707,7 +2708,7 @@ window.omaToggle = (force) => {
   if (open) {
     if (!p.dataset.init) {
       p.dataset.init = '1';
-      omaSay('ai', `Olá, ${esc(S.user.nome.split(' ')[0])}! Sou o assistente da AMA. Posso <b>encontrar cursos</b> para os seus objetivos, <b>explicar aulas</b> com a fonte exacta e dizer-lhe <b>como funcionam</b> certificados e pagamentos. Experimente: "quero aprender a vender".`);
+      omaSay('ai', `Olá, ${esc(S.user.nome.split(' ')[0])}! Sou o Kuzaya AI. Posso <b>encontrar cursos</b> para os seus objetivos, <b>explicar aulas</b> com a fonte exacta e dizer-lhe <b>como funcionam</b> certificados e pagamentos. Experimente: "quero aprender a vender".`);
     }
     setTimeout(() => { const i = $('#oma-in'); if (i && innerWidth > 720) i.focus(); }, 220);
   }
@@ -2987,8 +2988,20 @@ window.themeToggle = () => {
 
 /* ================================ boot ==================================== */
 async function boot() {
-  try { const { user } = await api('/api/me'); S.user = user; } catch { }
+  /* A identidade é local, por isso pode ser lida sem esperar por nada. Pintar
+     antes de qualquer promise evita o ecrã vazio inicial (principalmente na
+     rota raiz, onde a página dependia de /api/me e do catálogo para aparecer). */
+  try {
+    const store = window.AMA_STORE;
+    const local = store && typeof store.me === 'function' ? store.me() : null;
+    S.user = local && store.publicUser ? store.publicUser(local) : null;
+  } catch { }
   render();
+  document.documentElement.dataset.amaBoot = '1';
+  try {
+    const { user } = await api('/api/me');
+    if (user && user.id !== S.user?.id) { S.user = user; render(); }
+  } catch { }
   if (S.user) { refreshNotifBadge(); startNotifStream(); }
   if (!window.__omaFab) { window.__omaFab = 1; }
 }

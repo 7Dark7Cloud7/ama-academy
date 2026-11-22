@@ -203,7 +203,7 @@
         escolaId: ['e-luanda', 'e-luanda', 'e-huambo', 'e-benguela'][ti] || 'e-luanda',
         docenteId: def.docenteId, docenteNome: def.docenteNome, sala: def.sala, horario: def.horario,
         ano: def.ano, alunos: ALUNOS.slice(0, 16 + (ti % 3) * 1), inscritos: [],
-        sessoes, materiais,
+        sessoes, materiais, avisos: [],
         avaliacoes: def.avaliacoes.map(([titulo, tipo, peso, dias]) => ({ id: uid('a'), titulo, tipo, peso, data: addDays(dias) })),
       };
     });
@@ -225,6 +225,7 @@
     if (!Array.isArray(d.escolas) || !d.escolas.length) { d.escolas = ESCOLAS_PADRAO.slice(); mudou = true; }
     d.turmas.forEach((t) => {
       if (!t.escolaId) { t.escolaId = d.escolas[0].id; mudou = true; }
+      if (!Array.isArray(t.avisos)) { t.avisos = []; mudou = true; }
       const antes = (t.materiais || []).length;
       t.materiais = (t.materiais || []).map((m) => {
         let texto = m.texto !== undefined ? m.texto : ([m.titulo, m.nota].filter(Boolean).join('. ') + '.');
@@ -358,7 +359,13 @@
      motor devolve `insufficient` abaixo de ~120 caracteres e a UI diria
      "gerámos 0 cartões", o que é pior do que não oferecer o botão. */
   const textoPratica = (s) => [s.tema, s.resumo, ...(s.guiao || [])].filter(Boolean).join('. ');
-  const assuntoDe = (dp) => (({ Tecnologia: 'programacao', Finanças: 'financas', Negócios: 'empreendedorismo' })[dp?.area] || 'geral');
+  const assuntoDe = (dp) => (({
+    Tecnologia: 'programacao', Programação: 'programacao',
+    Finanças: 'financas',
+    Negócios: 'empreendedorismo', Comunicação: 'empreendedorismo', 'Comunicação & Negócios': 'empreendedorismo',
+    'Matemática': 'matematica', 'Matemática & Física': 'matematica',
+    Física: 'fisica', Biologia: 'biologia', História: 'historia',
+  })[dp?.area] || 'geral');
   /* O Núcleo AMA vive em engine/*.js e é carregado como módulo,
      portanto pode chegar depois da interface. Toda a integração da Universidade
      espera por ele (no máximo 3 s) em vez de falhar com "sumário curto". */
@@ -802,7 +809,7 @@
       <div class="in">
         <div class="hub-copy">
           <span class="kicker">UNIVERSIDADE · NÚCLEO AMA</span>
-          <h1>A sua escola.<br><em class="hl">As suas turmas.</em><span class="title-dot">.</span></h1>
+          <h1>A sua escola.<br><em class="hl">As suas turmas</em><span class="title-dot">.</span></h1>
           <span class="trust-badge"><i></i>Sem servidor · turmas, simulações e estudo ficam neste navegador</span>
           <p>Simuladores manipuláveis, mapa do programa, horário semanal e turmas ligadas ao Núcleo AMA — tudo num só espaço de aprendizagem ativa.</p>
           <div class="cta" style="display:flex;gap:10px;flex-wrap:wrap">
@@ -1139,6 +1146,8 @@
     if (!S.user) return viewEntrar();
     const d = load();
     const doc = podeLecionar();
+    let deckPrefill = null;
+    try { deckPrefill = JSON.parse(sessionStorage.getItem('ama-uni-deck-prefill') || 'null'); } catch { }
     const filtro = q && q.escola ? q.escola : '';
     const daEscola = (t) => !filtro || t.escolaId === filtro;
     const minhas = d.turmas.filter((t) => (S.user.papel === 'STUDENT' ? inscrito(t) : true) && daEscola(t));
@@ -1180,6 +1189,14 @@
         </div>
       </div>
       <div class="school-filters"><a class="${!filtro ? 'on' : ''}" href="#/turmas">Todas</a>${(d.escolas || []).map((e) => `<a class="${filtro === e.id ? 'on' : ''}" href="#/turmas?escola=${encodeURIComponent(e.id)}">${esc(e.sigla)} · ${esc(e.nome)}</a>`).join('')}</div>
+      ${doc && deckPrefill ? `<div class="uc-panel" style="margin-bottom:18px">
+        <div class="uc-panel-h"><b>Aula do Projetor pronta para publicar</b><span>${esc(deckPrefill.sourceName || 'Projetor AMA')}</span></div>
+        <p style="padding:0 18px;color:var(--muted);font-size:12.5px">${esc(deckPrefill.title)} · ${String(deckPrefill.text || '').length} caracteres extraídos do ficheiro. Escolha a turma e envie como matéria local.</p>
+        <div class="uni-form" style="grid-template-columns:1fr auto">
+          <div class="field"><label>Turma de destino</label><select id="pj-turma">${minhas.map((t) => `<option value="${escAttr(t.id)}">${esc(t.codigo)} · ${esc(disc(d, t.disciplinaId).nome)}</option>`).join('')}</select></div>
+          <div class="acts" style="align-self:end"><button class="btn btn-p" onclick="UNI.publicarDeckNaTurma(document.getElementById('pj-turma').value)">${I.check} Publicar e enviar</button></div>
+        </div>
+      </div>` : ''}
       ${doc ? `<div id="uni-new" hidden>${formTurma()}</div>` : `
         <div class="uc-panel" style="margin-bottom:18px">
           <div class="uc-panel-h"><b>Entrar numa turma</b><span>código de 6 caracteres</span></div>
@@ -1235,12 +1252,12 @@
     const d = load();
     const t = turma(args.id);
     if (!t) return panelShell('turmas', `<div class="card empty"><h3>Turma não encontrada</h3><p>O registo pode ter sido apagado neste navegador.</p><a class="btn btn-p" href="#/turmas">Voltar às turmas</a></div>`, menu());
-    if (U.turma !== t.id) { U.turma = t.id; U.tab = 'visao'; U.aberta = null; }
+    if (U.turma !== t.id) { U.turma = t.id; U.tab = 'mural'; U.aberta = null; }
     const dp = disc(d, t.disciplinaId);
     const doc = podeLecionar();
     const tx = taxa(t.sessoes);
     const nx = proxima(t);
-    const tabs = [['visao', 'Visão geral'], ['sessoes', 'Sessões', t.sessoes.length], ['materiais', 'Matérias', publicadas(t).length], ['pratica', 'Prática', t.sessoes.filter((s) => praticaDe(t, s)).length], ['alunos', 'Alunos', t.alunos.length], ['avaliacoes', 'Avaliações', t.avaliacoes.length]];
+    const tabs = [['mural', 'Mural', (t.avisos || []).length], ['visao', 'Visão geral'], ['sessoes', 'Sessões', t.sessoes.length], ['materiais', 'Matérias', publicadas(t).length], ['pratica', 'Prática', t.sessoes.filter((s) => praticaDe(t, s)).length], ['alunos', 'Alunos', t.alunos.length], ['avaliacoes', 'Avaliações', t.avaliacoes.length]];
     return panelShell('turmas', `
       <section class="uc-hero">
         <span class="kicker">${esc(t.codigo)} · ${esc(t.semestre)}</span>
@@ -1254,6 +1271,7 @@
         </div>
         <div class="uc-actions">
           ${doc && nx ? `<a class="btn btn-f" href="#/lecionar/${t.id}?sessao=${nx.id}">${I.play} Lecionar ${nx.data === hoje() ? 'hoje' : fmtDia(nx.data)}</a>` : ''}
+          ${doc ? `<button class="btn btn-o btn-ghost-d" onclick="UNI.tab('mural');setTimeout(()=>UNI.addAviso('${t.id}'),60)">${I.mega} Novo aviso</button>` : ''}
           ${doc ? `<button class="btn btn-o btn-ghost-d" onclick="UNI.addSessao('${t.id}')">${I.plus} Nova sessão</button>` : ''}
           ${doc ? `<button class="btn btn-o btn-ghost-d" onclick="UNI.tab('materiais');setTimeout(()=>UNI.addMaterial('${t.id}'),60)">${I.doc} Enviar matéria</button>` : ''}
           ${t.sessoes.length ? `<button class="btn btn-o btn-ghost-d" onclick="UNI.tab('pratica')">${I.spark} Praticar</button>` : ''}
@@ -1266,6 +1284,7 @@
       <nav class="uc-tabs" aria-label="Secções da turma">
         ${tabs.map(([k, l, n]) => `<button class="uc-tab ${U.tab === k ? 'on' : ''}" onclick="UNI.tab('${k}')">${esc(l)}${n != null ? `<span class="n">${n}</span>` : ''}</button>`).join('')}
       </nav>
+      ${U.tab === 'mural' ? muralTurma(t, doc) : ''}
       ${U.tab === 'visao' ? visaoTurma(t, dp, tx, nx, doc) : ''}
       ${U.tab === 'sessoes' ? sessoesTurma(t, doc) : ''}
       ${U.tab === 'materiais' ? materiaisTurma(t, doc) : ''}
@@ -1275,6 +1294,40 @@
       <p class="muted" style="font-size:11.5px;margin-top:22px;max-width:78ch">Registo local · a chamada e as notas desta página são apoio de sala de aula e não substituem o registo oficial da instituição.</p>
     `, menu());
   });
+
+  /* Mural: avisos do docente, no mesmo espírito do painel "Turma" do Núcleo AMA. */
+  const TIPOS_AVISO = [
+    ['aviso', 'Aviso'], ['alteracao', 'Alteração'], ['entrega', 'Entrega'],
+    ['exame', 'Exame'], ['material', 'Material'],
+  ];
+  function muralTurma(t, doc) {
+    const avisos = (t.avisos || []).slice().sort((a, b) => String(b.criadoEm || '').localeCompare(String(a.criadoEm || '')));
+    return `<div class="uc-panel">
+      <div class="uc-panel-h"><b>Mural da turma <small class="ing-tag">local-first</small></b><span>${avisos.length} avisos · ${esc(t.codigo)}</span></div>
+      <div class="mat-intro">${doc
+        ? 'Publique avisos, alterações de horário, entregas e exames. Todos os avisos ficam neste navegador e aparecem no mural da turma.'
+        : 'Avisos e novidades enviados pelo docente para esta turma. Nada aqui é validado pela instituição.'}</div>
+      ${doc ? `<div class="mat-tools"><button class="btn btn-p btn-sm" onclick="UNI.addAviso('${t.id}')">${I.plus} Novo aviso</button></div>
+      <div id="uni-aviso-form" hidden>${formAviso(t)}</div>` : ''}
+      <div class="notice-grid">${avisos.map((a) => `<article class="notice-card kind-${escAttr(a.tipo || 'aviso')}">
+        <div class="notice-top"><span class="notice-kind">${esc((TIPOS_AVISO.find(([k]) => k === a.tipo) || ['', 'Aviso'])[1])}</span><span class="notice-date">${a.criadoEm ? fmtDia(a.criadoEm) : '—'}</span></div>
+        <h4>${esc(a.titulo)}</h4><p>${esc(a.texto)}</p>
+        <div class="notice-foot"><span>${esc(a.autor || t.docenteNome)}</span>
+          ${doc ? `<button class="btn btn-o btn-sm" onclick="UNI.apagarAviso('${t.id}','${a.id}')">Apagar</button>` : ''}</div>
+      </article>`).join('') || `<div class="empty"><h3>Sem avisos por agora</h3><p>${doc ? 'Publique o primeiro aviso para a turma.' : 'Quando o docente publicar, aparece aqui.'}</p></div>`}</div>
+      <p style="padding:14px 18px;color:var(--muted);font-size:12px;border-top:1px solid var(--line-2)">Sem servidor: os avisos não são enviados por email nem notificam outros dispositivos.</p>
+    </div>`;
+  }
+
+  function formAviso(t) {
+    return `<div class="uni-form mat-form">
+      <div class="field"><label>Título</label><input id="av-titulo" maxlength="90" placeholder="Ex.: Alteração ao horário de quinta-feira"></div>
+      <div class="field"><label>Tipo</label><select id="av-tipo">${TIPOS_AVISO.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
+      <div class="field wide"><label>Mensagem</label><textarea id="av-texto" maxlength="2000" rows="4" placeholder="Escreva o aviso para a turma."></textarea></div>
+      <div class="acts"><button class="btn btn-p" onclick="UNI.guardarAviso('${t.id}')">${I.check} Publicar aviso</button>
+        <button class="btn btn-o" onclick="UNI.addAviso('${t.id}')">Cancelar</button></div>
+    </div>`;
+  }
 
   function visaoTurma(t, dp, tx, nx, doc) {
     const ultimas = sessoesOrd(t).filter((s) => s.estado === 'terminada').slice(-2).reverse();
@@ -1369,7 +1422,8 @@
           <p>${esc((m.texto || m.nota || '').slice(0, 180))}${(m.texto || '').length > 180 ? '…' : ''}</p>
           <div class="mat-meta"><span>${esc(m.autor || t.docenteNome)}</span><span>${m.enviadoEm ? fmtDia(m.enviadoEm) : '—'}</span></div>
           <div class="mat-acts">
-            ${m.enviado !== false && pronto ? `<button class="btn btn-o btn-sm" onclick="UNI.estudarMaterial('${t.id}','${m.id}')">${I.spark} Estudar</button>` : ''}
+            ${m.enviado !== false && pronto ? `<button class="btn btn-o btn-sm" onclick="UNI.estudarMaterial('${t.id}','${m.id}')">${I.spark} Estudar</button>
+            <button class="btn btn-o btn-sm" title="Transformar esta matéria numa apresentação" onclick="UNI.projetarMaterial('${t.id}','${m.id}')">${I.play} Dar aula</button>` : ''}
             ${m.arquivo ? `<a class="btn btn-o btn-sm" href="${escAttr(m.arquivo)}" download="${escAttr(m.nomeArquivo || 'material')}">${I.doc} ${esc(m.nomeArquivo || 'Ficheiro')}</a>` : ''}
             ${doc ? `<button class="btn btn-o btn-sm" onclick="UNI.enviarMaterial('${t.id}','${m.id}')">${m.enviado === false ? 'Enviar' : 'Retirar'}</button>
               <button class="btn btn-o btn-sm" onclick="UNI.apagarMaterial('${t.id}','${m.id}')">Apagar</button>` : ''}
@@ -1902,7 +1956,7 @@
         id: uid('t'), codigo: turmaCod, disciplinaId: discId, semestre: d.semestre, escolaId,
         docenteId: S.user.id, docenteNome: v('#nt-doc') || S.user.nome,
         sala: v('#nt-sala') || 'A definir', horario: v('#nt-hor') || 'A definir',
-        ano: Number(v('#nt-ano')) || 1, alunos: [], inscritos: [S.user.id], sessoes: [], materiais: [], avaliacoes: [],
+        ano: Number(v('#nt-ano')) || 1, alunos: [], inscritos: [S.user.id], sessoes: [], materiais: [], avisos: [], avaliacoes: [],
       });
       save(d); toast('Turma criada.'); render();
     },
@@ -1925,6 +1979,30 @@
         <div class="flex" style="gap:8px;margin-top:18px"><button class="btn btn-o" onclick="this.closest('.modal,.overlay,#overlay').remove();document.querySelectorAll('.modal-scrim').forEach(e=>e.remove())">Fechar</button><button class="btn btn-p" onclick="UNI.estudar('${t.id}','${s.id}')">${I.spark} Estudar este conteúdo</button></div>`);
     },
     materialInfo(titulo) { toast('Material de referência local: «' + titulo + '». Não há ficheiro anexado.'); },
+
+    /* mural: avisos locais da turma */
+    addAviso(tid) {
+      if (!podeLecionar()) return;
+      U.tab = 'mural'; U.turma = tid;
+      const box = $('#uni-aviso-form');
+      if (box) { box.hidden = !box.hidden; if (!box.hidden) box.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    },
+    guardarAviso(tid) {
+      if (!podeLecionar()) return toast('Só docentes podem publicar avisos.');
+      const t = turma(tid); if (!t) return;
+      const v = (id) => (($(id) || {}).value || '').trim();
+      const titulo = v('#av-titulo'), texto = v('#av-texto');
+      if (titulo.length < 3 || texto.length < 5) return toast('Indique o título e a mensagem do aviso.');
+      t.avisos = t.avisos || [];
+      t.avisos.push({ id: uid('av'), titulo, texto, tipo: v('#av-tipo') || 'aviso', autor: S.user.nome, criadoEm: new Date().toISOString() });
+      save(load()); toast('Aviso publicado no mural da turma.'); U.tab = 'mural'; render();
+    },
+    apagarAviso(tid, aid) {
+      if (!podeLecionar()) return;
+      const t = turma(tid); if (!t) return;
+      t.avisos = (t.avisos || []).filter((a) => a.id !== aid);
+      save(load()); toast('Aviso apagado.'); render();
+    },
 
     /* matérias: o docente publica, o estudante leva para o estudo */
     addMaterial(tid) {
@@ -1996,6 +2074,53 @@
       } catch { }
       go('/estudar');
       toast('Matéria aberta no formulário de estudo.');
+    },
+    projetarMaterial(tid, mid) {
+      const t = turma(tid); if (!t) return;
+      const m = (t.materiais || []).find((x) => x.id === mid); if (!m || m.enviado === false) return;
+      const d = load(); const dp = disc(d, m.disciplinaId || t.disciplinaId);
+      try {
+        sessionStorage.setItem('ama-pj-prefill', JSON.stringify({
+          title: m.titulo,
+          subject: assuntoDe(dp),
+          text: [m.titulo, m.texto || m.nota].filter(Boolean).join('. '),
+          sourceName: `${t.codigo} · material da turma`,
+        }));
+      } catch { }
+      go('/projetor');
+      toast('Matéria carregada no Projetor AMA.');
+    },
+    publicarDeckNaTurma(tid) {
+      if (!podeLecionar()) return toast('Só docentes podem publicar matérias.');
+      let p = null;
+      try { p = JSON.parse(sessionStorage.getItem('ama-uni-deck-prefill') || 'null'); } catch { }
+      if (!p || !p.title) return toast('Não há aula do Projetor por publicar.');
+      const t = turma(tid); if (!t) return toast('Turma não encontrada.');
+      const texto = String(p.text || '').slice(0, 6000);
+      if (texto.length < 60) return toast('O texto extraído é demasiado curto para virar matéria.');
+      const d = load();
+      t.materiais = t.materiais || [];
+      t.materiais.unshift({
+        id: `mat-pj-${Date.now()}`,
+        titulo: String(p.title).slice(0, 90),
+        tipo: 'Slides',
+        disciplinaId: t.disciplinaId,
+        texto,
+        nota: String(p.sourceName || 'Projetor AMA').slice(0, 90),
+        autor: (S.user && S.user.nome) || t.docenteNome,
+        enviado: true,
+        enviadoEm: new Date().toISOString(),
+        deckId: String(p.deckId || ''),
+        arquivo: '',
+        nomeArquivo: '',
+      });
+      save(d);
+      try { sessionStorage.removeItem('ama-uni-deck-prefill'); } catch { }
+      U.turma = t.id;
+      U.tab = 'materiais';
+      U.aberta = null;
+      go('/turma/' + t.id);
+      toast('Aula publicada e enviada para a turma.');
     },
     apagarTurma(tid) {
       if (!podeLecionar()) return;

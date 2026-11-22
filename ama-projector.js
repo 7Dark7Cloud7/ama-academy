@@ -10,6 +10,8 @@
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const escAttr = esc;
+  const brandName = () => (document.documentElement.dataset.brand === 'ceu' ? 'CEU Academy' : 'AMA');
+  const nucleoName = () => (document.documentElement.dataset.brand === 'ceu' ? 'NÚCLEO CEU' : 'NÚCLEO AMA');
 
   const SAMPLE_LECTURES = {
     fisica: {
@@ -77,26 +79,87 @@
         },
       ],
     },
+    biologia: {
+      title: 'Fotossíntese e Ecossistemas de Angola',
+      subject: 'biologia',
+      sourceName: 'BIO101-Fotossintese-Maiombe.pdf',
+      pageTexts: [
+        {
+          page: 1,
+          text: 'O Motor Solar das Plantas\nFotossíntese é o processo bioquímico pelo qual plantas, algas e cianobactérias convertem luz solar, água e dióxido de carbono em glicose e oxigénio.\nNa Floresta do Maiombe em Cabinda, este mecanismo sustenta uma das maiores reservas de biodiversidade de África Central.',
+        },
+        {
+          page: 2,
+          text: 'Equação Global da Fotossíntese\n6 CO2 + 6 H2O + luz → C6H12O6 + 6 O2 resume a transformação da energia luminosa em energia química.\nA clorofila presente nos cloroplastos absorve sobretudo luz azul e vermelha, reflectindo o verde característico das folhas.',
+        },
+        {
+          page: 3,
+          text: 'Fase Clara vs Fase Escura\nEnquanto a fase fotoquímica ocorre nos tilacoides e depende directamente da luz solar para gerar ATP e libertar oxigénio, o Ciclo de Calvin ocorre no estroma e fixa o carbono em açúcares.\nSem esta cooperação entre as duas fases, a planta não consegue armazenar energia para crescer.',
+        },
+      ],
+    },
   };
+
+  let active3DCtrl = null;
+  function destroyActive3D() {
+    if (active3DCtrl && typeof active3DCtrl.destroy === 'function') {
+      try { active3DCtrl.destroy(); } catch { }
+    }
+    active3DCtrl = null;
+  }
 
   const P = {
     deck: null,
     slideIdx: 0,
     mode: 'slides', // 'slides' | 'reading' | 'grid'
-    theme: 'editorial', // 'editorial' | 'dark' | 'pine'
+    theme: document.documentElement.dataset.brand === 'ceu' ? 'ceu' : 'editorial', // 'editorial' | 'dark' | 'pine' | 'ceu'
     showNotes: true,
+    showPlan: false,
     fullscreen: false,
     readTheme: 'paper', // 'paper' | 'sepia' | 'night'
     readScale: 100, // 85..135
     readLine: 'comfort', // 'compact' | 'comfort' | 'wide'
     showCreator: true,
+    webBusy: false,
+    webStatus: '',
+    aiBusy: false,
+    aiStatus: '',
     uploadStatus: '',
     pendingPages: null,
     pendingSource: '',
+    extraLinks: '',
+    selected3DNode: 0,
+    explode3D: 0,
+    activeFormulaVar: 0,
+    level: 'auto', // auto | basico | intermediario | avancado
+    source: null,  // parâmetros originais, para reconstruir ao mudar o nível
   };
 
   function S_() {
     return window.Study || null;
+  }
+
+  /* Guarda os parâmetros originais para poder reconstruir o deck quando o
+     docente muda o nível da turma — sem perder as páginas extraídas do PDF. */
+  function buildDeck(params) {
+    P.source = { ...params };
+    const eng = S_();
+    if (!eng || !eng.buildProjectorDeck) return null;
+    const deck = eng.buildProjectorDeck({
+      ...params,
+      theme: P.theme,
+      level: P.level,
+      author: params.author || ((typeof S !== 'undefined' && S.user && S.user.nome) || `Docente ${brandName()}`),
+    });
+    if (deck && deck.ok) {
+      if (window.Study && window.Study.AI && typeof window.Study.AI.synthesizeAndFuseDeck === 'function') {
+        try { window.Study.AI.synthesizeAndFuseDeck(deck, deck.web || null); } catch { }
+      }
+      if (window.Study && window.Study.Quality) {
+        try { window.Study.Quality.improveDeck(deck); } catch { }
+      }
+    }
+    return deck;
   }
 
   function loadDecks() {
@@ -121,6 +184,133 @@
     } catch { }
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Fusão Web + Wikipédia + Wikimedia Commons + YouTube + 3D           */
+  /* Tudo entra EMBUTIDO directamente nos slides por omissão!           */
+  /* ------------------------------------------------------------------ */
+  const webImageUrl = (item) => {
+    const img = item && item.image;
+    if (typeof img === 'string') return img;
+    return img && img.url ? String(img.url) : '';
+  };
+
+  async function enrichDeckWithWeb(deck, force = false) {
+    const web = (window.Study && window.Study.SlideStudioWeb) || null;
+    if (!deck || !web || typeof web.enrichFromWeb !== 'function') return null;
+    if (!force && deck.web && deck.web.items && deck.web.items.length) return deck.web;
+    P.webBusy = true;
+    P.webStatus = 'A pesquisar Wikipédia, imagens Wikimedia Commons e vídeos YouTube para fundir nos slides…';
+    render();
+    let res = null;
+    try {
+      const fullText = (deck.reading && deck.reading.fullText) || '';
+      const links = typeof web.collectLinks === 'function' ? web.collectLinks(P.extraLinks || '', fullText) : [];
+      res = await web.enrichFromWeb({
+        title: deck.title,
+        keyTerms: (deck.stats && deck.stats.keywords) || [],
+        centralIdea: (deck.reading && deck.reading.centralIdea) || '',
+      }, {
+        sourceText: fullText,
+        sections: (deck.reading && deck.reading.sections) || [],
+        links,
+        maxItems: 6,
+      });
+    } catch {
+      res = null;
+    }
+    P.webBusy = false;
+    if (!res || !res.ok) {
+      P.webStatus = 'Sem ligação: aula sintetizada localmente com diagramas visuais e laboratório 3D.';
+      if (P.deck && P.deck.id === deck.id) render();
+      return null;
+    }
+    deck.web = {
+      items: res.items || [],
+      images: res.images || [],
+      places: res.places || [],
+      videos: res.videos || [],
+      searchVideos: res.searchVideos || [],
+      note: res.note || '',
+      checkedAt: new Date().toISOString(),
+    };
+    // FUNDIR directamente em TODOS os slides (texto + imagens + vídeos + mapas + 3D)
+    const ai = window.Study && window.Study.AI;
+    if (ai && typeof ai.synthesizeAndFuseDeck === 'function') {
+      ai.synthesizeAndFuseDeck(deck, deck.web);
+    }
+    if (window.Study && window.Study.Quality) {
+      try { window.Study.Quality.improveDeck(deck); } catch { }
+    }
+    const syn = deck.synthesis || {};
+    P.webStatus = `Fusão concluída: ${syn.fusedSlides || 0} slide(s) enriquecidos com Wikipédia, ${syn.imagesEmbedded || 0} imagem(ns) da net, ${syn.videosEmbedded || 0} vídeo(s) e modelo 3D interactivo.`;
+    saveDeck(deck);
+    if (P.deck && P.deck.id === deck.id) render();
+    toast(P.webStatus);
+    return deck.web;
+  }
+
+  /* IA real (Chrome Prompt API / Gemini API) recebendo PDF + Web juntos! */
+  async function improveDeckWithAI(deck, manual = false) {
+    const ai = (window.Study && window.Study.AI) || null;
+    if (!ai || !deck || !deck.plan || P.aiBusy) return null;
+    if (!manual && deck.ai && ['chrome-language-model', 'gemini-api'].includes(deck.ai.engine)) return null;
+    P.aiBusy = true;
+    P.aiStatus = 'A IA está a fundir o PDF com a web e a reescrever os slides para maior compreensão…';
+    render();
+    try {
+      const info = await ai.aiStatus();
+      if (!info.available) throw new Error(info.chromeState || 'indisponível');
+      const result = await ai.improvePlan(deck.plan, {
+        title: deck.title,
+        subject: deck.subject,
+        web: deck.web || null,
+        onProgress: (msg) => { P.aiStatus = msg; render(); },
+      });
+      const applied = ai.applyImprovement(deck, result);
+      if (typeof ai.synthesizeAndFuseDeck === 'function') {
+        ai.synthesizeAndFuseDeck(deck, deck.web || null);
+      }
+      const engineLabel = result.engine === 'gemini-api' ? 'Gemini AI' : 'IA do Chrome';
+      P.aiStatus = applied
+        ? `${engineLabel} activa · ${result.blocks.length} bloco(s) fundidos e reescritos para máxima clareza.`
+        : `${engineLabel} activa · síntese visual aplicada.`;
+      if (applied) saveDeck(deck);
+    } catch (err) {
+      const syn = deck.synthesis || {};
+      P.aiStatus = `Síntese Pedagógica Local activa (${syn.fusedSlides || 0} slides fundidos + 3D). Para modelo LLM extra, active Chrome AI ou configure uma chave Gemini.`;
+    }
+    P.aiBusy = false;
+    if (P.deck && P.deck.id === deck.id) render();
+    return null;
+  }
+
+  function mountActive3DScene(slide) {
+    destroyActive3D();
+    if (!slide || slide.layout !== 'scene-3d') return;
+    setTimeout(() => {
+      const canvas = document.querySelector('.pj-3d-canvas');
+      const eng = S_();
+      if (!canvas || !eng || typeof eng.mountNucleo3D !== 'function') return;
+      const nodes = Array.isArray(slide.nodes3d) ? slide.nodes3d : [];
+      active3DCtrl = eng.mountNucleo3D(canvas, {
+        initialMode: slide.mode3d || 'core',
+        customNodes: nodes.map((n, i) => ({ id: `n-${i}`, label: n.label, short: n.short || String(i + 1), note: n.note })),
+        brand: document.documentElement.dataset.brand === 'ceu' ? 'ceu' : 'ama',
+        onSelectNode: (id) => {
+          const idx = Number(String(id || '').replace('n-', '')) || 0;
+          P.selected3DNode = idx;
+          const card = document.getElementById('pj-3d-inspector');
+          const picked = nodes[idx];
+          if (card && picked) {
+            card.innerHTML = `<span class="pj-3d-tag">CONCEITO ${String(idx + 1).padStart(2, '0')} · 3D</span><strong>${esc(picked.label)}</strong><p>${esc(picked.note)}</p>`;
+          }
+          document.querySelectorAll('.pj-3d-pill').forEach((b, i) => b.classList.toggle('on', i === idx));
+        },
+      });
+      if (active3DCtrl && P.explode3D) active3DCtrl.setExplode(P.explode3D);
+    }, 30);
+  }
+
   function loadNotebooks() {
     try {
       const raw = JSON.parse(localStorage.getItem(STUDY_KEY) || '{}');
@@ -138,14 +328,114 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Renderização do Slide Visual 16:9                                  */
+  /* Renderização do Slide Visual 16:9 (Ingenium 3.0 + 3D + Web Fusion) */
   /* ------------------------------------------------------------------ */
+  function chipHtml(slide) {
+    const chips = Array.isArray(slide.chips) ? slide.chips.filter(Boolean).slice(0, 4) : [];
+    const srcs = Array.isArray(slide.sources) ? slide.sources : [];
+    if (!chips.length && !srcs.length) return '';
+    return `<div class="pj-chips" aria-label="Termos-chave e fontes">
+      ${chips.map((c) => `<span>${esc(c)}</span>`).join('')}
+      ${srcs.map((s) => s.url
+        ? `<a class="pj-src-chip pj-src-web" href="${escAttr(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)} ↗</a>`
+        : `<span class="pj-src-chip">${esc(s.label)}</span>`).join('')}
+    </div>`;
+  }
+
+  /* Destaca o gancho em negrito ("Termo: explicação" ou "Termo → explicação") */
+  function formatRichBullet(text) {
+    const s = String(text || '');
+    const m = s.match(/^([^:→]{2,38})([:→])\s+(.+)$/);
+    if (m) return `<strong>${esc(m[1])}${m[2] === '→' ? ' →' : ':'}</strong> ${esc(m[3])}`;
+    return esc(s);
+  }
+
+  /* Bloco "Intuição" + "Fusão Web" integrado dentro do próprio slide */
+  function renderFusedContext(slide) {
+    const parts = [];
+    if (slide.intuition && !['cover', 'agenda', 'objectives', 'closing', 'quiz', 'scene-3d', 'map-spotlight'].includes(slide.layout)) {
+      parts.push(`<div class="pj-intuition-box"><span class="pj-int-tag">✦ INTUIÇÃO SIMPLES</span><p>${esc(slide.intuition)}</p></div>`);
+    }
+    if (slide.fusedInsight && slide.fusedInsight.text) {
+      parts.push(`<div class="pj-fused-card">
+        <div class="pj-fused-h"><span>🌐 INTEGRADO DA WEB · ${esc(slide.fusedInsight.source || 'Wikipédia')}</span>
+          ${slide.fusedInsight.url ? `<a href="${escAttr(slide.fusedInsight.url)}" target="_blank" rel="noopener noreferrer">${esc(slide.fusedInsight.heading || 'Ver fonte')} ↗</a>` : ''}
+        </div>
+        <p>${esc(slide.fusedInsight.text)}</p>
+      </div>`);
+    }
+    if (slide.embeddedVideo) {
+      const v = slide.embeddedVideo;
+      if (v.embed) {
+        parts.push(`<details class="pj-inline-video">
+          <summary>
+            ${v.image && v.image.url ? `<img src="${escAttr(v.image.url)}" alt="" loading="lazy">` : '<span class="pj-vid-ic">▶</span>'}
+            <div><small>${esc(v.source || 'YouTube')} · Vídeo integrado</small><b>${esc(v.title)}</b></div>
+            <span class="pj-vid-btn">Ver vídeo ▶</span>
+          </summary>
+          <div class="pj-vid-frame"><iframe src="${escAttr(v.embed)}" title="${escAttr(v.title)}" loading="lazy" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+          <a class="pj-web-link" href="${escAttr(v.url)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a>
+        </details>`);
+      } else if (v.url) {
+        parts.push(`<a class="pj-inline-video-link" href="${escAttr(v.url)}" target="_blank" rel="noopener noreferrer">
+          <span class="pj-vid-ic">▶</span>
+          <div><small>${esc(v.source || 'YouTube')}</small><b>${esc(v.title)}</b></div>
+          <span>Explorar ↗</span>
+        </a>`);
+      }
+    }
+    return parts.length ? `<div class="pj-fused-stack">${parts.join('')}</div>` : '';
+  }
+
+  /* Diagrama SVG animado estilo Ingenium 3.0 para slides sem foto da net */
+  function renderIngeniumSvg(slide, deck) {
+    const subj = (deck && deck.subject) || 'geral';
+    if (subj === 'fisica') {
+      return `<svg class="pj-ig-svg" viewBox="0 0 320 200" aria-hidden="true">
+        <defs><linearGradient id="igG1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="currentColor" stop-opacity=".22"/><stop offset="100%" stop-color="currentColor" stop-opacity=".03"/></linearGradient></defs>
+        <rect x="14" y="14" width="292" height="172" rx="18" fill="url(#igG1)" stroke="currentColor" stroke-opacity=".2"/>
+        <line x1="36" y1="150" x2="284" y2="150" stroke="currentColor" stroke-opacity=".35" stroke-width="2"/>
+        <rect class="ig-pulse" x="96" y="88" width="76" height="62" rx="12" fill="var(--ig-accent,#00a4dc)" fill-opacity=".22" stroke="var(--ig-accent,#00a4dc)" stroke-width="2.5"/>
+        <text x="134" y="124" text-anchor="middle" font-weight="800" font-size="16" fill="currentColor">m</text>
+        <path class="ig-draw" d="M174 119 L254 119 M242 109 L256 119 L242 129" fill="none" stroke="var(--ig-coral,#f17868)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="220" y="102" text-anchor="middle" font-weight="800" font-size="14" fill="var(--ig-coral,#f17868)">F = m·a</text>
+        <path class="ig-draw" d="M134 86 L134 40 M125 50 L134 38 L143 50" fill="none" stroke="var(--ig-accent,#00a4dc)" stroke-width="2.5" stroke-linecap="round"/>
+        <text x="150" y="52" font-size="12" font-weight="700" fill="currentColor" opacity=".75">N</text>
+      </svg>`;
+    }
+    if (subj === 'financas' || subj === 'matematica') {
+      return `<svg class="pj-ig-svg" viewBox="0 0 320 200" aria-hidden="true">
+        <rect x="14" y="14" width="292" height="172" rx="18" fill="currentColor" fill-opacity=".04" stroke="currentColor" stroke-opacity=".18"/>
+        <line x1="42" y1="158" x2="284" y2="158" stroke="currentColor" stroke-opacity=".35" stroke-width="2"/>
+        <line x1="42" y1="36" x2="42" y2="158" stroke="currentColor" stroke-opacity=".35" stroke-width="2"/>
+        <path class="ig-draw" d="M46 150 Q130 144 185 110 T276 42" fill="none" stroke="var(--ig-accent,#00a4dc)" stroke-width="4" stroke-linecap="round"/>
+        <circle class="ig-pulse" cx="276" cy="42" r="7" fill="var(--ig-coral,#f17868)"/>
+        <circle cx="185" cy="110" r="5" fill="var(--ig-accent,#00a4dc)"/>
+        <circle cx="114" cy="138" r="4.5" fill="var(--ig-accent,#00a4dc)"/>
+        <text x="234" y="34" font-size="11" font-weight="800" fill="var(--ig-coral,#f17868)">crescimento ↗</text>
+      </svg>`;
+    }
+    return `<svg class="pj-ig-svg" viewBox="0 0 320 200" aria-hidden="true">
+      <rect x="14" y="14" width="292" height="172" rx="18" fill="currentColor" fill-opacity=".04" stroke="currentColor" stroke-opacity=".18"/>
+      <path class="ig-draw" d="M68 100 C115 48, 205 48, 252 100" fill="none" stroke="var(--ig-accent,#00a4dc)" stroke-width="2.5" stroke-dasharray="6 4"/>
+      <path class="ig-draw" d="M68 100 C115 152, 205 152, 252 100" fill="none" stroke="var(--ig-coral,#f17868)" stroke-width="2.5"/>
+      <circle class="ig-pulse" cx="68" cy="100" r="24" fill="var(--ig-accent,#00a4dc)" fill-opacity=".22" stroke="var(--ig-accent,#00a4dc)" stroke-width="2.5"/>
+      <circle cx="160" cy="100" r="28" fill="var(--ig-accent,#00a4dc)" fill-opacity=".35" stroke="currentColor" stroke-width="2"/>
+      <circle cx="252" cy="100" r="24" fill="var(--ig-coral,#f17868)" fill-opacity=".22" stroke="var(--ig-coral,#f17868)" stroke-width="2.5"/>
+      <text x="68" y="104" text-anchor="middle" font-size="11" font-weight="800" fill="currentColor">PDF</text>
+      <text x="160" y="104" text-anchor="middle" font-size="11" font-weight="800" fill="currentColor">IA+WEB</text>
+      <text x="252" y="104" text-anchor="middle" font-size="11" font-weight="800" fill="currentColor">AULA</text>
+    </svg>`;
+  }
+
   function renderSlideContent(slide, deck, index, total) {
     const numStr = `${String(index + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
     const pct = Math.round(((index + 1) / Math.max(1, total)) * 100);
     let inner = '';
 
     if (slide.layout === 'cover') {
+      const heroSrc = (slide.webHero && slide.webHero.url) || slide.visual;
+      const heroCredit = slide.webHero ? slide.webHero.credit : 'Ilustração 3D da aula';
       inner = `<div class="pj-layout-cover">
         <div class="pj-cover-copy">
           <span class="pj-kicker">${esc(slide.kicker)}</span>
@@ -155,10 +445,63 @@
             <span><b>${deck.stats.slides}</b> slides</span><i>·</i>
             <span><b>~${deck.stats.estMinutes} min</b> estimados</span><i>·</i>
             <span><b>${deck.stats.pages}</b> bloco${deck.stats.pages === 1 ? '' : 's'}</span>
+            ${deck.synthesis && deck.synthesis.fusedSlides ? `<i>·</i><span class="pj-meta-ai">✦ PDF + Web + 3D</span>` : ''}
             ${slide.meta && slide.meta.author ? `<i>·</i><span>${esc(slide.meta.author)}</span>` : ''}
           </div>
         </div>
-        ${slide.visual ? `<figure class="pj-cover-art"><img src="${escAttr(slide.visual)}" alt="Ilustração 3D da aula"></figure>` : ''}
+        ${heroSrc ? `<figure class="pj-cover-art"><img src="${escAttr(heroSrc)}" alt="${escAttr(heroCredit)}" referrerpolicy="no-referrer">${slide.webHero ? `<figcaption>${esc(heroCredit)}</figcaption>` : ''}</figure>` : ''}
+      </div>`;
+    } else if (slide.layout === 'scene-3d') {
+      const nodes = Array.isArray(slide.nodes3d) ? slide.nodes3d : [];
+      const curIdx = Math.min(Math.max(0, P.selected3DNode || 0), Math.max(0, nodes.length - 1));
+      const cur = nodes[curIdx] || { label: deck.title, note: slide.subtitle || '' };
+      inner = `<div class="pj-layout-3d">
+        <div class="pj-3d-head">
+          <span class="pj-kicker">${esc(slide.kicker)}</span>
+          <h2>${esc(slide.title)}</h2>
+        </div>
+        <div class="pj-3d-grid">
+          <div class="pj-3d-stage-box">
+            <canvas class="pj-3d-canvas" aria-label="Modelo 3D interactivo de ${escAttr(deck.title)}"></canvas>
+            <div class="pj-3d-controls">
+              <button type="button" onclick="AMAProjector.set3DMode('core')">Poliedro</button>
+              <button type="button" onclick="AMAProjector.set3DMode('wave')">Onda 3D</button>
+              <button type="button" onclick="AMAProjector.set3DMode('gyro')">Giroscópio</button>
+              <button type="button" onclick="AMAProjector.set3DMode('finance')">Barras 3D</button>
+              <button type="button" class="pj-3d-hi" onclick="AMAProjector.toggle3DExplode()">${P.explode3D ? 'Juntar' : 'Explodir ✦'}</button>
+              <button type="button" onclick="AMAProjector.toggle3DSpin()">↻ Rodar</button>
+            </div>
+          </div>
+          <div class="pj-3d-side">
+            <div class="pj-3d-inspector" id="pj-3d-inspector">
+              <span class="pj-3d-tag">CONCEITO ${String(curIdx + 1).padStart(2, '0')} · 3D</span>
+              <strong>${esc(cur.label)}</strong>
+              <p>${esc(cur.note)}</p>
+            </div>
+            <div class="pj-3d-pills">
+              ${nodes.map((n, i) => `<button type="button" class="pj-3d-pill ${i === curIdx ? 'on' : ''}" onclick="AMAProjector.select3DNode(${i})"><span>${String(i + 1).padStart(2, '0')}</span>${esc(n.label)}</button>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>`;
+    } else if (slide.layout === 'map-spotlight') {
+      const pl = slide.place || {};
+      const others = Array.isArray(slide.otherPlaces) ? slide.otherPlaces : [];
+      inner = `<div class="pj-layout-map">
+        <span class="pj-kicker">${esc(slide.kicker)}</span>
+        <h2>${esc(slide.title)}</h2>
+        <div class="pj-map-grid">
+          <div class="pj-map-frame">
+            ${pl.map ? `<iframe src="${escAttr(pl.map)}" title="Mapa de ${escAttr(pl.name || 'Angola')}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>` : ''}
+          </div>
+          <div class="pj-map-info">
+            <span class="pj-int-tag">🇦🇴 CONTEXTO EM ANGOLA</span>
+            <h3>${esc(pl.name || pl.title || 'Angola')}</h3>
+            <p>${esc(pl.text || '')}</p>
+            ${others.length ? `<div class="pj-map-others"><span>Outros locais ligados:</span><div>${others.map((o) => `<a href="${escAttr(o.url || '#')}" target="_blank" rel="noopener noreferrer">${esc(o.name)} ↗</a>`).join('')}</div></div>` : ''}
+            ${pl.url ? `<a class="pj-web-link" href="${escAttr(pl.url)}" target="_blank" rel="noopener noreferrer">Ver referência geográfica ↗</a>` : ''}
+          </div>
+        </div>
       </div>`;
     } else if (slide.layout === 'agenda') {
       inner = `<div class="pj-layout-agenda">
@@ -166,35 +509,154 @@
         <h2>${esc(slide.title)}</h2>
         ${slide.subtitle ? `<p class="pj-sub">${esc(slide.subtitle)}</p>` : ''}
         <ol class="pj-agenda-grid">
-          ${(slide.bullets || []).map((b, i) => `<li><span class="pj-ag-n">${String(i + 1).padStart(2, '0')}</span><strong>${esc(b)}</strong></li>`).join('')}
+          ${(slide.bullets || []).map((b, i) => `<li style="--i:${i}"><span class="pj-ag-n">${String(i + 1).padStart(2, '0')}</span><strong>${esc(b)}</strong></li>`).join('')}
         </ol>
       </div>`;
-    } else if (slide.layout === 'highlight') {
-      inner = `<div class="pj-layout-highlight">
+    } else if (slide.layout === 'objectives') {
+      inner = `<div class="pj-layout-objectives">
         <span class="pj-kicker">${esc(slide.kicker)}</span>
         <h2>${esc(slide.title)}</h2>
-        <div class="pj-formula-card"><code>${esc(slide.highlight || '')}</code></div>
-        ${(slide.bullets || []).length ? `<ul class="pj-bullets">${slide.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+        <ul class="pj-objectives">
+          ${(slide.bullets || []).map((b, i) => `<li style="--i:${i}"><span class="pj-obj-n">${String(i + 1).padStart(2, '0')}</span><strong>${esc(b)}</strong></li>`).join('')}
+        </ul>
       </div>`;
-    } else if (slide.layout === 'concept') {
+    } else if (slide.layout === 'formula' || slide.layout === 'highlight') {
+      const vars = Array.isArray(slide.formulaVars) ? slide.formulaVars : [];
+      const activeV = vars[Math.min(P.activeFormulaVar || 0, Math.max(0, vars.length - 1))] || null;
+      inner = `<div class="pj-layout-formula">
+        <div class="pj-formula-head">
+          <span class="pj-kicker">${esc(slide.kicker)}</span>
+          <h2>${esc(slide.title)}</h2>
+        </div>
+        <div class="pj-formula-main">
+          <div class="pj-formula-card">
+            <span class="pj-formula-label">Laboratório interactivo de fórmula · clique nas variáveis</span>
+            <code>${esc(slide.formula || slide.highlight || '')}</code>
+            ${vars.length ? `<div class="pj-fvars">
+              ${vars.map((v, i) => `<button type="button" class="pj-fvar ${i === (P.activeFormulaVar || 0) ? 'on' : ''}" onclick="AMAProjector.selectFormulaVar(${i})"><b>${esc(v.symbol)}</b><span>${esc(v.name)}</span></button>`).join('')}
+            </div>
+            ${activeV ? `<div class="pj-fvar-detail"><b>${esc(activeV.symbol)} — ${esc(activeV.name)}</b> <em>(${esc(activeV.unit)})</em>: ${esc(activeV.hint)}</div>` : ''}` : ''}
+          </div>
+          ${(slide.steps || []).length ? `<div class="pj-formula-steps">
+            <span class="pj-mini-h">Como aplicar, passo a passo</span>
+            <ol>${slide.steps.map((s, i) => `<li style="--i:${i}"><span class="pj-step-n">${i + 1}</span><span>${formatRichBullet(s)}</span></li>`).join('')}</ol>
+          </div>` : ''}
+        </div>
+        ${renderFusedContext(slide)}
+      </div>`;
+    } else if (slide.layout === 'comparison') {
+      inner = `<div class="pj-layout-comparison">
+        <span class="pj-kicker">${esc(slide.kicker)}</span>
+        <h2>${esc(slide.title)}</h2>
+        <div class="pj-compare-grid">
+          <div class="pj-compare-side a"><span class="pj-compare-tag">LADO A</span><b>${esc(slide.left || '')}</b></div>
+          <div class="pj-compare-vs" aria-hidden="true">VS</div>
+          <div class="pj-compare-side b"><span class="pj-compare-tag">LADO B</span><b>${esc(slide.right || '')}</b></div>
+        </div>
+        ${(slide.bullets || []).length ? `<ul class="pj-bullets pj-compare-notes">${slide.bullets.map((b) => `<li>${formatRichBullet(b)}</li>`).join('')}</ul>` : ''}
+        ${renderFusedContext(slide)}
+      </div>`;
+    } else if (slide.layout === 'timeline' || slide.layout === 'animated-flow') {
+      inner = `<div class="pj-layout-timeline ${slide.layout === 'animated-flow' ? 'pj-flow' : ''}">
+        <span class="pj-kicker">${esc(slide.kicker)}</span>
+        <h2>${esc(slide.title)}</h2>
+        <ol class="pj-timeline-list">
+          ${(slide.steps || []).map((s, i) => `<li style="--i:${i}"><span class="pj-tl-n">${String(i + 1).padStart(2, '0')}</span><div><p>${formatRichBullet(s)}</p></div></li>`).join('')}
+        </ol>
+        ${renderFusedContext(slide)}
+        ${chipHtml(slide)}
+      </div>`;
+    } else if (slide.layout === 'mindmap') {
+      const nodes = Array.isArray(slide.nodes) ? slide.nodes.slice(0, 6) : [];
+      inner = `<div class="pj-layout-mindmap">
+        <span class="pj-kicker">${esc(slide.kicker)}</span>
+        <h2>${esc(slide.title)}</h2>
+        <div class="pj-mindmap">
+          <svg class="pj-mm-lines" viewBox="0 0 600 220" preserveAspectRatio="none" aria-hidden="true">
+            <path class="ig-draw" d="M300 45 Q180 75 100 120 M300 45 Q300 90 300 120 M300 45 Q420 75 500 120" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width="2.5"/>
+          </svg>
+          <div class="pj-mm-center"><span>${esc(slide.center || deck.title)}</span></div>
+          ${nodes.map((n, i) => `<div class="pj-mm-node" style="--i:${i}" title="${escAttr(n.note || '')}"><b>${esc(n.term)}</b>${n.note ? `<small>${esc(n.note)}</small>` : ''}</div>`).join('')}
+        </div>
+        ${chipHtml(slide)}
+      </div>`;
+    } else if (slide.layout === 'web-spotlight') {
+      const items = Array.isArray(slide.items) ? slide.items.slice(0, 3) : [];
+      const places = Array.isArray(slide.places) ? slide.places.slice(0, 3) : [];
+      const videos = Array.isArray(slide.videos) ? slide.videos.slice(0, 2) : [];
+      inner = `<div class="pj-layout-web">
+        <span class="pj-kicker"><em class="pj-ext-tag">EXTERNO</em> ${esc(slide.kicker)}</span>
+        <h2>${esc(slide.title)}</h2>
+        <div class="pj-web-grid">
+          ${items.map((w) => `<a class="pj-web-card" href="${escAttr(w.url || '#')}" target="_blank" rel="noopener noreferrer">
+          ${webImageUrl(w) ? `<img class="pj-web-img" src="${escAttr(webImageUrl(w))}" alt="${escAttr((w.image && w.image.alt) || w.title)}" loading="lazy" referrerpolicy="no-referrer">` : ''}
+            <small>${esc(w.source || 'Wikipédia')}</small>
+            <b>${esc(w.title)}</b>
+            <p>${esc(w.text)}</p>
+            <span class="pj-web-link">Ver origem ↗</span>
+          </a>`).join('')}
+          ${places.map((pl) => `<div class="pj-web-card pj-web-place">
+            <small>Local · mapa</small>
+            <b>${esc(pl.name)}</b>
+            ${pl.map ? `<iframe src="${escAttr(pl.map)}" loading="lazy" title="Mapa de ${escAttr(pl.name)}"></iframe>` : ''}
+            <a class="pj-web-link" href="${escAttr(pl.url || '#')}" target="_blank" rel="noopener noreferrer">Origem ↗</a>
+          </div>`).join('')}
+          ${videos.map((v) => `<a class="pj-web-card pj-web-video" href="${escAttr(v.url || '#')}" target="_blank" rel="noopener noreferrer">
+            <small>Vídeo</small>
+            <b>${esc(v.title || v.url)}</b>
+            <span class="pj-web-link">Abrir vídeo ↗</span>
+          </a>`).join('')}
+        </div>
+        <p class="pj-web-src">Conteúdo externo verificado nas fontes acima — fundido com o ficheiro do docente.</p>
+      </div>`;
+    } else if (slide.layout === 'check') {
+      inner = `<div class="pj-layout-quiz pj-check">
+        <span class="pj-kicker">${esc(slide.kicker)}</span>
+        <h2>${esc(slide.title)}</h2>
+        <p class="pj-quiz-q">${esc(slide.question || '')}</p>
+        <div class="pj-check-answer"><b>Resposta no ficheiro</b><p>Discutam em grupos antes de avançar. Só depois voltem à passagem de origem e comparem.</p></div>
+      </div>`;
+    } else if (slide.layout === 'quiz') {
+      const opts = Array.isArray(slide.options) ? slide.options : [];
+      inner = `<div class="pj-layout-quiz" data-correct="${Number(slide.correct) || 0}">
+        <span class="pj-kicker">${esc(slide.kicker)}</span>
+        <h2>${esc(slide.title)}</h2>
+        <p class="pj-quiz-q">${esc(slide.question || '')}</p>
+        <div class="pj-quiz-options">
+          ${opts.map((o, i) => `<button type="button" class="pj-quiz-option" data-index="${i}" aria-label="Opção ${String.fromCharCode(65 + i)}">` +
+            `<span class="pj-q-letter">${String.fromCharCode(65 + i)}</span><span>${esc(o)}</span></button>`).join('')}
+        </div>
+        <div class="pj-quiz-reveal" hidden><b>Resposta do ficheiro:</b> ${esc(slide.explanation || '')}</div>
+      </div>`;
+    } else if (slide.layout === 'quote') {
+      inner = `<div class="pj-layout-quote">
+        <span class="pj-kicker">${esc(slide.kicker)}</span>
+        <h2>${esc(slide.title)}</h2>
+        <div class="pj-quote-body">
+          <span class="pj-quote-mark" aria-hidden="true">“</span>
+          <blockquote class="pj-quote-text">${esc(slide.quote || '')}</blockquote>
+          <span class="pj-quote-source">— ${esc(slide.source || deck.title)}</span>
+        </div>
+        ${(slide.bullets || []).length ? `<ul class="pj-bullets pj-quote-notes">${slide.bullets.map((b) => `<li>${formatRichBullet(b)}</li>`).join('')}</ul>` : ''}
+        ${renderFusedContext(slide)}
+      </div>`;
+    } else if (slide.layout === 'concept' || slide.layout === 'split') {
+      const isConcept = slide.layout === 'concept';
       inner = `<div class="pj-layout-split">
         <div class="pj-split-copy">
           <span class="pj-kicker">${esc(slide.kicker)}</span>
           <h2>${esc(slide.title)}</h2>
-          <p class="pj-concept-def">${esc(slide.subtitle || '')}</p>
-          ${(slide.bullets || []).length ? `<ul class="pj-bullets">${slide.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+          ${slide.subtitle ? `<p class="${isConcept ? 'pj-concept-def' : 'pj-sub'}">${esc(slide.subtitle)}</p>` : ''}
+          ${(slide.bullets || []).length ? `<ul class="pj-bullets">${slide.bullets.map((b, i) => `<li style="--i:${i}">${formatRichBullet(b)}</li>`).join('')}</ul>` : ''}
+          ${renderFusedContext(slide)}
+          ${chipHtml(slide)}
         </div>
-        ${slide.visual ? `<figure class="pj-split-art"><img src="${escAttr(slide.visual)}" alt="Visual do conceito"></figure>` : ''}
-      </div>`;
-    } else if (slide.layout === 'split') {
-      inner = `<div class="pj-layout-split">
-        <div class="pj-split-copy">
-          <span class="pj-kicker">${esc(slide.kicker)}</span>
-          <h2>${esc(slide.title)}</h2>
-          ${slide.subtitle ? `<p class="pj-sub">${esc(slide.subtitle)}</p>` : ''}
-          ${(slide.bullets || []).length ? `<ul class="pj-bullets">${slide.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
-        </div>
-        ${slide.visual ? `<figure class="pj-split-art"><img src="${escAttr(slide.visual)}" alt="Síntese visual"></figure>` : ''}
+        <figure class="pj-split-art">
+          ${slide.visual
+            ? `<img src="${escAttr(slide.visual)}" alt="${escAttr(slide.visualAlt || slide.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+            : renderIngeniumSvg(slide, deck)}
+          ${slide.visualCredit ? `<figcaption>${slide.visualCredit.url ? `<a href="${escAttr(slide.visualCredit.url)}" target="_blank" rel="noopener noreferrer">` : ''}${esc(slide.visualCredit.text)}${slide.visualCredit.url ? ' ↗</a>' : ''}</figcaption>` : ''}
+        </figure>
       </div>`;
     } else if (slide.layout === 'closing') {
       inner = `<div class="pj-layout-closing">
@@ -203,7 +665,7 @@
         <div class="pj-closing-cols">
           <div class="pj-closing-col">
             <h3>Ideias para levar</h3>
-            <ul class="pj-bullets">${(slide.bullets || []).map((b) => `<li>${esc(b)}</li>`).join('')}</ul>
+            <ul class="pj-bullets">${(slide.bullets || []).map((b) => `<li>${formatRichBullet(b)}</li>`).join('')}</ul>
           </div>
           <div class="pj-closing-col pj-check-box">
             <h3>Perguntas à turma</h3>
@@ -212,17 +674,40 @@
         </div>
       </div>`;
     } else {
-      inner = `<div class="pj-layout-bullets">
-        <span class="pj-kicker">${esc(slide.kicker)}</span>
-        <h2>${esc(slide.title)}</h2>
-        <ul class="pj-bullets pj-bullets-grid">${(slide.bullets || []).map((b, i) => `<li><span class="pj-b-idx">${String(i + 1).padStart(2, '0')}</span><span>${esc(b)}</span></li>`).join('')}</ul>
+      inner = `<div class="pj-layout-bullets has-art">
+        <div class="pj-bullets-main">
+          <span class="pj-kicker">${esc(slide.kicker)}</span>
+          <h2>${esc(slide.title)}</h2>
+          <ul class="pj-bullets pj-bullets-grid">${(slide.bullets || []).map((b, i) => `<li style="--i:${i}"><span class="pj-b-idx">${String(i + 1).padStart(2, '0')}</span><span>${formatRichBullet(b)}</span></li>`).join('')}</ul>
+          ${renderFusedContext(slide)}
+          ${chipHtml(slide)}
+        </div>
+        <figure class="pj-slide-art">
+          ${slide.visual
+            ? `<img src="${escAttr(slide.visual)}" alt="${escAttr(slide.visualAlt || slide.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+            : renderIngeniumSvg(slide, deck)}
+          ${slide.visualCredit ? `<figcaption>${slide.visualCredit.url ? `<a href="${escAttr(slide.visualCredit.url)}" target="_blank" rel="noopener noreferrer">` : ''}${esc(slide.visualCredit.text)}${slide.visualCredit.url ? ' ↗</a>' : ''}</figcaption>` : '<figcaption>Diagrama visual Ingenium 3.0</figcaption>'}
+        </figure>
       </div>`;
     }
 
-    return `<div class="pj-slide pj-theme-${escAttr(P.theme)}" data-testid="projector-slide" data-slide-index="${index}">
-      <div class="pj-slide-inner">${inner}</div>
+    if (slide.layout === 'scene-3d') mountActive3DScene(slide);
+    else destroyActive3D();
+
+    const srcLabel = slide.page
+      ? `${deck.sourceName ? deck.sourceName + ' · ' : ''}p.${slide.page}`
+      : (deck.sourceName || `Núcleo ${brandName()}`);
+    const webStrip = (!slide.fusedInsight && slide.web) ? `<div class="pj-web-strip">
+      <span class="pj-web-tag">A WEB ACRESCENTA · EXTERNO</span>
+      <p>${esc(slide.web.text)}</p>
+      <a href="${escAttr(slide.web.url || '#')}" target="_blank" rel="noopener noreferrer">${esc(slide.web.source || 'Fonte externa')} ↗</a>
+    </div>` : '';
+    return `<div class="pj-slide pj-theme-${escAttr(P.theme)} ${slide.scene3d ? 'pj-scene3d' : ''}" role="region" aria-roledescription="slide" aria-label="Slide ${index + 1}: ${escAttr(slide.title || '')}" data-testid="projector-slide" data-slide-index="${index}">
+      <div class="pj-slide-inner"><span class="pj-deco" aria-hidden="true"><i></i><i></i><i></i></span><span class="pj-ghost" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span><span class="pj-handnote" aria-hidden="true">${esc(slide.handnote || 'Repara nisto ✎')}</span>${inner}</div>
+      ${webStrip}
       <footer class="pj-slide-foot">
-        <span class="pj-foot-brand">AMA · ${esc(deck.title)}</span>
+        <span class="pj-foot-brand">${brandName()} · ${esc(deck.title)}</span>
+        <span class="pj-foot-src" title="Origem do conteúdo deste slide">Fonte: ${esc(srcLabel)}</span>
         <span class="pj-foot-num">${numStr}</span>
       </footer>
       <div class="pj-slide-progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
@@ -276,6 +761,22 @@
 
           ${rd.centralIdea ? `<div class="pj-read-callout"><span>Ideia central</span><p>${esc(rd.centralIdea)}</p></div>` : ''}
 
+          ${(deck.teaching || {}).tip ? `<div class="pj-read-guide">
+            <span>Guia de ensino · nível ${esc(deck.teaching.label)}</span>
+            <p>${esc(deck.teaching.tip)}</p>
+            ${deck.teaching.auto ? '<small>Nível detetado automaticamente a partir do texto do ficheiro.</small>' : ''}
+          </div>` : ''}
+
+          ${(rd.comparisons || []).length ? `<div class="pj-read-comparisons">
+            <h3>Comparações reconhecidas no documento</h3>
+            <div class="pj-read-cmp-grid">${rd.comparisons.map((c) => `<div><b>${esc(c.left)}</b><span>vs</span><b>${esc(c.right)}</b><small>${esc(c.context)}</small></div>`).join('')}</div>
+          </div>` : ''}
+
+          ${(deck.mnemonics || []).length ? `<div class="pj-read-mnem">
+            <h3>Truques de memória</h3>
+            <ul>${deck.mnemonics.map((m) => `<li><b>${esc(m.term)}</b><span>${esc(m.mnemonic)}</span></li>`).join('')}</ul>
+          </div>` : ''}
+
           ${(rd.definitions || []).length ? `<div class="pj-read-defs">
             <h3>Glossário extraído</h3>
             <dl>${rd.definitions.map((d) => `<dt>${esc(d.term)}</dt><dd>${esc(d.sentence)}</dd>`).join('')}</dl>
@@ -286,6 +787,10 @@
               <span class="pj-read-pg">Secção ${sec.number} · Pág. ${sec.page}</span>
               <h2>${esc(sec.heading)}</h2>
               ${sec.paragraphs.map((p) => `<p>${esc(p)}</p>`).join('')}
+              ${sec.definition ? `<div class="pj-read-def-inline"><b>${esc(sec.definition.term)}</b><span>${esc(sec.definition.sentence)}</span></div>` : ''}
+              ${(sec.keyTerms || []).length ? `<div class="pj-read-terms"><span>Termos-chave:</span> ${sec.keyTerms.map((t) => `<em>${esc(t)}</em>`).join('')}</div>` : ''}
+              ${sec.angola_example ? `<div class="pj-read-angola"><span>No contexto angolano</span><p>${esc(sec.angola_example)}</p></div>` : ''}
+              ${sec.checkQuestion ? `<div class="pj-read-check"><span>Verifica a compreensão</span><p>${esc(sec.checkQuestion)}</p></div>` : ''}
             </section>
           `).join('')}
         </article>
@@ -296,21 +801,34 @@
   /* ------------------------------------------------------------------ */
   /* Painel de Criação / Importação PDF                                 */
   /* ------------------------------------------------------------------ */
+  function takePrefill() {
+    try {
+      const raw = sessionStorage.getItem('ama-pj-prefill');
+      if (!raw) return null;
+      sessionStorage.removeItem('ama-pj-prefill');
+      const data = JSON.parse(raw);
+      if (data && data.sourceName) P.pendingSource = data.sourceName;
+      return data;
+    } catch { return null; }
+  }
+
   function renderCreatorPanel() {
     const notebooks = loadNotebooks();
     const savedDecks = loadDecks();
+    const prefill = takePrefill();
     return `<section class="card pj-creator" data-testid="projector-creator">
       <div class="pj-creator-head">
         <div>
-          <span class="eyebrow-t">${I.doc} CONVERSOR PDF → SLIDES VISUAIS</span>
-          <h2 style="margin-top:6px">Envie um PDF ou notas de aula</h2>
-          <p class="muted">Cada página do PDF é organizada automaticamente em slides visuais 16:9 com notas do docente e Modo Leitura — processado localmente neste navegador.</p>
+          <span class="eyebrow-t">${I.doc} PDF → AULA ORGANIZADA → PROJETOR</span>
+          <h2 style="margin-top:6px">Envie o PDF — a ${brandName()} organiza a aula</h2>
+          <p class="muted">A camada de IA local lê cada página, retira ruído de PDF, escolhe as ideias centrais e escreve objectivos, notas e verificação. O resultado são slides 16:9 prontos a projetar — processados neste navegador, sem enviar o ficheiro para fora.</p>
         </div>
         <div class="pj-samples">
           <span>Testar com aula pronta:</span>
           <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('fisica')">Física · Newton</button>
           <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('financas')">Finanças · Kz</button>
           <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('programacao')">Python · Algoritmos</button>
+          <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSample('biologia')">Biologia · Maiombe</button>
         </div>
       </div>
 
@@ -318,12 +836,18 @@
         <div class="pj-dropzone">
           <label class="pj-drop-label" for="pj-file-input">
             <span class="pj-drop-ic">${I.doc}</span>
-            <strong>Carregar PDF, imagem ou ficheiro de texto</strong>
-            <small>Suporta .pdf (multi-página), .txt, .md, .png, .jpg · 100% no seu dispositivo</small>
-            <span class="btn btn-f btn-sm" style="margin-top:8px">Selecionar ficheiro PDF</span>
-            <input id="pj-file-input" type="file" accept=".pdf,.txt,.md,image/png,image/jpeg,image/webp" hidden onchange="AMAProjector.handleFile(this)">
+            <strong>PASSO 1 · Carregue o ficheiro</strong>
+            <span class="pj-step-hint">PDF, DOCX, PPTX, imagem ou texto — fundido com web, imagens e 3D.</span>
+            <small>Suporta .pdf, .docx, .pptx, .txt, .md, .png, .jpg · fusão automática</small>
+            <span class="btn btn-f btn-sm" style="margin-top:8px">Selecionar ficheiro PDF / Office</span>
+            <input id="pj-file-input" type="file" accept=".pdf,.docx,.pptx,.txt,.md,image/png,image/jpeg,image/webp" hidden onchange="AMAProjector.handleFile(this)">
           </label>
           <p class="pj-upload-st" id="pj-upload-st" aria-live="polite">${esc(P.uploadStatus || (P.pendingSource ? `Ficheiro pronto: ${P.pendingSource}` : ''))}</p>
+
+          <div class="field" style="margin-top:12px">
+            <label for="pj-links">Links de apoio (YouTube / Wikipédia — opcional, fundidos por defeito)</label>
+            <input id="pj-links" placeholder="https://youtu.be/... ou https://pt.wikipedia.org/wiki/..." value="${escAttr(P.extraLinks || '')}" oninput="AMAProjector.setLinks(this.value)">
+          </div>
 
           ${notebooks.length ? `<div class="field" style="margin-top:14px">
             <label for="pj-nb-select">Ou abrir caderno do Estúdio de Estudo</label>
@@ -335,29 +859,32 @@
         </div>
 
         <div class="pj-text-form">
+          <div class="pj-step-tag">PASSO 2 · Confirme o título e a disciplina (ou cole o texto)</div>
           <div class="st-grid-in">
-            <div class="field"><label for="pj-title">Título da apresentação</label><input id="pj-title" maxlength="90" placeholder="Ex.: Dinâmica e Leis de Newton"></div>
+            <div class="field"><label for="pj-title">Título da apresentação</label><input id="pj-title" maxlength="90" placeholder="Ex.: Dinâmica e Leis de Newton" value="${escAttr(prefill && prefill.title || '')}" oninput="this.removeAttribute('data-auto-title')"></div>
             <div class="field"><label for="pj-subject">Disciplina</label>
-              <select id="pj-subject">
-                <option value="geral">Geral</option>
-                <option value="matematica">Matemática</option>
-                <option value="fisica">Física</option>
-                <option value="programacao">Programação</option>
-                <option value="financas">Finanças</option>
-                <option value="empreendedorismo">Negócios &amp; Comunicação</option>
+              <select id="pj-subject" onchange="this.removeAttribute('data-auto-subject')">
+                ${[['geral', 'Geral'], ['matematica', 'Matemática'], ['fisica', 'Física'], ['programacao', 'Programação'], ['financas', 'Finanças'], ['empreendedorismo', 'Negócios &amp; Comunicação'], ['biologia', 'Biologia'], ['historia', 'História']]
+                  .map(([v, l]) => `<option value="${v}" ${(prefill && prefill.subject) === v ? 'selected' : ''}>${l}</option>`).join('')}
               </select>
             </div>
           </div>
           <div class="field">
             <label for="pj-text">Conteúdo extraído ou notas da aula</label>
-            <textarea id="pj-text" rows="5" placeholder="Cole o texto da aula separado por parágrafos (ou importe um PDF à esquerda)…"></textarea>
+            <textarea id="pj-text" rows="5" placeholder="Cole o texto da aula separado por parágrafos (ou importe um PDF à esquerda)…">${esc(prefill && prefill.text || '')}</textarea>
           </div>
           <div class="flex wrap" style="gap:8px;align-items:center">
-            <button type="button" class="btn btn-p" onclick="AMAProjector.generateFromForm()">${I.spark} Gerar Apresentação Visual</button>
+            <button type="button" class="btn btn-p" onclick="AMAProjector.generateFromForm()">${I.spark} PASSO 3 · Gerar slides agora</button>
             ${P.deck ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleCreator(false)">Voltar à apresentação atual</button>` : ''}
           </div>
         </div>
       </div>
+
+      <ol class="pj-steps" aria-label="O que a ${brandName()} faz com o ficheiro">
+        <li><span>01</span><div><b>Lê e limpa</b><small>Retira cabeçalhos, números de página e ruído do PDF.</small></div></li>
+        <li><span>02</span><div><b>Organiza e condensa</b><small>Uma ideia por linha, objectivos e notas do docente.</small></div></li>
+        <li><span>03</span><div><b>Projeta e acrescenta</b><small>Layouts visuais + fontes externas marcadas EXTERNO.</small></div></li>
+      </ol>
 
       ${savedDecks.length ? `<div class="pj-saved-wrap">
         <h3>Apresentações guardadas neste navegador</h3>
@@ -392,22 +919,77 @@
         </div>
       </div>
       <div class="pj-tb-right">
+        <div class="pj-level-seg" role="group" aria-label="Nível de ensino da turma">
+          <span>Nível</span>
+          ${[['auto', 'Auto'], ['basico', 'Básico'], ['intermediario', 'Médio'], ['avancado', 'Avançado']]
+            .map(([k, l]) => `<button type="button" class="${P.level === k ? 'on' : ''}" aria-pressed="${P.level === k}" title="Adaptar a explicação ao nível ${l}" onclick="AMAProjector.setLevel('${k}')">${l}</button>`).join('')}
+        </div>
         ${P.mode !== 'reading' ? `<div class="pj-theme-seg" role="group" aria-label="Tema dos slides">
-          <button type="button" class="${P.theme === 'editorial' ? 'on' : ''}" onclick="AMAProjector.setTheme('editorial')">Claro</button>
-          <button type="button" class="${P.theme === 'dark' ? 'on' : ''}" onclick="AMAProjector.setTheme('dark')">Escuro</button>
-          <button type="button" class="${P.theme === 'pine' ? 'on' : ''}" onclick="AMAProjector.setTheme('pine')">Pinho</button>
+          <button type="button" class="${P.theme === 'editorial' ? 'on' : ''}" aria-pressed="${P.theme === 'editorial'}" onclick="AMAProjector.setTheme('editorial')">Claro</button>
+          <button type="button" class="${P.theme === 'dark' ? 'on' : ''}" aria-pressed="${P.theme === 'dark'}" onclick="AMAProjector.setTheme('dark')">Escuro</button>
+          <button type="button" class="${P.theme === 'ceu' ? 'on' : ''}" aria-pressed="${P.theme === 'ceu'}" onclick="AMAProjector.setTheme('ceu')">CEU Azul</button>
+          <button type="button" class="${P.theme === 'pine' ? 'on' : ''}" aria-pressed="${P.theme === 'pine'}" onclick="AMAProjector.setTheme('pine')">Pinho</button>
         </div>` : ''}
-        ${P.mode === 'slides' ? `<button type="button" class="btn btn-o btn-sm ${P.showNotes ? 'is-on' : ''}" onclick="AMAProjector.toggleNotes()">Notas</button>` : ''}
-        <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.printDeck()">Imprimir</button>
+        ${P.mode === 'slides' ? `<button type="button" class="btn btn-o btn-sm ${P.showNotes ? 'is-on' : ''}" aria-pressed="${P.showNotes}" onclick="AMAProjector.toggleNotes()">Notas</button>` : ''}
+        <button type="button" class="btn btn-p btn-sm" title="Criar perguntas a partir do texto extraído do ficheiro" onclick="AMAProjector.practiceDeck()">${I.quiz} Praticar</button>
+        ${(typeof S !== 'undefined' && S.user && ['ADMIN', 'INSTRUCTOR'].includes(S.user.papel)) ? `<button type="button" class="btn btn-o btn-sm" title="Publicar esta aula como matéria de uma turma" onclick="AMAProjector.sendToClass()">${I.doc} Enviar à turma</button>` : ''}
+        <button type="button" class="btn btn-o btn-sm" title="Fundir PDF + Wikipédia + imagens + 3D com IA (Chrome AI / Gemini)" onclick="AMAProjector.improveAI()">${I.spark} Melhorar com IA</button>
+        <button type="button" class="btn btn-o btn-sm" title="Configurar chave Gemini API (opcional, guardada só neste navegador)" onclick="AMAProjector.configGeminiKey()">Chave IA</button>
+        <button type="button" class="btn btn-o btn-sm" title="Exportar HTML pronto para imprimir ou guardar como PDF" onclick="AMAProjector.printDeck()">Exportar</button>
         <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.toggleFullscreen()">${P.fullscreen ? 'Sair ecrã inteiro' : 'Projetar'}</button>
       </div>
     </div>`;
 
     let body = '';
+    const webBar = (P.webBusy || P.webStatus) ? `<div class="pj-web-status ${P.webBusy ? 'is-busy' : ''}" aria-live="polite">
+      <span>${I.spark} ${P.webBusy ? 'A web está a ser consultada para acrescentar fontes…' : esc(P.webStatus)}</span>
+      ${!P.webBusy ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.enrich()">Voltar a verificar</button>` : ''}
+    </div>` : '';
+    const aiBar = (P.aiBusy || P.aiStatus) ? `<div class="pj-ai-status ${P.aiBusy ? 'is-busy' : ''}" aria-live="polite">
+      <span>${I.spark} ${esc(P.aiStatus)}</span>
+      ${!P.aiBusy && !(deck.ai && deck.ai.engine === 'chrome-language-model') ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.improveAI()">Tentar IA</button>` : ''}
+    </div>` : '';
+    const planPanel = (() => {
+      const plan = deck.plan;
+      if (!plan || !Array.isArray(plan.blocks) || !plan.blocks.length) return '';
+      return `<details class="pj-plan" data-testid="projector-plan" ${P.showPlan ? 'open' : ''} ontoggle="AMAProjector.planToggled(this.open)">
+        <summary>
+          <span class="pj-plan-k">${I.spark} Plano da IA <small>${deck.ai && deck.ai.engine === 'chrome-language-model' ? '· Chrome AI' : '· motor local'}</small></span>
+          <span class="pj-plan-stat"><b>${plan.condensed.sentencesRead}</b> frases lidas → <b>${plan.condensed.ideasKept}</b> ideias em <b>${plan.blocks.length}</b> bloco(s)</span>
+          <small>Ver como o ficheiro foi organizado</small>
+        </summary>
+        <div class="pj-plan-body">
+          <ol class="pj-plan-steps">${(plan.steps || []).map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
+          ${(() => {
+            const q = deck.quality || (window.Study && window.Study.Quality && window.Study.Quality.auditDeck(deck));
+            if (!q) return '';
+            return `<div class="pj-quality">
+              <div class="pj-quality-h"><b>Qualidade e coerência</b><span>${q.score}%</span></div>
+              <div class="pj-quality-grid">${Object.entries(q.checks).map(([k, c]) => {
+              const label = { notes: 'Notas 60–120', slides: '≤50 palavras', interaction: 'Perguntas 8–12 min', scenes: 'Cenas 3D', provenance: 'Origens EXTERNO', accessibility: 'Teclado/toque', coherence: 'Marca coerente' }[k] || k;
+              return `<span class="${c.ok ? 'ok' : 'warn'}" title="${escAttr(c.detail || '')}">${esc(label)} · ${c.ok ? 'OK' : 'verificar'}</span>`;
+            }).join('')}</div>
+            </div>`;
+          })()}
+          <div class="pj-plan-blocks">
+            ${plan.blocks.map((b, i) => `<div class="pj-plan-block">
+              <span class="pj-pb-n">${String(i + 1).padStart(2, '0')}</span>
+              <div>
+                <b>${esc(b.heading)}</b>
+                <small>Pág. ${esc(b.page)} · ${b.read} frases lidas → ${b.kept} ideia(s) · slides ${b.slideIndexes.length ? b.slideIndexes.join(', ') : '—'}</small>
+                <em>${esc(b.objective)}</em>
+              </div>
+            </div>`).join('')}
+          </div>
+          ${(plan.keywords || []).length ? `<div class="pj-chips pj-plan-chips" aria-label="Termos que a IA considerou centrais">${plan.keywords.map((k) => `<span>${esc(k)}</span>`).join('')}</div>` : ''}
+        </div>
+      </details>`;
+    })();
+
     if (P.mode === 'reading') {
-      body = renderReadingMode(deck);
+      body = `${aiBar}${webBar}${renderReadingMode(deck)}`;
     } else if (P.mode === 'grid') {
-      body = `<div class="pj-grid-view" data-testid="projector-grid">
+      body = `${aiBar}${webBar}${planPanel}<div class="pj-grid-view" data-testid="projector-grid">
         ${deck.slides.map((sl, i) => `<button type="button" class="pj-grid-card ${i === idx ? 'on' : ''}" onclick="AMAProjector.jumpSlide(${i})">
           <span class="pj-gc-n">${String(i + 1).padStart(2, '0')} · ${esc(sl.layout)}</span>
           <strong>${esc(sl.title)}</strong>
@@ -415,12 +997,12 @@
         </button>`).join('')}
       </div>`;
     } else {
-      body = `<div class="pj-stage-wrap ${P.fullscreen ? 'is-fs' : ''}">
+      body = `${aiBar}${webBar}${planPanel}<div class="pj-stage-wrap ${P.fullscreen ? 'is-fs' : ''}">
         <div class="pj-stage-main">
           ${renderSlideContent(slide, deck, idx, deck.slides.length)}
           <div class="pj-nav-bar">
             <button type="button" class="btn btn-o btn-sm" ${idx === 0 ? 'disabled' : ''} onclick="AMAProjector.step(-1)">${I.back} Anterior</button>
-            <span class="pj-nav-pos" data-testid="projector-counter">Slide <b>${idx + 1}</b> de ${deck.slides.length} · ~${slide.durationMin || 3} min</span>
+            <span class="pj-nav-pos" aria-live="polite" data-testid="projector-counter">Slide <b>${idx + 1}</b> de ${deck.slides.length} · ~${slide.durationMin || 3} min</span>
             <button type="button" class="btn btn-p btn-sm" ${idx >= deck.slides.length - 1 ? 'disabled' : ''} onclick="AMAProjector.step(1)">Próximo ${I.arrow}</button>
           </div>
         </div>
@@ -463,12 +1045,11 @@
     if (q && q.rec && (!P.deck || P.deck.sourceRecId !== q.rec)) {
       const rec = loadNotebooks().find((r) => r.id === q.rec);
       if (rec) {
-        const deck = S_().buildProjectorDeck({
+        const deck = buildDeck({
           title: rec.title,
           subject: rec.subject,
           text: rec.text,
           sourceName: 'Caderno AMA',
-          theme: P.theme,
           author: (S && S.user && S.user.nome) || '',
         });
         if (deck && deck.ok) {
@@ -483,9 +1064,9 @@
     }
     const header = !P.fullscreen ? `<div class="page-h">
       <div>
-        <span class="eyebrow-t">${I.play} NÚCLEO AMA · PROJETOR DOCENTE</span>
+        <span class="eyebrow-t">${I.play} NÚCLEO ${/CEU/.test(nucleoName()) ? 'CEU' : 'AMA'} · PROJETOR DOCENTE</span>
         <h1 style="margin-top:6px">Projetor de Aulas &amp; Modo Leitura</h1>
-        <p>Converta PDFs, sebentas ou notas de aula em apresentações visuais 16:9 prontas a projetar em sala, com notas do docente e Modo Leitura configurável.</p>
+        <p>O mesmo sítio para ler o ficheiro, organizar a aula e projetar. A IA local escolhe as ideias centrais, escreve objectivos e notas, e acrescenta fontes externas marcadas — o seu PDF continua a ser a verdade.</p>
       </div>
       <div class="flex wrap" style="gap:8px">
         <a class="btn btn-o" href="#/quiz">${I.quiz} Modo Quiz</a>
@@ -504,27 +1085,75 @@
   /* API Pública AMAProjector                                           */
   /* ------------------------------------------------------------------ */
   const AMAProjector = {
+    build(params) { return buildDeck(params); },
+    planToggled(open) { P.showPlan = !!open; },
+    setLinks(v) { P.extraLinks = String(v || ''); },
+    enrich() { if (P.deck) enrichDeckWithWeb(P.deck, true); },
+    improveAI() { if (P.deck) improveDeckWithAI(P.deck, true); },
+    configGeminiKey() {
+      const ai = window.Study && window.Study.AI;
+      if (!ai || typeof ai.setGeminiKey !== 'function') return toast('Motor de IA a carregar…');
+      const cur = ai.getGeminiKey ? ai.getGeminiKey() : '';
+      const val = window.prompt(
+        'Cole a sua chave Google Gemini API (opcional — guardada só neste navegador para síntese LLM avançada; deixe vazio para remover):',
+        cur ? '••••••••••••' : ''
+      );
+      if (val === null) return;
+      if (val === '••••••••••••') return;
+      ai.setGeminiKey(val.trim());
+      toast(val.trim() ? 'Chave Gemini guardada localmente. A reprocessar aula com IA…' : 'Chave Gemini removida — a usar Chrome AI / Síntese Local.');
+      if (val.trim() && P.deck) improveDeckWithAI(P.deck, true);
+    },
+    set3DMode(mode) {
+      if (active3DCtrl && typeof active3DCtrl.setMode === 'function') active3DCtrl.setMode(mode);
+      if (P.deck && P.deck.slides[P.slideIdx]) P.deck.slides[P.slideIdx].mode3d = mode;
+    },
+    toggle3DExplode() {
+      P.explode3D = P.explode3D ? 0 : 1;
+      if (active3DCtrl && typeof active3DCtrl.setExplode === 'function') active3DCtrl.setExplode(P.explode3D);
+      render();
+    },
+    toggle3DSpin() {
+      if (active3DCtrl && typeof active3DCtrl.toggleSpin === 'function') active3DCtrl.toggleSpin();
+    },
+    select3DNode(idx) {
+      P.selected3DNode = Number(idx) || 0;
+      const slide = P.deck && P.deck.slides[P.slideIdx];
+      const nodes = (slide && slide.nodes3d) || [];
+      const picked = nodes[P.selected3DNode];
+      const card = document.getElementById('pj-3d-inspector');
+      if (card && picked) {
+        card.innerHTML = `<span class="pj-3d-tag">CONCEITO ${String(P.selected3DNode + 1).padStart(2, '0')} · 3D</span><strong>${esc(picked.label)}</strong><p>${esc(picked.note)}</p>`;
+      }
+      document.querySelectorAll('.pj-3d-pill').forEach((b, i) => b.classList.toggle('on', i === P.selected3DNode));
+    },
+    selectFormulaVar(idx) {
+      P.activeFormulaVar = Number(idx) || 0;
+      render();
+    },
     loadSample(key) {
       const eng = S_();
       const sample = SAMPLE_LECTURES[key];
       if (!eng || !eng.buildProjectorDeck || !sample) return toast('Motor do projetor a carregar…');
-      const deck = eng.buildProjectorDeck({
+      const deck = buildDeck({
         title: sample.title,
         subject: sample.subject,
         pageTexts: sample.pageTexts,
         sourceName: sample.sourceName,
         theme: P.theme,
-        author: (S && S.user && S.user.nome) || 'Docente AMA',
+        author: (S && S.user && S.user.nome) || `Docente ${brandName()}`,
       });
       if (!deck || !deck.ok) return toast('Não foi possível criar a apresentação.');
       P.deck = deck;
       P.slideIdx = 0;
       P.mode = 'slides';
       P.showCreator = false;
+      P.showPlan = true;
       saveDeck(deck);
       toast(`Apresentação pronta · ${deck.stats.slides} slides gerados de ${sample.sourceName}`);
       if (!/^#\/projetor/.test(location.hash)) go('/projetor');
       else render();
+      enrichDeckWithWeb(deck).then(() => improveDeckWithAI(deck));
     },
     async handleFile(input) {
       const file = input && input.files && input.files[0];
@@ -532,6 +1161,54 @@
       if (!file) return;
       const stEl = document.getElementById('pj-upload-st');
       const say = (msg) => { P.uploadStatus = msg; if (stEl) stEl.textContent = msg; };
+      const mod = await import('./engine/file-import.js?v=4');
+      const SUBJECT_FROM_FILE = {
+        physics: 'fisica', math: 'matematica', algebra: 'matematica', chemistry: 'geral', general: 'geral',
+        financas: 'financas', programacao: 'programacao', biologia: 'biologia', historia: 'historia', empreendedorismo: 'empreendedorismo',
+      };
+      const applyDetectedSubject = (text) => {
+        const sel = document.getElementById('pj-subject');
+        if (!sel) return;
+        // Um título/disciplina escolhido pelo docente é sagrado; os valores
+        // apenas inferidos de um ficheiro anterior podem ser substituídos.
+        if (sel.value && sel.value !== 'geral' && !sel.dataset.autoSubject) return;
+        const detected = SUBJECT_FROM_FILE[mod.suggestSubject(text)] || 'geral';
+        if (detected !== 'geral') {
+          sel.value = detected;
+          sel.dataset.autoSubject = '1';
+        }
+      };
+      const applyDetectedTitle = (ti, value) => {
+        if (!ti) return value;
+        ti.value = value;
+        ti.dataset.autoTitle = '1';
+        return value;
+      };
+
+      // DOCX / PPTX direct support via local office-import.js
+      if (/\.(docx|pptx)$/i.test(file.name)) {
+        try {
+          say(`A ler documento Office ${file.name}…`);
+          const office = await import('./engine/office-import.js?v=1');
+          const r = await office.extractOfficeText(file);
+          if (!r || !r.ok || !r.text) throw new Error('Não foi possível extrair texto deste ficheiro DOCX/PPTX.');
+          P.pendingPages = Array.isArray(r.pages) && r.pages.length ? r.pages : null;
+          P.pendingSource = file.name;
+          const ti = document.getElementById('pj-title');
+          const ta = document.getElementById('pj-text');
+          const preferred = (ti && ti.value.trim() && !ti.dataset.autoTitle) ? ti.value.trim() : '';
+          const titleVal = preferred || mod.inferImportTitle({ filename: file.name, text: r.text }) || file.name.replace(/\.[^.]+$/, '');
+          applyDetectedTitle(ti, titleVal);
+          if (ta) ta.value = r.text;
+          applyDetectedSubject(r.text);
+          say(`Office extraído (${r.text.length} caracteres). A gerar slides + fusão web…`);
+          this.generateFromForm();
+          return;
+        } catch (err) {
+          say(err && err.message ? err.message : 'Não foi possível ler o ficheiro DOCX/PPTX.');
+          return;
+        }
+      }
 
       // Plain text / markdown direct support
       if (/\.(txt|md)$/i.test(file.name)) {
@@ -541,8 +1218,11 @@
           P.pendingSource = file.name;
           const ti = document.getElementById('pj-title');
           const ta = document.getElementById('pj-text');
-          if (ti && !ti.value) ti.value = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+          const preferred = (ti && ti.value.trim() && !ti.dataset.autoTitle) ? ti.value.trim() : '';
+          const titleVal = preferred || mod.inferImportTitle({ filename: file.name, text: txt }) || file.name.replace(/\.[^.]+$/, '');
+          applyDetectedTitle(ti, titleVal);
           if (ta) ta.value = txt;
+          applyDetectedSubject(txt);
           say(`Texto carregado de ${file.name} (${txt.length} caracteres).`);
           this.generateFromForm();
           return;
@@ -554,7 +1234,6 @@
 
       // PDF or image via local file-import.js (pdf.js + Tesseract)
       try {
-        const mod = await import('./engine/file-import.js');
         const check = mod.validateImportFile(file);
         if (!check.ok) { say(mod.importErrorMessage(check.code, 'pt', check.detail)); return; }
         say(`A extrair páginas de ${file.name} (${mod.formatFileSize(file.size)})…`);
@@ -565,20 +1244,22 @@
         P.pendingSource = file.name;
         const ti = document.getElementById('pj-title');
         const ta = document.getElementById('pj-text');
-        const titleVal = (ti && ti.value.trim()) || r.title || mod.filenameToTitle(file.name);
-        if (ti) ti.value = titleVal;
+        const preferred = (ti && ti.value.trim() && !ti.dataset.autoTitle) ? ti.value.trim() : '';
+        const titleVal = preferred || r.title || mod.filenameToTitle(file.name);
+        applyDetectedTitle(ti, titleVal);
         if (ta) ta.value = r.text || '';
+        applyDetectedSubject(r.text || '');
         say(`Extraído · ${r.pages || 1} página(s). A montar slides…`);
         const eng = S_();
         const subj = (document.getElementById('pj-subject') || {}).value || 'geral';
-        const deck = eng.buildProjectorDeck({
+        const deck = buildDeck({
           title: titleVal,
           subject: subj,
           text: r.text || '',
           pageTexts: P.pendingPages || [],
           sourceName: file.name,
           theme: P.theme,
-          author: (S && S.user && S.user.nome) || 'Docente AMA',
+          author: (S && S.user && S.user.nome) || `Docente ${brandName()}`,
         });
         if (!deck || !deck.ok) {
           say('O ficheiro tinha pouco texto extraível. Reveja o campo à direita e tente novamente.');
@@ -591,6 +1272,7 @@
         saveDeck(deck);
         toast(`PDF convertido em ${deck.stats.slides} slides visuais.`);
         render();
+        enrichDeckWithWeb(deck).then(() => improveDeckWithAI(deck));
       } catch (e) {
         say(e && e.message ? e.message : 'Erro ao ler o PDF neste navegador.');
       }
@@ -601,24 +1283,26 @@
       const title = ((document.getElementById('pj-title') || {}).value || '').trim();
       const subject = (document.getElementById('pj-subject') || {}).value || 'geral';
       const text = ((document.getElementById('pj-text') || {}).value || '').trim();
-      const deck = eng.buildProjectorDeck({
+      const deck = buildDeck({
         title,
         subject,
         text,
         pageTexts: P.pendingPages || [],
         sourceName: P.pendingSource || 'Notas da Aula',
         theme: P.theme,
-        author: (S && S.user && S.user.nome) || 'Docente AMA',
+        author: (S && S.user && S.user.nome) || `Docente ${brandName()}`,
       });
       if (!deck || !deck.ok) return toast('Cole pelo menos 60 caracteres ou carregue um PDF para gerar slides.');
       P.deck = deck;
       P.slideIdx = 0;
       P.mode = 'slides';
       P.showCreator = false;
+      P.showPlan = true;
       P.pendingPages = null;
       saveDeck(deck);
       toast(`Apresentação criada · ${deck.stats.slides} slides prontos.`);
       render();
+      enrichDeckWithWeb(deck).then(() => improveDeckWithAI(deck));
     },
     fromSelectedNotebook() {
       const sel = document.getElementById('pj-nb-select');
@@ -630,13 +1314,13 @@
       if (!rec) return toast('Caderno não encontrado.');
       const eng = S_();
       if (!eng || !eng.buildProjectorDeck) return go('/projetor?rec=' + encodeURIComponent(recId));
-      const deck = eng.buildProjectorDeck({
+      const deck = buildDeck({
         title: rec.title,
         subject: rec.subject,
         text: rec.text,
         sourceName: 'Caderno AMA',
         theme: P.theme,
-        author: (S && S.user && S.user.nome) || 'Docente AMA',
+        author: (S && S.user && S.user.nome) || `Docente ${brandName()}`,
       });
       if (!deck || !deck.ok) return toast('Texto insuficiente para gerar slides.');
       deck.sourceRecId = rec.id;
@@ -677,6 +1361,46 @@
       P.theme = theme;
       render();
     },
+    /* Reconstrói o deck com outra didática. O conteúdo vem sempre do ficheiro
+       original guardado em P.source — nada é inventado fora do texto. */
+    setLevel(level) {
+      if (!['auto', 'basico', 'intermediario', 'avancado'].includes(level)) return;
+      P.level = level;
+      if (!P.source) return render();
+      const deck = buildDeck(P.source);
+      if (deck && deck.ok) {
+        P.deck = deck;
+        P.slideIdx = 0;
+        saveDeck(deck);
+        const lbl = (deck.teaching && deck.teaching.label) || level;
+        toast(`Explicação adaptada ao nível ${lbl}. ${deck.slides.length} slides reconstruídos.`);
+      }
+      render();
+    },
+    /* Entrega o deck atual ao Modo Quiz. As perguntas são construídas a partir
+       do mesmo texto extraído, mantendo coerência entre slides, notas e prática. */
+    practiceDeck() {
+      if (!P.deck) return toast('Gere primeiro uma apresentação a partir do ficheiro.');
+      if (!window.AMAQuiz || !window.AMAQuiz.startProjectorDeck) return toast('Motor de quiz a carregar.');
+      window.AMAQuiz.startProjectorDeck(P.deck);
+    },
+    /* Prepara o texto extraído para publicação local numa turma. A turma é
+       escolhida pelo docente na página /turmas — nada é enviado para fora. */
+    sendToClass() {
+      if (!P.deck) return toast('Gere primeiro uma apresentação a partir do ficheiro.');
+      const rd = P.deck.reading || {};
+      try {
+        sessionStorage.setItem('ama-uni-deck-prefill', JSON.stringify({
+          title: P.deck.title,
+          subject: P.deck.subject,
+          sourceName: P.deck.sourceName || `Projetor ${brandName()}`,
+          deckId: P.deck.id,
+          text: String(rd.fullText || '').slice(0, 6000),
+        }));
+      } catch { return toast('Não foi possível preparar a publicação local.'); }
+      go('/turmas');
+      toast('Escolha a turma onde publicar esta aula.');
+    },
     toggleNotes() {
       P.showNotes = !P.showNotes;
       render();
@@ -707,28 +1431,156 @@
       const el = document.getElementById(secId);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
+    /* Exportação fiel: todos os layouts do ecrã também existem no HTML
+       impresso, com fonte/página, notas e um guia final do docente. */
+    printSlideHtml(sl, deck, i, total) {
+      const formula = sl.formula || sl.highlight || '';
+      const src = sl.page
+        ? `${deck.sourceName ? deck.sourceName + ' · ' : ''}p.${sl.page}`
+        : (deck.sourceName || 'Núcleo AMA');
+      let body = '';
+      if (sl.layout === 'cover') {
+        body = `${sl.subtitle ? `<p class="lead">${esc(sl.subtitle)}</p>` : ''}
+          ${sl.meta ? `<p class="cover-meta">${deck.stats.slides} slides · ~${deck.stats.estMinutes} min · ${deck.stats.pages} bloco(s)${sl.meta.author ? ' · ' + esc(sl.meta.author) : ''}</p>` : ''}`;
+      } else if (sl.layout === 'agenda') {
+        body = `${sl.subtitle ? `<p>${esc(sl.subtitle)}</p>` : ''}
+          <div class="agenda-grid">${(sl.bullets || []).map((b, n) => `<div><span>${String(n + 1).padStart(2, '0')}</span><b>${esc(b)}</b></div>`).join('')}</div>`;
+      } else if (sl.layout === 'objectives') {
+        body = `<ul class="objectives">${(sl.bullets || []).map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`;
+      } else if (sl.layout === 'closing') {
+        body = `<div class="closing-cols">
+          <div><b>Ideias para levar</b><ul>${(sl.bullets || []).map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
+          <div class="ask"><b>Verificação em sala</b><ol>${(sl.checkQuestions || []).map((q) => `<li>${esc(q)}</li>`).join('')}</ol></div>
+        </div>`;
+      } else if (sl.layout === 'mindmap') {
+        body = `<div class="mm"><b>${esc(sl.center || deck.title)}</b><ul>${(sl.nodes || []).map((n) => `<li><b>${esc(n.term)}</b>${n.note ? ` — ${esc(n.note)}` : ''}</li>`).join('')}</ul></div>`;
+      } else if (sl.layout === 'web-spotlight') {
+        body = `<p class="ext">EXTERNO · A WEB ACRESCENTA — o ficheiro do docente continua a ser a verdade da aula.</p>
+          <ul class="web">${(sl.items || []).map((w) => `<li><b>${esc(w.title)}</b> — ${esc(w.text)} <a href="${escAttr(w.url || '#')}">${esc(w.source || 'origem')}</a></li>`).join('')}
+          ${(sl.places || []).map((p) => `<li><b>${esc(p.name)}</b> (local) — <a href="${escAttr(p.url || '#')}">origem</a></li>`).join('')}
+          ${(sl.videos || []).map((v) => `<li><b>${esc(v.title || v.url)}</b> (vídeo) — <a href="${escAttr(v.url || '#')}">abrir</a></li>`).join('')}</ul>`;
+      } else if (sl.layout === 'check') {
+        body = `<p><b>${esc(sl.question || '')}</b></p><p class="qsrc">Resposta no ficheiro · discutir antes de avançar.</p>`;
+      } else if (sl.layout === 'quiz') {
+        body = `<p><b>${esc(sl.question || '')}</b></p><ol class="opts">${(sl.options || []).map((o) => `<li>${esc(o)}</li>`).join('')}</ol>` +
+          (sl.explanation ? `<p class="qsrc">Resposta: ${esc(sl.explanation)}</p>` : '');
+      } else if (formula) {
+        body = `<div class="hl">${esc(formula)}</div>
+          ${(sl.steps || []).length ? `<ol>${sl.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}`;
+      } else if (sl.layout === 'comparison' || (sl.left && sl.right)) {
+        body = `<div class="cmp">
+          <div><span>A</span><b>${esc(sl.left || '')}</b></div>
+          <em>VS</em>
+          <div><span>B</span><b>${esc(sl.right || '')}</b></div>
+        </div>${(sl.bullets || []).length ? `<ul>${sl.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}`;
+      } else if ((sl.layout === 'timeline' || (sl.steps || []).length) && !formula) {
+        body = `<ol class="steps">${(sl.steps || []).map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`;
+      } else if (sl.quote) {
+        body = `<blockquote>“${esc(sl.quote)}”</blockquote>
+          <p class="qsrc">— ${esc(sl.source || deck.title)}</p>
+          ${(sl.bullets || []).length ? `<ul>${sl.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}`;
+      } else {
+        if (sl.subtitle) body += `<p>${esc(sl.subtitle)}</p>`;
+        if (sl.term) body += `<p class="term"><b>${esc(sl.term)}</b></p>`;
+        if ((sl.bullets || []).length) {
+          body += `<ul>${sl.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`;
+        }
+        if (sl.visualCredit) body += `<p class="img-credit">Imagem: ${esc(sl.visualCredit.text)} — ${esc(sl.visualCredit.url || '')}</p>`;
+      }
+      const ask = sl.layout === 'closing' ? '' : ((sl.checkQuestions || []).length
+        ? `<div class="ask"><b>Verificação em sala</b><ol>${sl.checkQuestions.map((q) => `<li>${esc(q)}</li>`).join('')}</ol></div>` : '');
+      return `<section class="slide lay-${escAttr(sl.layout || 'slide')}">
+        <div class="head"><span class="k">${String(i + 1).padStart(2, '0')} / ${total} · ${esc(sl.kicker || '')}</span><span class="tag">${esc(sl.layout || 'slide')}</span></div>
+        <h2>${esc(sl.title || '')}</h2>
+        ${body}
+        ${ask}
+        ${sl.web ? `<div class="note ext-note"><b>A web acrescenta · EXTERNO:</b> ${esc(sl.web.text)} — <a href="${escAttr(sl.web.url || '#')}">${esc(sl.web.source || 'fonte')}</a></div>` : ''}
+        ${sl.notes ? `<div class="note"><b>Notas do docente:</b> ${esc(sl.notes)}</div>` : ''}
+        <footer>Fonte: ${esc(src)} · ${esc(brandName())} · ${String(i + 1).padStart(2, '0')}</footer>
+      </section>`;
+    },
+    printGuideHtml(deck) {
+      const rd = deck.reading || {};
+      const checks = (rd.checkQuestions || []).concat(
+        (deck.slides || []).flatMap((s) => s.checkQuestions || [])
+      ).filter((v, i, arr) => v && arr.indexOf(v) === i).slice(0, 6);
+      const teach = deck.teaching || {};
+      return `<section class="slide extra">
+        <div class="head"><span class="k">GUIA DO DOCENTE</span><span class="tag">plano rápido</span></div>
+        <h2>Como ensinar esta aula</h2>
+        ${teach.tip ? `<p><b>Nível ${esc(teach.label || '')}:</b> ${esc(teach.tip)}</p>` : ''}
+        ${(deck.mnemonics || []).length ? `<h3>Truques de memória</h3><ul>${deck.mnemonics.map((m) => `<li><b>${esc(m.term)}:</b> ${esc(m.mnemonic)}</li>`).join('')}</ul>` : ''}
+        ${(rd.definitions || []).length ? `<h3>Glossário do ficheiro</h3><ul>${rd.definitions.slice(0, 6).map((d) => `<li><b>${esc(d.term)}:</b> ${esc(d.sentence)}</li>`).join('')}</ul>` : ''}
+        ${checks.length ? `<h3>Perguntas socráticas</h3><ol>${checks.map((q) => `<li>${esc(q)}</li>`).join('')}</ol>` : ''}
+        <footer>Guia gerado localmente a partir de ${esc(deck.sourceName || deck.title)} · AMA</footer>
+      </section>`;
+    },
     printDeck() {
       if (!P.deck) return;
       const deck = P.deck;
-      const html = `<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>AMA Projetor · ${esc(deck.title)}</title>
+      const html = `<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>${esc(brandName())} Projetor · ${esc(deck.title)}</title>
         <style>
-          body{font-family:'Instrument Sans',system-ui,sans-serif;margin:0;padding:24px;color:#12221c;background:#fff}
-          .slide{border:1px solid #d7dfd9;border-radius:14px;padding:28px 34px;margin:0 auto 22px;max-width:860px;page-break-after:always;break-after:page}
-          .k{font:700 11px monospace;letter-spacing:.12em;text-transform:uppercase;color:#15704c}
-          h2{font-size:26px;margin:8px 0 12px}
-          ul,ol{line-height:1.6;padding-left:20px}
-          .hl{background:#edf5da;padding:16px 20px;border-radius:10px;font:700 20px monospace;margin:12px 0}
-          .note{margin-top:16px;padding-top:10px;border-top:1px dashed #cfd8d1;font-size:12.5px;color:#485b50}
+          @page{size:A4 landscape;margin:10mm}
+          *{box-sizing:border-box}
+          body{font-family:'Instrument Sans',system-ui,sans-serif;margin:0;padding:0;color:#12221c;background:#fff}
+          .slide{position:relative;border:1px solid #d7dfd9;border-radius:14px;padding:24px 30px 54px;margin:0 auto 18px;
+            max-width:1000px;min-height:168mm;page-break-after:always;break-after:page;display:flex;flex-direction:column}
+          .head{display:flex;justify-content:space-between;gap:12px;align-items:center}
+          .k{font:700 10px monospace;letter-spacing:.12em;text-transform:uppercase;color:#15704c}
+          .tag{padding:3px 8px;border-radius:999px;background:#edf5da;color:#2d6a45;font:700 9px monospace;text-transform:uppercase}
+          h2{font-size:26px;line-height:1.18;margin:10px 0 14px;color:#12221c}
+          h3{font-size:14px;margin:14px 0 6px;color:#15704c}
+          p,ul,ol{font-size:14px;line-height:1.55}
+          ul,ol{padding-left:20px;margin:8px 0}
+          .hl{background:#edf5da;padding:14px 18px;border-radius:10px;font:700 19px monospace;margin:10px 0;color:#173f2b}
+          .cmp{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin:10px 0}
+          .cmp div{padding:14px;border:1px solid #d7dfd9;border-radius:10px;min-height:70px}
+          .cmp span{display:block;font:700 9px monospace;color:#15704c;margin-bottom:6px}
+          .cmp b{font-size:15px}
+          .cmp em{font:800 12px monospace;color:#15704c}
+          blockquote{margin:8px 0;padding:12px 16px;border-left:4px solid #15704c;background:#f4f7f3;font-size:17px;font-style:italic}
+          .qsrc{font:600 11px monospace;color:#5c6f62}
+          .term{font:700 13px monospace;color:#2d6a45}
+          .ask{background:#f4f7f3;border:1px dashed #bfd0c4;border-radius:10px;padding:10px 14px;margin-top:10px}
+          .ask b{font:800 10px monospace;text-transform:uppercase;color:#15704c}
+          .ask ol{margin-bottom:0}
+          .note{margin-top:auto;padding-top:10px;border-top:1px dashed #cfd8d1;font-size:11.5px;line-height:1.5;color:#485b50}
+          footer{position:absolute;left:30px;right:30px;bottom:16px;border-top:1px solid #e5ebe6;padding-top:8px;
+            font:600 9.5px monospace;color:#7b8c80;display:flex;justify-content:space-between}
+          .extra{background:#fbfdfb}
+          /* Cada layout do ecrã tem correspondência no papel — a exportação não
+             pode transformar todos os slides na mesma lista de marcadores. */
+          .lay-cover{background:linear-gradient(150deg,#f7fbf5,#eef5ea)}
+          .lay-cover h2{font-size:40px;max-width:80%;margin:26px 0 14px}
+          .lay-cover .lead{font-size:19px;line-height:1.45;max-width:82%;color:#31533e}
+          .lay-cover .cover-meta{font:700 11px monospace;letter-spacing:.08em;text-transform:uppercase;color:#15704c;margin-top:22px}
+          .lay-agenda .agenda-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+          .lay-agenda .agenda-grid div{display:flex;gap:10px;align-items:center;border:1px solid #d7dfd9;border-radius:8px;padding:10px 12px;background:#fff}
+          .lay-agenda .agenda-grid span{font:800 13px monospace;color:#15704c}
+          .lay-agenda .agenda-grid b{font-size:13.5px;line-height:1.3}
+          .lay-concept .term{background:#edf5da;display:inline-block;padding:6px 12px;border-radius:6px;margin:4px 0 10px}
+          .lay-split p:first-of-type{font-size:16px;color:#31533e;border-left:3px solid #15704c;padding-left:12px}
+          .lay-closing .closing-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px}
+          .lay-closing .closing-cols>div{border:1px solid #d7dfd9;border-radius:10px;padding:12px 16px;background:#fff}
+          .lay-closing .closing-cols b{font:800 10px monospace;text-transform:uppercase;letter-spacing:.1em;color:#15704c}
+          .lay-timeline ol.steps{list-style:none;padding:0;display:grid;gap:8px}
+          .lay-timeline ol.steps li{position:relative;padding:10px 14px 10px 42px;border-left:3px solid #15704c;background:#f6faf4;border-radius:0 8px 8px 0;font-size:13.5px}
+          .lay-timeline ol.steps li::before{content:counter(list-item,decimal-leading-zero);position:absolute;left:10px;top:10px;font:800 12px monospace;color:#15704c}
+          .lay-quote blockquote{font-size:20px;max-width:84%}
+           .mm{border:1px solid #d7dfd9;border-radius:10px;padding:14px 18px;background:#f7fbf5;margin:10px 0}
+           .mm>b{font:800 12px monospace;color:#15704c;text-transform:uppercase;letter-spacing:.08em}
+           .mm ul{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:0}
+           .mm li{font-size:13px}
+           .opts{list-style:upper-alpha;padding-left:24px}
+           .objectives{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-left:0;list-style:none}
+           .objectives li{padding:9px 12px;border-radius:8px;background:#f4f7f3;border:1px solid #d7dfd9;font-size:13px}
+           .opts li{padding:6px 10px;border-radius:8px;background:#f4f7f3;margin-bottom:5px}
+           .web li,.ext{padding:5px 0;font-size:12.5px}
+           .ext-note{background:#f2f8ee;border-left:3px solid #15704c}
+          @media print{.slide{border-color:#cbd5cd;box-shadow:none}}
         </style></head><body>
-        ${deck.slides.map((sl, i) => `<section class="slide">
-          <div class="k">${String(i + 1).padStart(2, '0')} / ${deck.slides.length} · ${esc(sl.kicker)}</div>
-          <h2>${esc(sl.title)}</h2>
-          ${sl.subtitle ? `<p>${esc(sl.subtitle)}</p>` : ''}
-          ${sl.highlight ? `<div class="hl">${esc(sl.highlight)}</div>` : ''}
-          ${(sl.bullets || []).length ? `<ul>${sl.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
-          ${(sl.checkQuestions || []).length ? `<p><strong>Verificação em sala:</strong></p><ol>${sl.checkQuestions.map((q) => `<li>${esc(q)}</li>`).join('')}</ol>` : ''}
-          ${sl.notes ? `<div class="note"><strong>Notas do docente:</strong> ${esc(sl.notes)}</div>` : ''}
-        </section>`).join('')}
+        ${deck.slides.map((sl, i) => this.printSlideHtml(sl, deck, i, deck.slides.length)).join('')}
+        ${this.printGuideHtml(deck)}
         </body></html>`;
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -746,6 +1598,24 @@
   on('/projetor', projectorRouteView);
 
   if (/^#\/projetor/.test(location.hash)) setTimeout(() => render(), 0);
+
+  // Resposta do quiz do projetor — revelada só depois da escolha da turma.
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target && ev.target.closest && ev.target.closest('.pj-quiz-option');
+    if (!btn || !/^#\/projetor/.test(location.hash)) return;
+    const box = btn.closest('.pj-layout-quiz');
+    if (!box || box.dataset.answered === '1') return;
+    box.dataset.answered = '1';
+    const correct = Number(box.dataset.correct) || 0;
+    const chosen = Number(btn.dataset.index);
+    box.querySelectorAll('.pj-quiz-option').forEach((b, i) => {
+      b.disabled = true;
+      if (i === correct) b.classList.add('is-correct');
+      else if (i === chosen) b.classList.add('is-wrong');
+    });
+    const reveal = box.querySelector('.pj-quiz-reveal');
+    if (reveal) reveal.hidden = false;
+  });
 
   // Keyboard shortcuts for Projector Mode
   document.addEventListener('keydown', (ev) => {

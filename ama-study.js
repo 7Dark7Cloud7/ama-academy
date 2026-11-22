@@ -620,6 +620,20 @@
   /* API pública da camada                                              */
   /* ------------------------------------------------------------------ */
   const AMAStudy = {
+    /* Leva um contexto angolano para o projetor como texto de aula pronto. */
+    angolaPrefill(i) {
+      const p = ANGOLA_PROVINCIAS[Number(i)];
+      if (!p) return;
+      try {
+        sessionStorage.setItem('ama-pj-prefill', JSON.stringify({
+          title: `${p.nome} · ${p.titulo}`,
+          subject: p.subject,
+          text: p.texto,
+        }));
+      } catch { }
+      go('/projetor');
+      toast(`Contexto de ${p.nome} carregado no Projetor AMA.`);
+    },
     /* --- caderno & síntese --- */
     loadExample(key) {
       const ex = EXAMPLES[key];
@@ -680,7 +694,7 @@
       const st = document.getElementById('st-file-st');
       const say = (m) => { if (st) st.textContent = m; };
       try {
-        const mod = await import('./engine/file-import.js');
+        const mod = await import('./engine/file-import.js?v=4');
         const ok = mod.validateImportFile(file);
         if (!ok.ok) { say(mod.importErrorMessage(ok.code, 'pt', ok.detail)); return; }
         say('A ler ' + file.name + ' (' + mod.formatFileSize(file.size) + ')…');
@@ -896,14 +910,89 @@
   window.AMAStudy = AMAStudy;
 
   /* ------------------------------------------------------------------ */
+  /* Angola inteira — contextos locais para ensinar de norte a sul       */
+  /* ------------------------------------------------------------------ */
+  const ANGOLA_PROVINCIAS = [
+    { nome: 'Luanda', titulo: 'Transporte e lucro', subject: 'matematica',
+      texto: 'Numa viagem de candongueiro em Luanda cabem cerca de 14 passageiros. Se cada um paga 200 Kz e o combustível do dia custa 18.000 Kz, calcule o lucro diário. Discuta depois como o preço do combustível muda o preço da viagem.' },
+    { nome: 'Bengo', titulo: 'Solo e culturas', subject: 'biologia',
+      texto: 'No Bengo, a mandioca e os hortícolas dependem da água e da fertilidade do solo. Identifique os factores que limitam a produção e proponha uma prática simples de conservação do solo adequada à região.' },
+    { nome: 'Benguela', titulo: 'Porto e logística', subject: 'empreendedorismo',
+      texto: 'O porto do Lobito liga Benguela ao comércio internacional. Explique como o transporte e o armazenamento influenciam o preço dos produtos no mercado e que pequenos negócios podem nascer à volta dessa cadeia.' },
+    { nome: 'Bié', titulo: 'Pastoreio responsável', subject: 'biologia',
+      texto: 'No Bié, a criação de gado convive com a vegetação natural. Explique o que acontece quando demasiados animais pastam no mesmo lugar e proponha um plano de rotação de pastagens que preserve a terra.' },
+    { nome: 'Cabinda', titulo: 'Petróleo e diversificação', subject: 'financas',
+      texto: 'Cabinda tem uma economia muito ligada ao petróleo. Explique por que é importante diversificar as fontes de renda de um município e calcule quanto cresce uma poupança de 50.000 Kz a 8% ao ano durante cinco anos.' },
+    { nome: 'Cuando Cubango', titulo: 'Conservação e comunidade', subject: 'biologia',
+      texto: 'No Cuando Cubango, a conservação da vida selvagem depende também das comunidades locais. Explique a relação entre protecção dos animais, turismo e renda das famílias, e sugira duas acções práticas.' },
+    { nome: 'Cuanza Norte', titulo: 'Água e energia', subject: 'fisica',
+      texto: 'Os rios do Cuanza Norte são usados para gerar electricidade. Descreva como a altura da queda e o caudal influenciam a energia produzida e por que a água é uma fonte renovável quando bem gerida.' },
+    { nome: 'Cuanza Sul', titulo: 'Memória e turismo', subject: 'historia',
+      texto: 'O Cuanza Sul guarda memórias da presença portuguesa e das lutas pela independência. Relacione dois lugares históricos com a vida das pessoas hoje e explique por que preservar essa memória ajuda a construir identidade.' },
+    { nome: 'Cunene', titulo: 'Clima e pecuária', subject: 'biologia',
+      texto: 'No Cunene, as secas afectam directamente o gado. Explique como a temperatura e a chuva mudam a disponibilidade de pasto e proponha duas medidas de adaptação para os criadores.' },
+    { nome: 'Huambo', titulo: 'Agrofloresta no planalto', subject: 'biologia',
+      texto: 'No Huambo, as culturas de sequeiro sofrem com a perda de solo. Explique como as árvores ajudam a reter água e nutrientes e desenhe um pequeno sistema agroflorestal para uma quinta escolar.' },
+    { nome: 'Huíla', titulo: 'Dados e decisão', subject: 'matematica',
+      texto: 'Uma escola no Huíla registou 120 alunos no primeiro trimestre e 138 no segundo. Calcule a taxa de crescimento e use esse número para argumentar quantas salas e professores serão necessários no ano seguinte.' },
+    { nome: 'Lunda Norte', titulo: 'Diamantes e economia local', subject: 'financas',
+      texto: 'A exploração de diamantes na Lunda Norte movimenta empregos e comércio. Explique a diferença entre receita, lucro e reinvestimento e mostre por que a transparência na gestão desses rendimentos importa para a comunidade.' },
+    { nome: 'Lunda Sul', titulo: 'Mineração e futuro', subject: 'financas',
+      texto: 'Na Lunda Sul, a mineração convive com a agricultura. Discuta os efeitos económicos e ambientais dessa actividade e proponha como uma parte dos rendimentos pode financiar escolas e estradas.' },
+    { nome: 'Malanje', titulo: 'Quedas e energia', subject: 'fisica',
+      texto: 'As Quedas de Kalandula em Malanje mostram a força da água em movimento. Relacione a altura da queda com a energia potencial e explique como essa energia pode ser aproveitada sem destruir a paisagem.' },
+    { nome: 'Moxico', titulo: 'Floresta e biodiversidade', subject: 'biologia',
+      texto: 'O Moxico tem uma das maiores coberturas florestais de Angola. Explique o papel das florestas no ciclo da água e no clima, e relacione o desmatamento com a perda de espécies e de meios de vida.' },
+    { nome: 'Namibe', titulo: 'Vida no deserto', subject: 'biologia',
+      texto: 'No Namibe, as plantas e os animais sobrevivem com pouca água. Descreva três adaptações observáveis e explique como o orvalho e as névoas costeiras ajudam a vida no deserto.' },
+    { nome: 'Uíge', titulo: 'Café e negócio', subject: 'empreendedorismo',
+      texto: 'O café do Uíge é um produto com valor acrescentado. Calcule quanto recebe um agricultor por 50 kg a 450 Kz/kg e discuta o que acontece ao preço final quando se processa e embala o café localmente.' },
+    { nome: 'Zaire', titulo: 'Rio Congo e fronteiras', subject: 'historia',
+      texto: 'O rio Congo marca a fronteira do Zaire e liga povos e mercados. Explique como os rios funcionam como caminhos de comércio e de cultura e por que a cooperação entre países ribeirinhos é importante.' },
+  ];
+
+  function angolaView() {
+    const subjects = [...new Set(ANGOLA_PROVINCIAS.map((p) => p.subject))];
+    const cards = ANGOLA_PROVINCIAS.map((p, i) => `
+      <article class="ang-card" data-subject="${escAttr(p.subject)}">
+        <div class="ang-top"><span class="ang-num">${String(i + 1).padStart(2, '0')}</span><span class="ang-sub">${esc(p.subject)}</span></div>
+        <h3>${esc(p.nome)}</h3>
+        <span class="ang-ttl">${esc(p.titulo)}</span>
+        <p>${esc(p.texto)}</p>
+        <div class="ang-acts">
+          <button type="button" class="btn btn-p btn-sm" onclick="AMAStudy.angolaPrefill(${i})">${I.play} Criar aula</button>
+          <a class="btn btn-o btn-sm" href="#/quiz">${I.quiz} Praticar</a>
+        </div>
+      </article>`).join('');
+    return panelShell('angola', `
+      <div class="page-h"><div>
+        <span class="eyebrow-t">ENSINO LOCAL · 18 PROVÍNCIAS</span>
+        <h1 style="margin-top:6px">Angola inteira como <span class="hl">sala de aula.</span></h1>
+        <p>O mesmo conceito muda de exemplo conforme o lugar. Escolha uma província: o texto vira aula no Projetor PDF→Slides, com notas, perguntas socráticas e explicação adaptada ao nível da turma.</p>
+      </div>
+        <a class="btn btn-f" href="#/projetor">${I.play} Abrir Projetor</a></div>
+      <div class="ang-stats">
+        <div><b>18</b><span>províncias cobertas</span></div>
+        <div><b>${subjects.length}</b><span>disciplinas</span></div>
+        <div><b>10</b><span>layouts de slide</span></div>
+        <div><b>100%</b><span>local, neste navegador</span></div>
+      </div>
+      <div class="ang-subjects">${subjects.map((s) => `<span>${esc(s)}</span>`).join('')}</div>
+      <div class="ang-grid">${cards}</div>
+      <p class="muted" style="font-size:11.5px;max-width:78ch;margin-top:20px">Os contextos são sugestões pedagógicas geradas neste dispositivo. Não substituem dados oficiais nem o conhecimento do docente sobre a sua comunidade.</p>
+    `, S.user && S.user.papel === 'ADMIN' ? MENU.admin : MENU.aluno);
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Rotas                                                              */
   /* ------------------------------------------------------------------ */
+  on('/angola', angolaView);
   on('/estudar', estudarView);
   on('/estudar/:id', ({ args }) => estudarDetail(args.id));
   on('/revisao', revisaoView);
   on('/professor', professorView);
 
-  if (/^#\/(estudar|revisao|professor)/.test(location.hash)) setTimeout(() => render(), 0);
+  if (/^#\/(angola|estudar|revisao|professor)/.test(location.hash)) setTimeout(() => render(), 0);
 
   if (/^#\/estudar\?/.test(location.hash)) {
     const aula = new URLSearchParams(location.hash.split('?')[1] || '').get('aula');

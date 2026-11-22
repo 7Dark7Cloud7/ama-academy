@@ -2,7 +2,7 @@
 // Builds focused lesson/notebook quizzes, tracks progress, streaks, accuracy,
 // immediate feedback states, and generates missed-question retry sessions.
 
-import { analyzeSummary } from './summary-engine.js';
+import { analyzeSummary } from './summary-engine.js?v=3';
 
 const clean = (v, max = 260) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
@@ -163,6 +163,133 @@ export function buildQuizQuestions({ analysis = null, title = '', subject = 'ger
     }
   }
 
+  return questions.slice(0, maxQuestions);
+}
+
+/**
+ * Prática a partir de um deck do Projetor PDF→Slides.
+ * As respostas corretas vêm sempre do deck gerado (secções, definições,
+ * mnemónicos e perguntas socráticas), nunca de conteúdo externo — o quiz
+ * continua fiel ao ficheiro que o docente importou.
+ */
+export function buildProjectorQuizQuestions({ deck = null, maxQuestions = 8 } = {}) {
+  if (!deck || !deck.reading) return [];
+  const reading = deck.reading;
+  const sections = Array.isArray(reading.sections) ? reading.sections : [];
+  const mnemonics = Array.isArray(deck.mnemonics) ? deck.mnemonics : [];
+  const slides = Array.isArray(deck.slides) ? deck.slides : [];
+  const keywords = ((deck.stats && deck.stats.keywords) || []).filter(Boolean);
+  const questions = [];
+  const seenPrompts = new Set();
+
+  const addQ = (q) => {
+    const p = clean(q.prompt, 240);
+    if (!p || seenPrompts.has(p.toLowerCase())) return;
+    if (!Array.isArray(q.options) || q.options.length < 2) return;
+    if (!Number.isInteger(q.correct) || q.correct < 0 || q.correct >= q.options.length) return;
+    seenPrompts.add(p.toLowerCase());
+    questions.push({
+      id: `pq${questions.length + 1}`,
+      kind: q.kind || 'compreensao',
+      prompt: p,
+      options: q.options.map((o) => clean(o, 180)),
+      correct: q.correct,
+      explanation: clean(q.explanation || '', 260),
+      sourceTerm: clean(q.sourceTerm || '', 80),
+    });
+  };
+
+  const sectionSnippets = sections
+    .map((sec) => clean((sec.paragraphs || []).join(' '), 150))
+    .filter(Boolean);
+
+  // 1. Definições e mnemónicos extraídos pelo motor do projetor.
+  const analysis = {
+    insufficient: false,
+    centralIdea: reading.centralIdea,
+    definitions: Array.isArray(reading.definitions) ? reading.definitions : [],
+    keywords: keywords.map((term) => ({ term })),
+    cards: mnemonics.map((m) => ({
+      front: `Que imagem de memorização foi criada para fixar «${m.term}»?`,
+      back: m.mnemonic,
+      sentence: m.mnemonic,
+    })),
+    quiz: [],
+  };
+  buildQuizQuestions({ analysis, title: deck.title, subject: deck.subject, maxQuestions })
+    .forEach(addQ);
+
+  // 2. Ideia central do ficheiro.
+  if (questions.length < maxQuestions && reading.centralIdea) {
+    const right = clean(reading.centralIdea, 160);
+    const pool = [...sectionSnippets, ...mnemonics.map((m) => m.mnemonic)];
+    const { options, correct } = buildOptions(right, pool, `${deck.id || deck.title}-idea`, DEFAULT_DISTRACTORS_PT);
+    addQ({
+      kind: 'ideia',
+      prompt: `Qual é a ideia central de «${clean(deck.title || 'esta aula', 80)}»?`,
+      options,
+      correct,
+      explanation: `Ideia extraída do ficheiro: ${reading.centralIdea}`,
+      sourceTerm: 'ideia central',
+    });
+  }
+
+  // 3. Perguntas de verificação ligadas a cada secção do ficheiro.
+  for (let i = 0; i < sections.length && questions.length < maxQuestions; i += 1) {
+    const sec = sections[i];
+    const snippet = sectionSnippets[i];
+    if (!snippet) continue;
+    const { options, correct } = buildOptions(
+      snippet,
+      sectionSnippets.filter((_, j) => j !== i),
+      `${deck.id || deck.title}-sec-${i}`,
+      DEFAULT_DISTRACTORS_PT
+    );
+    const check = clean(
+      sec.checkQuestion || `O que significa «${sec.heading || 'esta secção'}» por palavras suas?`,
+      120
+    );
+    addQ({
+      kind: 'compreensao',
+      prompt: `Para responder a «${check}», qual trecho do ficheiro apoia melhor a resposta?`,
+      options,
+      correct,
+      explanation: `Secção ${sec.number || i + 1} · ${sec.heading || ''}. ${sec.angola_example || ''}`.trim(),
+      sourceTerm: clean(sec.heading || '', 80),
+    });
+  }
+
+  // 4. Pergunta socrática do fecho, com evidência extraída do próprio texto.
+  const socratic = (Array.isArray(reading.checkQuestions) && reading.checkQuestions.length
+    ? reading.checkQuestions
+    : slides.flatMap((s) => (Array.isArray(s.checkQuestions) ? s.checkQuestions : [])));
+  if (questions.length < maxQuestions && socratic.length && sectionSnippets.length) {
+    const promptQuestion = clean(socratic[0], 130);
+    const right = sectionSnippets[0];
+    const { options, correct } = buildOptions(
+      right,
+      sectionSnippets.slice(1),
+      `${deck.id || deck.title}-socratic`,
+      DEFAULT_DISTRACTORS_PT
+    );
+    addQ({
+      kind: 'aplicacao',
+      prompt: `Pergunta socrática da aula: «${promptQuestion}». Que evidência do ficheiro usa para responder?`,
+      options,
+      correct,
+      explanation: `Trecho do ficheiro: «${right}».`,
+      sourceTerm: clean(promptQuestion, 80),
+    });
+  }
+
+  if (!questions.length && reading.fullText) {
+    return buildQuizQuestions({
+      title: deck.title,
+      subject: deck.subject,
+      text: reading.fullText,
+      maxQuestions,
+    });
+  }
   return questions.slice(0, maxQuestions);
 }
 

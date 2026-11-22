@@ -1,25 +1,26 @@
 {
-  "name": "AMA — Aristides Miguel Academy",
-  "short_name": "AMA",
-  "description": "Cursos gravados, turmas do ensino superior, workshops e ferramentas de estudo. Os dados ficam guardados neste navegador.",
-  "id": "ama-v1",
+  "name": "CEU Academy — Cursos para universitários",
+  "short_name": "CEU Academy",
+  "description": "Cursos universitários, cartão de estudante, turmas e projetor que transforma PDFs em slides com IA. Website e webapp num só sítio.",
+  "id": "ceu-academy-v1",
   "lang": "pt-AO",
   "dir": "ltr",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#101412",
-  "theme_color": "#101412",
+  "background_color": "#0b1f44",
+  "theme_color": "#0b63c5",
   "icons": [
+    { "src": "assets/ceu-logo.png", "sizes": "any", "type": "image/png", "purpose": "any" },
     { "src": "assets/favicon-32.png", "sizes": "32x32", "type": "image/png" },
     { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
     { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Estudar", "short_name": "Estudar", "url": "./index.html#/estudar", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Turmas", "short_name": "Turmas", "url": "./index.html#/turmas", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Workshops", "short_name": "Workshops", "url": "./index.html#/workshops", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Criar aula com PDF", "short_name": "PDF → Slides", "url": "./index.html#/app", "icons": [{ "src": "assets/ceu-logo.png", "sizes": "any" }] },
+    { "name": "Estudar", "short_name": "Estudar", "url": "./index.html#/estudar", "icons": [{ "src": "assets/ceu-logo.png", "sizes": "any" }] },
+    { "name": "Turmas", "short_name": "Turmas", "url": "./index.html#/turmas", "icons": [{ "src": "assets/ceu-logo.png", "sizes": "any" }] }
   ]
 }

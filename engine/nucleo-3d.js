@@ -57,10 +57,46 @@ function shadeColor(r, g, b, intensity) {
   return `rgb(${Math.min(255, Math.round(r * k))},${Math.min(255, Math.round(g * k))},${Math.min(255, Math.round(b * k))})`;
 }
 
-export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core' } = {}) {
+export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core', customNodes = null, brand = '' } = {}) {
   if (!canvas || typeof canvas.getContext !== 'function') return null;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
+
+  const isCeu = brand === 'ceu' || (!brand && typeof document !== 'undefined' && document.documentElement?.dataset?.brand === 'ceu');
+  const PAL = isCeu
+    ? {
+        bg0: '#0a2a6b', bg1: '#071940', bg2: '#040d24',
+        ring1: 'rgba(0,164,220,0.58)', ring2: 'rgba(142,200,255,0.42)',
+        edge: 'rgba(142,200,255,0.55)',
+        faceA: [0, 132, 209], faceB: [0, 48, 138],
+        accent: '#00a4dc', accentLight: '#9be5ff',
+        nodeColors: ['#00a4dc', '#38bdf8', '#60a5fa', '#818cf8', '#22d3ee', '#7dd3fc'],
+        barTopHi: '#7dd3fc', barTopLo: '#00a4dc',
+        barS1: '#0b5cc5', barS2: '#084194', barS3: '#062f70', barS4: '#0d6ce0',
+      }
+    : {
+        bg0: '#163427', bg1: '#0f1b16', bg2: '#0a100e',
+        ring1: 'rgba(185,242,87,0.48)', ring2: 'rgba(16,185,129,0.38)',
+        edge: 'rgba(185,242,87,0.52)',
+        faceA: [28, 128, 86], faceB: [16, 76, 54],
+        accent: '#b9f257', accentLight: '#d4fa8a',
+        nodeColors: ['#10b981', '#34d399', '#b9f257', '#2dd4bf', '#84cc16', '#6ee7b7'],
+        barTopHi: '#b9f257', barTopLo: '#34d399',
+        barS1: '#0f7a53', barS2: '#14533c', barS3: '#114230', barS4: '#176649',
+      };
+
+  const activeNodes = Array.isArray(customNodes) && customNodes.length
+    ? customNodes.slice(0, 6).map((cn, idx, arr) => ({
+        id: cn.id || `n-${idx}`,
+        label: String(cn.label || `Conceito ${idx + 1}`).slice(0, 22),
+        short: String(cn.short || `${idx + 1}`).slice(0, 5),
+        note: String(cn.note || ''),
+        color: PAL.nodeColors[idx % PAL.nodeColors.length],
+        angle: (idx / Math.max(1, arr.length)) * TAU + 0.25,
+        elev: idx % 2 === 0 ? 0.34 : -0.28,
+        r: 2.32 + (idx % 3) * 0.08,
+      }))
+    : DISCIPLINE_NODES.map((n, idx) => ({ ...n, color: PAL.nodeColors[idx % PAL.nodeColors.length] }));
 
   const ico = buildIcosahedron(1.06);
   const reducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -124,8 +160,8 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
   function drawCoreMode(cx, cy, fov, dist) {
     const exp = state.explode * 0.45;
     // Orbital measurement rings
-    drawRing(cx, cy, fov, dist, 1.72 + exp * 0.6, 0.45, 0.28, 'rgba(185,242,87,0.42)', 1.5);
-    drawRing(cx, cy, fov, dist, 2.02 + exp * 0.8, -0.52, -0.35, 'rgba(16,185,129,0.34)', 1.2, [5, 5]);
+    drawRing(cx, cy, fov, dist, 1.72 + exp * 0.6, 0.45, 0.28, PAL.ring1, 1.5);
+    drawRing(cx, cy, fov, dist, 2.02 + exp * 0.8, -0.52, -0.35, PAL.ring2, 1.2, [5, 5]);
 
     // Depth-sorted icosahedron faces
     const light = [0.45, 0.72, 0.55];
@@ -168,10 +204,10 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
       ctx.closePath();
       const intensity = 0.45 + Math.max(-0.2, tri.dot) * 0.72;
       ctx.fillStyle = tri.index % 5 === 0
-        ? shadeColor(28, 128, 86, intensity)
-        : shadeColor(16, 76, 54, intensity);
+        ? shadeColor(PAL.faceA[0], PAL.faceA[1], PAL.faceA[2], intensity)
+        : shadeColor(PAL.faceB[0], PAL.faceB[1], PAL.faceB[2], intensity);
       ctx.fill();
-      ctx.strokeStyle = 'rgba(185,242,87,0.52)';
+      ctx.strokeStyle = PAL.edge;
       ctx.lineWidth = 1;
       ctx.stroke();
     }
@@ -277,11 +313,11 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
       ].map((pt) => projectPoint(rotatePoint(pt, state.rx, state.ry), cx, cy, fov, dist));
 
       const faces = [
-        { ids: [4, 5, 6, 7], col: b.idx >= 6 ? '#b9f257' : '#34d399' },
-        { ids: [0, 1, 5, 4], col: '#0f7a53' },
-        { ids: [1, 2, 6, 5], col: '#14533c' },
-        { ids: [2, 3, 7, 6], col: '#114230' },
-        { ids: [3, 0, 4, 7], col: '#176649' },
+        { ids: [4, 5, 6, 7], col: b.idx >= 6 ? PAL.barTopHi : PAL.barTopLo },
+        { ids: [0, 1, 5, 4], col: PAL.barS1 },
+        { ids: [1, 2, 6, 5], col: PAL.barS2 },
+        { ids: [2, 3, 7, 6], col: PAL.barS3 },
+        { ids: [3, 0, 4, 7], col: PAL.barS4 },
       ];
       for (const f of faces) {
         ctx.beginPath();
@@ -316,9 +352,9 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
 
     // Deep studio architectural background
     const bg = ctx.createRadialGradient(cx, cy * 0.78, 12, cx, cy, Math.max(w, h) * 0.72);
-    bg.addColorStop(0, '#163427');
-    bg.addColorStop(0.58, '#0f1b16');
-    bg.addColorStop(1, '#0a100e');
+    bg.addColorStop(0, PAL.bg0);
+    bg.addColorStop(0.58, PAL.bg1);
+    bg.addColorStop(1, PAL.bg2);
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
 
@@ -336,12 +372,12 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
     // Draw selected 3D model
     if (state.mode === 'wave') drawWaveMode(cx, cy, fov, dist);
     else if (state.mode === 'gyro') drawGyroMode(cx, cy, fov, dist);
-    else if (state.mode === 'matrix') drawMatrixMode(cx, cy, fov, dist);
+    else if (state.mode === 'matrix' || state.mode === 'finance') drawMatrixMode(cx, cy, fov, dist);
     else drawCoreMode(cx, cy, fov, dist);
 
-    // Orbiting interactive discipline nodes
+    // Orbiting interactive concept / discipline nodes
     const orbitBoost = 1 + state.explode * 0.22;
-    const nodes3d = DISCIPLINE_NODES.map((n, idx) => {
+    const nodes3d = activeNodes.map((n, idx) => {
       const a = n.angle + state.time * 0.16;
       const x = Math.cos(a) * n.r * orbitBoost;
       const z = Math.sin(a) * n.r * orbitBoost;
@@ -364,8 +400,8 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.lineTo(nd.sx, nd.sy);
-      ctx.strokeStyle = isActive ? 'rgba(185,242,87,0.65)' : 'rgba(185,242,87,0.16)';
-      ctx.lineWidth = isActive ? 1.6 : 1;
+      ctx.strokeStyle = isActive ? PAL.ring1 : PAL.ring2;
+      ctx.lineWidth = isActive ? 1.8 : 1;
       ctx.stroke();
 
       // 3D shaded sphere badge
@@ -375,7 +411,7 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
       );
       grad.addColorStop(0, '#f4fce8');
       grad.addColorStop(0.35, nd.color);
-      grad.addColorStop(1, '#0c281c');
+      grad.addColorStop(1, PAL.bg1);
       ctx.beginPath();
       ctx.arc(nd.sx, nd.sy, radius, 0, TAU);
       ctx.fillStyle = grad;
@@ -385,14 +421,14 @@ export function mountNucleo3D(canvas, { onSelectNode = null, initialMode = 'core
       ctx.stroke();
 
       // Crisp symbol inside sphere
-      ctx.fillStyle = '#09170f';
-      ctx.font = `800 ${Math.round(radius * 0.56)}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = '#07131e';
+      ctx.font = `800 ${Math.round(radius * 0.52)}px "JetBrains Mono", monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(nd.short, nd.sx, nd.sy + 0.5);
 
       // Label below sphere
-      ctx.fillStyle = isActive ? '#d4fa8a' : 'rgba(232,245,238,0.88)';
+      ctx.fillStyle = isActive ? PAL.accentLight : 'rgba(232,245,238,0.92)';
       ctx.font = `700 11px "Instrument Sans", sans-serif`;
       ctx.fillText(nd.label, nd.sx, nd.sy + radius + 12);
       ctx.restore();
