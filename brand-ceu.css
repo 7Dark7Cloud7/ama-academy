@@ -152,4 +152,4 @@
  font:800 9px var(--font-b,system-ui);text-decoration:none}
 .ceu-mobile-bar a.active{background:#b8f36b;color:#132238}
 .ceu-mobile-bar a.primary{background:#5b87f6;color:#fff}
-@media(max-width:600px){.ceu-mobile-bar{display:grid;grid-template-columns:repeat(4,1fr)}body:has(.ceu-landing){padding-bottom:88px}.hf-credit{bottom:78px}}
+@media(max-width:600px){.ceu-mobile-bar{display:grid;grid-template-columns:repeat(4,1fr)}body:has(.ceu-landing){padding-bottom:88px}.hf-credit{bottom:78px}.ceu-corner{bottom:76px}}

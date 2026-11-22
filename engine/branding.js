@@ -42,6 +42,7 @@
       var v = n.nodeValue || '';
       if (v.indexOf('Aristides Miguel Academy') >= 0) n.nodeValue = v.replace('Aristides Miguel Academy', 'Universidade CEU');
       if (/N[úu]cleo\s+AMA/i.test(v)) n.nodeValue = v.replace(/N[úu]cleo\s+AMA/gi, 'Núcleo CEU');
+      if (v.indexOf('ola@ama.ao') >= 0) n.nodeValue = v.replace(/ola@ama\.ao/g, 'geral@ceu.ao');
       if (v.indexOf('AMA') >= 0) n.nodeValue = v.replace(/AMA/g, 'CEU');
     });
   }
