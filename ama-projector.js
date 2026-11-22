@@ -175,6 +175,9 @@
     brief: '', // Descrição por áudio ou texto de como os slides e imagens devem sair
     voiceListening: false,
     voiceTarget: 'brief',
+    narrating: false,
+    pulseOpen: false,
+    pulseVotes: { ok: 0, mid: 0, rev: 0 },
   };
 
   function getSlideRevealTotal(slide) {
@@ -346,9 +349,14 @@
         try {
           if (deck.docType === 'aula' && typeof window.Study.AI.synthesizeAndFuseDeck === 'function') {
             window.Study.AI.synthesizeAndFuseDeck(deck, deck.web || null);
-          } else if (typeof window.Study.AI.pickCoherent3DMode === 'function') {
-            const m3d = window.Study.AI.pickCoherent3DMode(deck.subject, deck.docType, deck.title);
-            (deck.slides || []).forEach((s) => { s.mode3d = s.mode3d || m3d; });
+          } else {
+            if (typeof window.Study.AI.pickCoherent3DMode === 'function') {
+              const m3d = window.Study.AI.pickCoherent3DMode(deck.subject, deck.docType, deck.title);
+              (deck.slides || []).forEach((s) => { s.mode3d = s.mode3d || m3d; });
+            }
+            if (typeof window.Study.AI.autoSelfAnalyzeAndHeal === 'function') {
+              window.Study.AI.autoSelfAnalyzeAndHeal(deck);
+            }
           }
         } catch { }
       }
@@ -874,6 +882,36 @@
         </div>
         <div class="pj-quiz-reveal" hidden><b>Resposta do ficheiro:</b> ${esc(slide.explanation || '')}</div>
       </div>`;
+    } else if (slide.layout === 'stat-spotlight' && slide.heroStat) {
+      const st = slide.heroStat;
+      inner = `<div class="pj-layout-stat">
+        <span class="pj-kicker">${esc(slide.kicker)}</span>
+        <h2>${esc(slide.title)}</h2>
+        <div class="pj-stat-grid">
+          <div class="pj-stat-hero">
+            <span class="pj-stat-lbl">${esc(st.label || 'Destaque')}</span>
+            <strong class="pj-stat-val">${esc(st.value)}</strong>
+            <p class="pj-stat-ctx">${esc(st.context || slide.subtitle || '')}</p>
+          </div>
+          <div class="pj-stat-side">
+            ${(slide.bullets || []).length ? `<ul class="pj-bullets">${slide.bullets.slice(0, 3).map((b, i) => `<li style="--i:${i}"><span class="pj-b-idx">${String(i + 1).padStart(2, '0')}</span><span>${formatRichBullet(b)}</span></li>`).join('')}</ul>` : ''}
+            ${renderFusedContext(slide)}
+          </div>
+        </div>
+      </div>`;
+    } else if (slide.layout === 'bento-grid') {
+      const items = (slide.bullets || []).slice(0, 4);
+      inner = `<div class="pj-layout-bento">
+        <span class="pj-kicker">${esc(slide.kicker)}</span>
+        <h2>${esc(slide.title)}</h2>
+        <div class="pj-bento-grid">
+          ${items.map((b, i) => `<div class="pj-bento-card ${i === 0 ? 'is-hero' : ''}" style="--i:${i}">
+            <span class="pj-bento-n">${String(i + 1).padStart(2, '0')}</span>
+            <p>${formatRichBullet(b)}</p>
+          </div>`).join('')}
+        </div>
+        ${renderFusedContext(slide)}
+      </div>`;
     } else if (slide.layout === 'quote') {
       inner = `<div class="pj-layout-quote">
         <span class="pj-kicker">${esc(slide.kicker)}</span>
@@ -956,6 +994,15 @@
       <div class="pj-slide-progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
       ${(P.drawOn || hasStrokes) ? `<canvas class="pj-draw-canvas ${P.drawOn ? 'active' : ''}" aria-label="Quadro de anotações do docente"></canvas>` : ''}
       ${(P.laserOn && !P.drawOn && slide.layout !== 'scene-3d') ? `<span class="pj-laser-dot" aria-hidden="true"></span>` : ''}
+      ${P.pulseOpen ? `<div class="pj-pulse-bar" role="region" aria-label="Pulso da turma" onclick="event.stopPropagation()">
+        <span class="pj-pulse-q">⚡ A turma acompanhou este ponto?</span>
+        <div class="pj-pulse-btns">
+          <button type="button" class="p-ok" onclick="AMAProjector.votePulse('ok')">✓ Claro <b>${P.pulseVotes.ok}</b></button>
+          <button type="button" class="p-mid" onclick="AMAProjector.votePulse('mid')">◐ Quase <b>${P.pulseVotes.mid}</b></button>
+          <button type="button" class="p-rev" onclick="AMAProjector.votePulse('rev')">↻ Rever <b>${P.pulseVotes.rev}</b></button>
+          <button type="button" class="p-x" title="Fechar pulso" onclick="AMAProjector.togglePulse()">✕</button>
+        </div>
+      </div>` : ''}
       ${P.blackout ? `<div class="pj-blackout" role="dialog" aria-label="Cortina de atenção" onclick="AMAProjector.toggleBlackout()">
         <span class="pj-kicker">PAUSA · ATENÇÃO AO DOCENTE</span>
         <strong>${esc(deck.title)}</strong>
@@ -1272,6 +1319,8 @@
       <div class="pj-mp-sec">
         <span class="pj-mp-h">Sala de Aula (atalhos)</span>
         <div class="pj-mp-row">
+          <button type="button" class="${P.narrating ? 'on' : ''}" onclick="AMAProjector.toggleNarrate()">${P.narrating ? '⏹ Parar Voz' : '🔊 Narrar Aula (V)'}</button>
+          <button type="button" class="${P.pulseOpen ? 'on' : ''}" onclick="AMAProjector.togglePulse()">⚡ Pulso Turma (P)</button>
           <button type="button" class="${P.showNotes ? 'on' : ''}" onclick="AMAProjector.toggleNotes()">Notas (N)</button>
           <button type="button" class="${P.revealMode ? 'on' : ''}" onclick="AMAProjector.toggleRevealMode()">1-a-1 (S)</button>
           <button type="button" class="${P.drawOn ? 'on' : ''}" onclick="AMAProjector.toggleDraw()">Desenhar (D)</button>
@@ -1403,9 +1452,11 @@
         <span class="pj-fs-pos">${String(idx + 1).padStart(2, '0')} / ${String(deck.slides.length).padStart(2, '0')}</span>
         <button type="button" ${idx >= deck.slides.length - 1 && (!P.revealMode || P.revealStep >= revTotal) ? 'disabled' : ''} onclick="AMAProjector.step(1)">→</button>
         <i></i>
+        <button type="button" class="${P.narrating ? 'on' : ''}" title="Narrar aula em voz alta (V)" onclick="AMAProjector.toggleNarrate()">${P.narrating ? '⏹ Voz' : '🔊 Voz'}</button>
         <button type="button" class="${P.drawOn ? 'on' : ''}" title="Desenhar (D)" onclick="AMAProjector.toggleDraw()">✎ Desenhar</button>
         ${P.drawOn ? `<button type="button" title="Limpar (C)" onclick="AMAProjector.clearDrawing()">Limpar</button>` : ''}
         <button type="button" class="${P.showNotes ? 'on' : ''}" title="Notas (N)" onclick="AMAProjector.toggleNotes()">Notas</button>
+        <button type="button" class="${P.pulseOpen ? 'on' : ''}" title="Pulso da turma (P)" onclick="AMAProjector.togglePulse()">⚡</button>
         <button type="button" class="${P.blackout ? 'on' : ''}" title="Cortina (B)" onclick="AMAProjector.toggleBlackout()">■</button>
         ${P.timerRunning ? `<button type="button" class="on" title="Parar cronómetro (T)" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerSec}s</button>` : ''}
         <button type="button" class="pj-fs-exit" title="Sair (Esc)" onclick="AMAProjector.toggleFullscreen()">Sair ✕</button>
@@ -1620,6 +1671,64 @@
       if (slide.layout === 'cover') slide.webHero = null;
       saveDeck(P.deck);
       toast('Slide alternado para o modelo 3D interactivo coerente.');
+      render();
+    },
+    stopNarrate() {
+      P.narrating = false;
+      try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch { }
+    },
+    toggleNarrate() {
+      P.moreOpen = false;
+      if (P.narrating) {
+        this.stopNarrate();
+        toast('Narração por voz parada.');
+        return render();
+      }
+      if (!P.deck || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+        return toast('Síntese de voz indisponível neste navegador.');
+      }
+      P.narrating = true;
+      const speakCurrent = () => {
+        if (!P.narrating || !P.deck) return;
+        const sl = P.deck.slides[P.slideIdx];
+        if (!sl) { P.narrating = false; render(); return; }
+        const txt = String(sl.narration || sl.notes || sl.subtitle || sl.title || '').trim();
+        if (!txt) { P.narrating = false; render(); return; }
+        try { window.speechSynthesis.cancel(); } catch { }
+        const u = new SpeechSynthesisUtterance(txt);
+        u.lang = 'pt-PT';
+        u.rate = 1.02;
+        const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+        const ptVoice = voices.find((v) => /^pt-PT/i.test(v.lang)) || voices.find((v) => /^pt/i.test(v.lang));
+        if (ptVoice) u.voice = ptVoice;
+        u.onend = () => {
+          if (!P.narrating || !P.deck) return;
+          if (P.slideIdx < P.deck.slides.length - 1) {
+            P.slideIdx += 1;
+            render();
+            setTimeout(speakCurrent, 450);
+          } else {
+            P.narrating = false;
+            toast('Narração da apresentação concluída.');
+            render();
+          }
+        };
+        u.onerror = () => { P.narrating = false; render(); };
+        window.speechSynthesis.speak(u);
+      };
+      toast('🔊 A narrar aula automaticamente (prima V para parar).');
+      render();
+      speakCurrent();
+    },
+    togglePulse() {
+      P.pulseOpen = !P.pulseOpen;
+      if (P.pulseOpen) P.pulseVotes = { ok: 0, mid: 0, rev: 0 };
+      P.moreOpen = false;
+      render();
+    },
+    votePulse(kind) {
+      if (!['ok', 'mid', 'rev'].includes(kind)) return;
+      P.pulseVotes[kind] = (P.pulseVotes[kind] || 0) + 1;
       render();
     },
     async exportBackup() {
@@ -2552,6 +2661,10 @@
       ev.preventDefault(); AMAProjector.toggleBlackout();
     } else if (kl === 'e' && P.mode === 'slides') {
       ev.preventDefault(); AMAProjector.toggleEditSlide();
+    } else if (kl === 'v' && P.mode === 'slides') {
+      ev.preventDefault(); AMAProjector.toggleNarrate();
+    } else if (kl === 'p' && P.mode === 'slides') {
+      ev.preventDefault(); AMAProjector.togglePulse();
     } else if (kl === 'f') {
       ev.preventDefault(); AMAProjector.toggleFullscreen();
     } else if (k === 'Escape' && (P.fullscreen || P.blackout)) {

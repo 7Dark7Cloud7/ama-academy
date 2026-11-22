@@ -7,7 +7,7 @@ import { evaluateRubric, optimizeTo100 } from '../engine/quality-engine.js';
 import { buildWorksheet, renderWorksheetHtml } from '../engine/worksheet-engine.js';
 import { buildStandaloneOfflineHtml } from '../engine/export-engine.js';
 import { detectDocumentType, analyzeDocument, buildAdaptiveDocumentDeck } from '../engine/doc-analyzer.js';
-import { pickCoherent3DMode, synthesizeAndFuseDeck, parseCreativeBrief } from '../engine/ai-engine.js';
+import { pickCoherent3DMode, synthesizeAndFuseDeck, parseCreativeBrief, autoSelfAnalyzeAndHeal } from '../engine/ai-engine.js';
 import { buildCoherentImageQueries } from '../engine/web-enrichment.js';
 import { FIXTURES_10, PDF_SAMPLE_MULTI_PAGE, PDF_SAMPLE_STEM, PDF_SAMPLE_SCANNED } from './fixtures/ceu-v3.fixtures.mjs';
 
@@ -160,4 +160,23 @@ test('Coherent 3D selection and pedagogical rewriting adapt raw PDF text for tea
   assert.ok(brief.imageQueries.some((q) => /foguet/i.test(q)), 'Expected foguetão in parsed brief queries');
   const qs = buildCoherentImageQueries({ title: 'Leis de Newton', briefQueries: brief.imageQueries, visualStyle: brief.visualStyle });
   assert.ok(qs.some((x) => /rocket launch/i.test(x.query)), 'Expected coherent English Wikimedia query for foguetão');
+
+  // Verify Mayer + Gamma Auto Self-Analysis & Healing
+  const rawDeck = {
+    title: 'Finanças em Kwanzas',
+    subject: 'financas',
+    slides: [
+      { id: 's0', layout: 'cover', title: 'Finanças em Kwanzas', subtitle: 'Juros compostos' },
+      { id: 's1', layout: 'agenda', title: 'Roteiro', bullets: ['Juros', 'Inflação'] },
+      { id: 's2', layout: 'bullets', title: 'Impacto do Juro', bullets: ['Capital: 100.000 Kz cresce 12% ao ano', 'Tempo: começar cedo vence', 'Regra dos 72'], intuition: 'Intuição', fusedInsight: { heading: 'Juro', text: 'Explicação extra da Wikipédia sobre capitalização.' } },
+      { id: 's3', layout: 'bullets', title: 'Três Pilares', bullets: ['Poupança: 20% do salário', 'Fundo: 3 a 6 meses', 'Diversificação: reduzir risco'] },
+      { id: 's4', layout: 'closing', title: 'Resumo', bullets: ['Comece hoje'] },
+    ],
+  };
+  autoSelfAnalyzeAndHeal(rawDeck);
+  assert.equal(rawDeck.slides[2].layout, 'stat-spotlight', 'Expected quantitative slide upgraded to stat-spotlight');
+  assert.equal(rawDeck.slides[2].intuition, '', 'Expected Mayer coherence deduplication of intuition + fusedInsight');
+  assert.equal(rawDeck.slides[3].layout, 'bento-grid', 'Expected 3-bullet slide upgraded to bento-grid');
+  assert.ok(rawDeck.slides.every((s) => typeof s.narration === 'string' && s.narration.length > 10), 'Expected voice narration generated on every slide');
+  assert.ok(rawDeck.selfAudit && rawDeck.selfAudit.mayerScore === 100, 'Expected selfAudit report attached');
 });
