@@ -125,13 +125,19 @@ function splitCleanSentences(text) {
     .filter((s) => s.length >= 24);
 }
 
+const JUNK_MEDIA_RE = /\b(icon|logo|logotipo|flag_of|stub|edit|arrow|button|page_\d|djvu|signature|seal|emblem|coat_of_arms|insignia|crest|patch|badge|air_force|força_aérea|forca_aerea|military|army|navy|usaf|bandeira|brasão|brasao|gravestone|tombstone|memorial_plaque|book_cover|title_page|frontispiece|newspaper|manuscript|scan|stamp|postage|coin_obverse|poster|album_cover|dvd_cover|telenovela|novela)\b/i;
+const POP_CULTURE_WIKI_RE = /\b(telenovela|s[ée]rie de televis[aã]o|filme de \d{4}|[áa]lbum de|can[çc][aã]o de|single de|banda de rock|futebolista|cantor[a]? brasileir|atriz|ator|soap opera|television series|studio album|video game)\b/i;
+
 function pageToItem(p, lang, term, url) {
   if (!p || !p.title || !p.extract) return null;
+  if (POP_CULTURE_WIKI_RE.test(`${p.title} ${p.extract}`)) return null;
   const link = url || wikiUrl(lang, p.title);
   const sentences = splitCleanSentences(p.extract);
   const ytLinks = Array.isArray(p.extlinks)
     ? p.extlinks.map((e) => e['*'] || e.url || '').filter((u) => /youtube\.com|youtu\.be/i.test(u))
     : [];
+  const thumbUrl = p.thumbnail?.source ? String(p.thumbnail.source) : '';
+  const validThumb = thumbUrl && !JUNK_MEDIA_RE.test(decodeURIComponent(thumbUrl));
   return {
     kind: 'insight',
     term,
@@ -142,9 +148,9 @@ function pageToItem(p, lang, term, url) {
     source: `Wikipédia (${lang.toUpperCase()})`,
     url: link,
     youtubeLinks: ytLinks,
-    image: p.thumbnail?.source
+    image: validThumb
       ? {
-          url: String(p.thumbnail.source),
+          url: thumbUrl,
           alt: `Ilustração de «${clean(p.title, 70)}»`,
           credit: `Wikimedia Commons · ${clean(p.title, 50)}`,
           page: link,
@@ -274,8 +280,8 @@ export async function commonsImageSearch(term, signal, limit = 4) {
       const mime = String(info.mime || '').toLowerCase();
       if (!/^image\/(jpeg|png|svg\+xml|webp)$/.test(mime)) continue;
       const title = String(p.title || '').replace(/^File:/i, '');
-      // Ignorar ícones, brasões, selos militares/institucionais, documentos digitalizados, lápides, retratos genéricos ou capturas irrelevantes.
-      if (/\b(icon|logo|flag_of|stub|edit|arrow|button|page_\d|djvu|signature|seal|emblem|coat_of_arms|insignia|crest|patch|badge|air_force|força_aérea|forca_aerea|military|army|navy|usaf|bandeira|brasão|brasao|gravestone|tombstone|memorial_plaque|book_cover|title_page|frontispiece|newspaper|manuscript|scan|stamp|postage|coin_obverse)\b/i.test(title)) continue;
+      // Ignorar ícones, logotipos, brasões, selos militares/institucionais, documentos digitalizados ou capas irrelevantes.
+      if (JUNK_MEDIA_RE.test(title)) continue;
       if ((info.width && info.width < 320) || (info.height && info.height < 200)) continue;
       if (info.width && info.height) {
         const ratio = info.width / info.height;
