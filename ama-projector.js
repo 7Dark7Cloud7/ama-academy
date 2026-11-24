@@ -1044,6 +1044,11 @@
       <div class="pj-slide-progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
       ${(P.drawOn || hasStrokes) ? `<canvas class="pj-draw-canvas ${P.drawOn ? 'active' : ''}" aria-label="Quadro de anotações do docente"></canvas>` : ''}
       ${(P.laserOn && !P.drawOn && slide.layout !== 'scene-3d') ? `<span class="pj-laser-dot" aria-hidden="true"></span>` : ''}
+      ${P.narrating ? `<div class="pj-caption-bar" role="status" aria-live="polite">
+        <span class="pj-cap-tag">🔊 AUTO-AULA</span>
+        <p>${esc(slide.narration || slide.notes || slide.subtitle || slide.title || '')}</p>
+        <button type="button" onclick="AMAProjector.toggleNarrate()" aria-label="Parar Auto-Aula">⏹</button>
+      </div>` : ''}
       ${P.pulseOpen ? `<div class="pj-pulse-bar" role="region" aria-label="Pulso da turma" onclick="event.stopPropagation()">
         <span class="pj-pulse-q">⚡ A turma acompanhou este ponto?</span>
         <div class="pj-pulse-btns">
@@ -1410,7 +1415,7 @@
         <span class="pj-mp-h">Sala de Aula (atalhos)</span>
         <div class="pj-mp-row">
           <button type="button" onclick="AMAProjector.openPresenterWindow()">🖥 Janela do Docente</button>
-          <button type="button" class="${P.narrating ? 'on' : ''}" onclick="AMAProjector.toggleNarrate()">${P.narrating ? '⏹ Parar Voz' : '🔊 Narrar Aula (V)'}</button>
+          <button type="button" class="${P.narrating ? 'on' : ''}" onclick="AMAProjector.toggleNarrate()">${P.narrating ? '⏹ Parar Auto-Aula' : '▶ Auto-Aula + Voz (V)'}</button>
           <button type="button" class="${P.pulseOpen ? 'on' : ''}" onclick="AMAProjector.togglePulse()">⚡ Pulso Turma (P)</button>
           <button type="button" class="${P.showNotes ? 'on' : ''}" onclick="AMAProjector.toggleNotes()">Notas (N)</button>
           <button type="button" class="${P.revealMode ? 'on' : ''}" onclick="AMAProjector.toggleRevealMode()">1-a-1 (S)</button>
@@ -1968,48 +1973,59 @@
     },
     stopNarrate() {
       P.narrating = false;
+      if (P._autoPlayTimer) { clearTimeout(P._autoPlayTimer); P._autoPlayTimer = null; }
       try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch { }
     },
     toggleNarrate() {
       P.moreOpen = false;
       if (P.narrating) {
         this.stopNarrate();
-        toast('Narração por voz parada.');
+        toast('Auto-Aula pausada.');
         return render();
       }
-      if (!P.deck || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
-        return toast('Síntese de voz indisponível neste navegador.');
-      }
+      if (!P.deck) return;
       P.narrating = true;
+      const advanceSlide = () => {
+        if (!P.narrating || !P.deck) return;
+        if (P.slideIdx < P.deck.slides.length - 1) {
+          P.slideIdx += 1;
+          broadcastPresenterState();
+          render();
+          setTimeout(speakCurrent, 500);
+        } else {
+          this.stopNarrate();
+          toast('🎉 Auto-Aula concluída!');
+          render();
+        }
+      };
       const speakCurrent = () => {
         if (!P.narrating || !P.deck) return;
+        if (P._autoPlayTimer) { clearTimeout(P._autoPlayTimer); P._autoPlayTimer = null; }
         const sl = P.deck.slides[P.slideIdx];
-        if (!sl) { P.narrating = false; render(); return; }
+        if (!sl) { this.stopNarrate(); render(); return; }
+        if (sl.layout === 'scene-3d' && !P.tour3DRunning) {
+          setTimeout(() => { if (P.narrating && !P.tour3DRunning) this.toggle3DTour(); }, 250);
+        }
         const txt = String(sl.narration || sl.notes || sl.subtitle || sl.title || '').trim();
-        if (!txt) { P.narrating = false; render(); return; }
-        try { window.speechSynthesis.cancel(); } catch { }
-        const u = new SpeechSynthesisUtterance(txt);
-        u.lang = 'pt-PT';
-        u.rate = 1.02;
-        const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
-        const ptVoice = voices.find((v) => /^pt-PT/i.test(v.lang)) || voices.find((v) => /^pt/i.test(v.lang));
-        if (ptVoice) u.voice = ptVoice;
-        u.onend = () => {
-          if (!P.narrating || !P.deck) return;
-          if (P.slideIdx < P.deck.slides.length - 1) {
-            P.slideIdx += 1;
-            render();
-            setTimeout(speakCurrent, 450);
-          } else {
-            P.narrating = false;
-            toast('Narração da apresentação concluída.');
-            render();
-          }
-        };
-        u.onerror = () => { P.narrating = false; render(); };
-        window.speechSynthesis.speak(u);
+        const estMs = Math.max(5200, Math.min(14000, txt.length * 62));
+        if (window.speechSynthesis && typeof SpeechSynthesisUtterance !== 'undefined' && txt) {
+          try { window.speechSynthesis.cancel(); } catch { }
+          const u = new SpeechSynthesisUtterance(txt);
+          u.lang = /[a-z]/i.test(txt) && /\b(the|and|with|presentation|interview)\b/i.test(txt) ? 'en-US' : 'pt-PT';
+          u.rate = 1.02;
+          const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+          const matchVoice = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith(u.lang.slice(0, 2).toLowerCase()));
+          if (matchVoice) u.voice = matchVoice;
+          let handled = false;
+          u.onend = () => { if (!handled) { handled = true; clearTimeout(P._autoPlayTimer); advanceSlide(); } };
+          u.onerror = () => { if (!handled) { handled = true; clearTimeout(P._autoPlayTimer); P._autoPlayTimer = setTimeout(advanceSlide, 4500); } };
+          window.speechSynthesis.speak(u);
+          P._autoPlayTimer = setTimeout(() => { if (!handled) { handled = true; advanceSlide(); } }, estMs + 2500);
+        } else {
+          P._autoPlayTimer = setTimeout(advanceSlide, estMs);
+        }
       };
-      toast('🔊 A narrar aula automaticamente (prima V para parar).');
+      toast('▶ Auto-Aula iniciada com voz e legendas ao vivo (prima V para parar).');
       render();
       speakCurrent();
     },

@@ -209,9 +209,13 @@
     { id: 'int-5', titulo: 'Estágio em Comunicação Bilíngue & Relações Institucionais', empresa: 'Hub Internacional de Negócios AO', local: 'Benguela / Luanda · Híbrido', area: 'Idiomas', duracao: '4 meses', bolsa: 'Remunerado', requisitos: 'Inglês B2+ e boa expressão escrita.' },
   ];
 
+  let pomoTimerId = null;
+  let examTimerId = null;
+
   const CS = {
-    tab: 'turmas', // 'turmas' | 'materias' | 'online' | 'universidades' | 'delegados' | 'carreira'
+    tab: 'turmas', // 'turmas' | 'materias' | 'exames' | 'online' | 'universidades' | 'delegados' | 'carreira'
     activeClassId: '',
+    classSubView: 'programa', // 'programa' | 'pauta'
     liveRoomId: '',
     uniFilter: 'Todas',
     uniQuery: '',
@@ -219,6 +223,18 @@
     subjectFilter: 'Todas',
     subjectQuery: '',
     careerSubTab: 'todos', // 'todos' | 'mentorias' | 'estagios'
+    examMode: 'simulado', // 'simulado' | 'flashcards'
+    activeExamId: 'ex-acesso-mat',
+    examAnswers: {},
+    examResult: null,
+    examSecLeft: 900,
+    fcSubject: 'Todas',
+    fcIdx: 0,
+    fcFlipped: false,
+    fcKnown: {},
+    showFcGen: false,
+    pomoSec: 1500,
+    pomoRunning: false,
     showCreateClass: false,
     showPublishLesson: false,
     showCreateOnline: false,
@@ -252,8 +268,9 @@
       completedUnits: (saved && saved.completedUnits && typeof saved.completedUnits === 'object') ? saved.completedUnits : { 'cls-isptec-inf2:0': true, 'cls-isptec-inf2:1': true },
       bookedMentorships: (saved && Array.isArray(saved.bookedMentorships)) ? saved.bookedMentorships : [],
       appliedInternships: (saved && Array.isArray(saved.appliedInternships)) ? saved.appliedInternships : [],
+      customFlashcards: (saved && Array.isArray(saved.customFlashcards)) ? saved.customFlashcards : [],
     };
-    // Garantir que turmas antigas sem programa recebem um programa padrão estruturado
+    // Garantir que turmas antigas sem programa/pauta recebem estrutura completa
     CS.data.classes.forEach((c) => {
       if (!Array.isArray(c.programa) || !c.programa.length) {
         c.programa = [
@@ -264,6 +281,14 @@
         ];
       }
       if (!Array.isArray(c.mural)) c.mural = [];
+      if (!Array.isArray(c.pauta) || !c.pauta.length) {
+        c.pauta = [
+          { id: 'st-1', numero: 'CEU-2026-0412', nome: 'João Mateus', presente: true, pp1: 15, pp2: 16, exame: '' },
+          { id: 'st-2', numero: 'CEU-2026-0589', nome: 'Ana Paula Silva', presente: true, pp1: 11, pp2: 12, exame: 11 },
+          { id: 'st-3', numero: 'CEU-2026-0734', nome: 'Carlos Alberto Mendes', presente: true, pp1: 9, pp2: 10, exame: '' },
+          { id: 'st-4', numero: 'CEU-2026-0891', nome: 'Helena Francisco', presente: false, pp1: 14, pp2: 14, exame: '' },
+        ];
+      }
     });
     return CS.data;
   }
@@ -373,6 +398,63 @@
   /* ------------------------------------------------------------------ */
   /* Sala Completa da Turma (Programa, Slides, PDFs, Online, Mural)     */
   /* ------------------------------------------------------------------ */
+  function renderClassroomPauta(cls) {
+    const tools = (window.Study && window.Study.CampusTools) || {};
+    const calcRow = tools.computeFinalPautaRow || ((r) => ({ ...r, mf: Number(((Number(r.pp1 || 0) + Number(r.pp2 || 0)) / 2).toFixed(1)), notaFinal: '—', estado: 'Em curso' }));
+    const rows = (cls.pauta || []).map((r) => calcRow(r, CS.pesoFreq));
+    const presCount = rows.filter((r) => r.presente !== false).length;
+    const attUrl = `${location.origin}${location.pathname}#/campus?presenca=${encodeURIComponent(cls.codigo)}`;
+    const qrSvg = (window.Study && window.Study.QR && typeof window.Study.QR.renderQrSvg === 'function')
+      ? window.Study.QR.renderQrSvg(attUrl, { size: 96, fg: '#00217e', bg: '#ffffff', label: `QR Presença ${cls.codigo}` })
+      : '';
+
+    return `<div class="cp-pauta-wrap" data-testid="campus-classroom-pauta">
+      <div class="card cp-att-card">
+        <div>
+          <span class="eyebrow-t">CHAMADA RÁPIDA &amp; QR DE PRESENÇA</span>
+          <h3 style="margin:4px 0 6px">Registo de Presenças (${presCount}/${rows.length} presentes)</h3>
+          <p class="cp-meta">Projete o código QR no quadro para os estudantes confirmarem presença com o telemóvel, ou marque manualmente na pauta abaixo.</p>
+          <div class="flex wrap" style="gap:8px;margin-top:10px">
+            <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.exportClassPautaCsv('${escAttr(cls.id)}')">⬇ Exportar Pauta Excel (.CSV)</button>
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.printClassPauta('${escAttr(cls.id)}')">🖨 Imprimir Pauta Oficial (PDF)</button>
+          </div>
+        </div>
+        ${qrSvg ? `<div class="cp-att-qr">${qrSvg}<small>${esc(cls.codigo)}</small></div>` : ''}
+      </div>
+
+      <section class="card cp-cr-box" style="margin-top:14px">
+        <div class="cp-form-h">
+          <h3>📊 Mini-Pauta Automática (0–20 valores)</h3>
+          <form class="flex wrap" style="gap:6px" onsubmit="event.preventDefault();CEUCampus.addPautaStudent('${escAttr(cls.id)}')">
+            <input id="pf-nome" placeholder="Nome do estudante" required style="padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:12.5px">
+            <input id="pf-num" placeholder="N.º CEU" style="width:120px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:12.5px">
+            <button type="submit" class="btn btn-o btn-sm">+ Estudante</button>
+          </form>
+        </div>
+        <div class="cp-table-scroll">
+          <table class="cp-pauta-tbl">
+            <thead>
+              <tr><th>N.º CEU</th><th>Estudante</th><th>Presença</th><th>PP1</th><th>PP2</th><th>Freq.</th><th>Exame</th><th>Final</th><th>Resultado</th></tr>
+            </thead>
+            <tbody>
+              ${rows.map((r, ri) => `<tr>
+                <td><code>${esc(r.numero)}</code></td>
+                <td><b>${esc(r.nome)}</b></td>
+                <td><button type="button" class="cp-pres-btn ${r.presente !== false ? 'is-on' : ''}" onclick="CEUCampus.togglePresence('${escAttr(cls.id)}', ${ri})">${r.presente !== false ? '✓ Presente' : '✕ Falta'}</button></td>
+                <td><input type="number" min="0" max="20" step="0.5" value="${escAttr(r.pp1 ?? '')}" onchange="CEUCampus.updatePautaGrade('${escAttr(cls.id)}', ${ri}, 'pp1', this.value)"></td>
+                <td><input type="number" min="0" max="20" step="0.5" value="${escAttr(r.pp2 ?? '')}" onchange="CEUCampus.updatePautaGrade('${escAttr(cls.id)}', ${ri}, 'pp2', this.value)"></td>
+                <td><b>${esc(r.mf ?? '—')}</b></td>
+                <td><input type="number" min="0" max="20" step="0.5" placeholder="—" value="${escAttr(r.exame ?? '')}" onchange="CEUCampus.updatePautaGrade('${escAttr(cls.id)}', ${ri}, 'exame', this.value)"></td>
+                <td><b>${r.notaFinal !== null && r.notaFinal !== undefined ? r.notaFinal : '—'}</b></td>
+                <td><span class="cp-badge ${/Dispensado|Aprovado/i.test(r.estado) ? 'is-navy' : ''}">${esc(r.estado)}</span></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>`;
+  }
+
   function renderClassroomDetail(st, cls) {
     const joined = st.joinedClasses.includes(cls.id);
     const classLessons = st.lessons.filter((l) => l.turmaId === cls.id);
@@ -383,7 +465,13 @@
 
     return `<div class="cp-classroom" data-testid="campus-classroom-detail">
       <div class="cp-cr-top">
-        <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.openClass('')">← Todas as Turmas</button>
+        <div class="flex wrap" style="gap:8px;align-items:center">
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.openClass('')">← Todas as Turmas</button>
+          <div class="cp-pills">
+            <button type="button" class="${CS.classSubView !== 'pauta' ? 'on' : ''}" onclick="CEUCampus.setClassSubView('programa')">📋 Programa &amp; Aulas</button>
+            <button type="button" class="${CS.classSubView === 'pauta' ? 'on' : ''}" onclick="CEUCampus.setClassSubView('pauta')">📊 Pauta 0–20 &amp; Presenças QR</button>
+          </div>
+        </div>
         <div class="flex wrap" style="gap:8px">
           <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadSyllabusPdf('${escAttr(cls.id)}')">📄 Baixar Programa &amp; Sebenta (PDF)</button>
           <button type="button" class="btn ${joined ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.toggleJoinClass('${escAttr(cls.id)}')">${joined ? '✓ Inscrito nesta Turma' : '+ Inscrever na Turma'}</button>
@@ -403,7 +491,7 @@
         </div>
       </div>
 
-      <div class="cp-cr-cols">
+      ${CS.classSubView === 'pauta' ? renderClassroomPauta(cls) : `<div class="cp-cr-cols">
         <section class="card cp-cr-box">
           <div class="cp-form-h"><h3>📋 Programa &amp; Matérias da Disciplina</h3><small class="muted">Marque o que já estudou</small></div>
           <ul class="cp-unit-list">
@@ -450,7 +538,7 @@
             </div>
           </div>
         </section>
-      </div>
+      </div>`}
     </div>`;
   }
 
@@ -900,19 +988,132 @@
     w.document.close();
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Tab Exames Cronometrados (0–20) & Flashcards 3D (Repetição Ativa)  */
+  /* ------------------------------------------------------------------ */
+  function renderExamsAndFlashcardsTab(st) {
+    const tools = (window.Study && window.Study.CampusTools) || {};
+    const banks = tools.EXAM_BANKS || [];
+    const baseCards = (tools.FLASHCARD_DECKS || []).concat(st.customFlashcards || []);
+
+    if (CS.examMode === 'flashcards') {
+      const subjects = ['Todas', ...Array.from(new Set(baseCards.map((c) => c.subject)))];
+      const deck = baseCards.filter((c) => CS.fcSubject === 'Todas' || c.subject === CS.fcSubject);
+      const curIdx = deck.length ? Math.max(0, Math.min(CS.fcIdx, deck.length - 1)) : 0;
+      const cur = deck[curIdx] || null;
+      const knownCount = deck.filter((c) => CS.fcKnown[c.id]).length;
+
+      return `<div class="cp-section" data-testid="campus-flashcards-view">
+        <div class="cp-bar">
+          <div class="cp-pills">
+            <button type="button" onclick="CEUCampus.setExamMode('simulado')">📝 Simulados de Exame (0–20)</button>
+            <button type="button" class="on" onclick="CEUCampus.setExamMode('flashcards')">🃏 Flashcards 3D (${baseCards.length})</button>
+          </div>
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleForm('showFcGen')">+ Criar dos Meus Apontamentos</button>
+        </div>
+
+        ${CS.showFcGen ? `<form class="card cp-form" onsubmit="event.preventDefault();CEUCampus.generateCustomFlashcards()">
+          <div class="cp-form-h"><h3>Gerar Flashcards Automáticos a partir de Apontamentos</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showFcGen')">✕</button></div>
+          <label>Disciplina / Etiqueta <input id="fc-gen-sub" value="Meus Cartões" required></label>
+          <label style="margin-top:8px">Cole definições ou pares "Conceito: Explicação" (1 por linha)
+            <textarea id="fc-gen-txt" rows="4" required placeholder="Fotossíntese: Conversão de luz solar, água e CO2 em glicose e oxigénio.&#10;Mitose: Divisão celular que origina duas células geneticamente idênticas."></textarea>
+          </label>
+          <div class="flex" style="gap:8px;margin-top:10px"><button type="submit" class="btn btn-p btn-sm">✦ Criar Cartões de Estudo</button></div>
+        </form>` : ''}
+
+        <div class="cp-pills" style="margin-bottom:14px">
+          ${subjects.map((s) => `<button type="button" class="${CS.fcSubject === s ? 'on' : ''}" onclick="CEUCampus.setFcSubject('${escAttr(s)}')">${esc(s)}</button>`).join('')}
+        </div>
+
+        ${cur ? `<div class="cp-fc-stage">
+          <button type="button" class="cp-fc-card ${CS.fcFlipped ? 'is-flipped' : ''}" onclick="CEUCampus.flipFlashcard()" aria-label="Virar cartão de estudo">
+            <span class="cp-badge is-navy">${esc(cur.subject)} · Cartão ${curIdx + 1}/${deck.length}</span>
+            <div class="cp-fc-label">${CS.fcFlipped ? 'RESPOSTA / EXPLICAÇÃO' : 'PERGUNTA / CONCEITO'}</div>
+            <h3>${esc(CS.fcFlipped ? cur.back : cur.front)}</h3>
+            <small>Clique no cartão para ${CS.fcFlipped ? 'voltar à pergunta' : 'revelar a resposta'} ↻</small>
+          </button>
+          <div class="cp-fc-controls">
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.stepFlashcard(-1)">← Anterior</button>
+            <button type="button" class="btn ${CS.fcKnown[cur.id] ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.markFlashcardKnown('${escAttr(cur.id)}')">${CS.fcKnown[cur.id] ? '✓ Dominado' : '✓ Já sei este!'}</button>
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.stepFlashcard(1)">Próximo →</button>
+          </div>
+          <p class="muted" style="text-align:center;font-size:12.5px;margin:8px 0 0">Dominados nesta seleção: <b>${knownCount} de ${deck.length}</b></p>
+        </div>` : '<p class="muted">Sem cartões nesta categoria.</p>'}
+      </div>`;
+    }
+
+    const activeExam = banks.find((e) => e.id === CS.activeExamId) || banks[0];
+    const mm = String(Math.floor(CS.examSecLeft / 60)).padStart(2, '0');
+    const ss = String(CS.examSecLeft % 60).padStart(2, '0');
+
+    return `<div class="cp-section" data-testid="campus-exams-view">
+      <div class="cp-bar">
+        <div class="cp-pills">
+          <button type="button" class="on" onclick="CEUCampus.setExamMode('simulado')">📝 Simulados de Exame (0–20)</button>
+          <button type="button" onclick="CEUCampus.setExamMode('flashcards')">🃏 Flashcards 3D (${baseCards.length})</button>
+        </div>
+        ${activeExam ? `<span class="cp-badge is-navy" id="cp-exam-clock">⏱ Tempo recomendado: ${mm}:${ss}</span>` : ''}
+      </div>
+
+      <div class="cp-pills" style="margin-bottom:16px">
+        ${banks.map((b) => `<button type="button" class="${activeExam && activeExam.id === b.id ? 'on' : ''}" onclick="CEUCampus.selectExam('${escAttr(b.id)}')">${esc(b.area)} · ${esc(b.titulo.split('—')[0].trim())}</button>`).join('')}
+      </div>
+
+      ${CS.examResult ? `<div class="card cp-exam-res" data-testid="campus-exam-result">
+        <div class="cp-cr-banner" style="padding:0;border:0;box-shadow:none">
+          <div>
+            <span class="cp-badge is-navy">NOTA NA ESCALA 0–20 VALORES</span>
+            <h2 style="margin:6px 0 4px">${CS.examResult.nota20.toFixed(1).replace('.', ',')} / 20 valores — ${esc(CS.examResult.nivel)}</h2>
+            <p class="cp-meta">Acertou <b>${CS.examResult.correct} de ${CS.examResult.total}</b> questões em «${esc(CS.examResult.title)}».</p>
+          </div>
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.resetExam()">↻ Repetir Simulado</button>
+        </div>
+        <div class="cp-exam-corr">
+          ${CS.examResult.details.map((d, i) => `<div class="cp-corr-item ${d.isRight ? 'is-ok' : 'is-bad'}">
+            <b>${i + 1}. ${esc(d.question)}</b>
+            <span>A sua resposta: <em>${esc(d.pickedOption)}</em> ${d.isRight ? '✓ Correta' : `✕ (Correta: ${esc(d.correctOption)})`}</span>
+            <small>💡 Explicação: ${esc(d.explanation)}</small>
+          </div>`).join('')}
+        </div>
+      </div>` : ''}
+
+      ${activeExam ? `<div class="card cp-form" style="margin-top:12px">
+        <div class="cp-form-h"><h3>${esc(activeExam.titulo)}</h3><small class="muted">${activeExam.questions.length} questões · Escala 0–20 valores</small></div>
+        <div class="cp-q-list">
+          ${activeExam.questions.map((q, qi) => `<div class="cp-q-box">
+            <b>${qi + 1}. ${esc(q.q)}</b>
+            <div class="cp-q-opts">
+              ${q.opts.map((opt, oi) => `<label class="cp-q-opt ${Number(CS.examAnswers[qi]) === oi ? 'is-sel' : ''}">
+                <input type="radio" name="exq-${qi}" ${Number(CS.examAnswers[qi]) === oi ? 'checked' : ''} onchange="CEUCampus.pickExamAnswer(${qi}, ${oi})">
+                <span>${esc(opt)}</span>
+              </label>`).join('')}
+            </div>
+          </div>`).join('')}
+        </div>
+        <div class="flex wrap" style="gap:10px;margin-top:14px">
+          <button type="button" class="btn btn-p" onclick="CEUCampus.submitExam()">✓ Entregar e Corrigir (0–20 valores)</button>
+        </div>
+      </div>` : ''}
+    </div>`;
+  }
+
   function campusView() {
     hydrateFromDb();
     const st = loadState();
+    const pMin = String(Math.floor(CS.pomoSec / 60)).padStart(2, '0');
+    const pSec = String(CS.pomoSec % 60).padStart(2, '0');
     const tabs = [
       ['turmas', `🏫 Turmas & Salas (${st.classes.length})`],
-      ['materias', `📚 Matérias, Slides & PDFs (${st.subjects.length})`],
+      ['materias', `📚 Matérias & PDFs (${st.subjects.length})`],
+      ['exames', '📝 Exames & Flashcards'],
       ['online', `🔴 Aulas Online (${st.onlineClasses.length})`],
       ['universidades', `🎓 Escolas & Faculdades (${st.universities.length})`],
-      ['delegados', `🏅 Presidentes AE & Delegados (${st.delegates.length})`],
-      ['carreira', `🧭 Mentorias & Estágios (${st.mentorships.length + st.internships.length})`],
+      ['delegados', `🏅 Presidentes AE & Delegados`],
+      ['carreira', `🧭 Mentorias & Estágios`],
     ];
     let body = '';
     if (CS.tab === 'materias') body = renderSubjectsTab(st);
+    else if (CS.tab === 'exames') body = renderExamsAndFlashcardsTab(st);
     else if (CS.tab === 'online') body = renderOnlineTab(st);
     else if (CS.tab === 'universidades') body = renderUniversitiesTab(st);
     else if (CS.tab === 'delegados') body = renderDelegatesTab(st);
@@ -923,17 +1124,18 @@
       <div class="cp-hero">
         <div>
           <span class="eyebrow-t">CAMPUS DIGITAL · ESCOLAS &amp; UNIVERSIDADES DE ANGOLA</span>
-          <h1>Salas de Turma, Matérias, Aulas Online &amp; Carreira</h1>
-          <p>Estude pelo <b>programa oficial da disciplina</b>, descarregue <b>sebentas em PDF</b>, gere <b>Slides 3D</b>, inscreva-se em <b>aulas online ao vivo</b>, calcule a sua <b>média de dispensa/exame</b> e aceda a mentorias e estágios.</p>
+          <h1>Salas de Turma, Matérias, Exames, Aulas Online &amp; Carreira</h1>
+          <p>Estude pelo <b>programa oficial</b>, baixe <b>sebentas PDF</b>, treine <b>exames 0–20 e flashcards 3D</b>, gere <b>pautas e presenças por QR</b>, inscreva-se em <b>aulas online</b> e aceda a mentorias e estágios.</p>
         </div>
         <div class="cp-hero-side">
           <div class="flex wrap" style="gap:8px;justify-content:flex-end">
             <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleFinder(true)">🔍 Pesquisar Tudo (Ctrl+K)</button>
             <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleForm('showGradeCalc')">🎯 Simulador Média 0–20</button>
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.togglePomodoro()"><span id="cp-pomo-lbl">${CS.pomoRunning ? `⏸ Foco ${pMin}:${pSec}` : `⏱ Foco ${pMin}:${pSec}`}</span></button>
           </div>
           <div class="flex wrap" style="gap:8px;justify-content:flex-end">
             <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.setTab('turmas');CEUCampus.openClass('');CEUCampus.toggleForm('showCreateClass')">+ Nova Turma</button>
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.setTab('online');CEUCampus.toggleForm('showCreateOnline')">🔴 Agendar Aula Online</button>
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.setTab('exames')">📝 Simulado 0–20</button>
           </div>
         </div>
       </div>
@@ -998,7 +1200,172 @@
       CS.activeClassId = '';
       if (typeof render === 'function') render();
     },
-    openClass(id) { CS.activeClassId = String(id || ''); if (typeof render === 'function') render(); },
+    openClass(id) { CS.activeClassId = String(id || ''); CS.classSubView = 'programa'; if (typeof render === 'function') render(); },
+    setClassSubView(v) { CS.classSubView = v === 'pauta' ? 'pauta' : 'programa'; if (typeof render === 'function') render(); },
+    togglePomodoro() {
+      if (pomoTimerId) {
+        clearInterval(pomoTimerId);
+        pomoTimerId = null;
+        CS.pomoRunning = false;
+        if (typeof render === 'function') render();
+        return;
+      }
+      CS.pomoRunning = true;
+      if (CS.pomoSec <= 0) CS.pomoSec = 1500;
+      if (typeof toast === 'function') toast('⏱ Ciclo Pomodoro de 25 min iniciado! Bom foco.');
+      if (typeof render === 'function') render();
+      pomoTimerId = setInterval(() => {
+        CS.pomoSec = Math.max(0, CS.pomoSec - 1);
+        const lbl = document.getElementById('cp-pomo-lbl');
+        if (lbl) {
+          const m = String(Math.floor(CS.pomoSec / 60)).padStart(2, '0');
+          const s = String(CS.pomoSec % 60).padStart(2, '0');
+          lbl.textContent = `⏸ Foco ${m}:${s}`;
+        }
+        if (CS.pomoSec <= 0) {
+          clearInterval(pomoTimerId);
+          pomoTimerId = null;
+          CS.pomoRunning = false;
+          CS.pomoSec = 1500;
+          if (typeof toast === 'function') toast('🎉 25 minutos de estudo concluídos! Faça uma pausa de 5 min.');
+          if (typeof render === 'function') render();
+        }
+      }, 1000);
+    },
+    setExamMode(m) { CS.examMode = m === 'flashcards' ? 'flashcards' : 'simulado'; if (typeof render === 'function') render(); },
+    selectExam(id) {
+      CS.activeExamId = id;
+      CS.examAnswers = {};
+      CS.examResult = null;
+      const tools = (window.Study && window.Study.CampusTools) || {};
+      const found = (tools.EXAM_BANKS || []).find((e) => e.id === id);
+      CS.examSecLeft = ((found && found.duracaoMin) || 12) * 60;
+      if (examTimerId) clearInterval(examTimerId);
+      examTimerId = setInterval(() => {
+        if (CS.tab !== 'exames' || CS.examResult) return;
+        CS.examSecLeft = Math.max(0, CS.examSecLeft - 1);
+        const el = document.getElementById('cp-exam-clock');
+        if (el) {
+          const mm = String(Math.floor(CS.examSecLeft / 60)).padStart(2, '0');
+          const ss = String(CS.examSecLeft % 60).padStart(2, '0');
+          el.textContent = `⏱ Tempo recomendado: ${mm}:${ss}`;
+        }
+      }, 1000);
+      if (typeof render === 'function') render();
+    },
+    pickExamAnswer(qi, oi) { CS.examAnswers[qi] = oi; if (typeof render === 'function') render(); },
+    submitExam() {
+      const tools = window.Study && window.Study.CampusTools;
+      if (!tools || typeof tools.scoreExamAttempt !== 'function') return;
+      if (examTimerId) { clearInterval(examTimerId); examTimerId = null; }
+      const res = tools.scoreExamAttempt(CS.activeExamId, CS.examAnswers);
+      CS.examResult = res;
+      if (window.Study && window.Study.MvpDB && typeof window.Study.MvpDB.saveQuizAttempt === 'function') {
+        window.Study.MvpDB.saveQuizAttempt({ id: `ex-${Date.now()}`, deckId: res.examId, title: res.title, score: res.nota20, total: 20 }).catch(() => {});
+      }
+      if (typeof toast === 'function') toast(`📝 Simulado corrigido: ${res.nota20.toFixed(1).replace('.', ',')} / 20 valores (${res.nivel})!`);
+      if (typeof render === 'function') render();
+    },
+    resetExam() { CS.examAnswers = {}; CS.examResult = null; if (typeof render === 'function') render(); },
+    setFcSubject(s) { CS.fcSubject = s; CS.fcIdx = 0; CS.fcFlipped = false; if (typeof render === 'function') render(); },
+    flipFlashcard() { CS.fcFlipped = !CS.fcFlipped; if (typeof render === 'function') render(); },
+    stepFlashcard(delta) {
+      const tools = (window.Study && window.Study.CampusTools) || {};
+      const deck = ((tools.FLASHCARD_DECKS || []).concat(loadState().customFlashcards || [])).filter((c) => CS.fcSubject === 'Todas' || c.subject === CS.fcSubject);
+      if (!deck.length) return;
+      CS.fcIdx = (CS.fcIdx + delta + deck.length) % deck.length;
+      CS.fcFlipped = false;
+      if (typeof render === 'function') render();
+    },
+    markFlashcardKnown(id) { CS.fcKnown[id] = !CS.fcKnown[id]; if (typeof render === 'function') render(); },
+    generateCustomFlashcards() {
+      const tools = window.Study && window.Study.CampusTools;
+      const sub = String((document.getElementById('fc-gen-sub') || {}).value || 'Meus Cartões').trim();
+      const txt = String((document.getElementById('fc-gen-txt') || {}).value || '').trim();
+      if (!tools || !txt) return;
+      const created = tools.buildFlashcardsFromText(sub, txt);
+      if (!created.length) return typeof toast === 'function' && toast('Escreva pelo menos uma linha no formato "Conceito: Explicação".');
+      const st = loadState();
+      st.customFlashcards = created.concat(st.customFlashcards || []);
+      CS.showFcGen = false;
+      CS.fcSubject = sub;
+      CS.fcIdx = 0;
+      CS.fcFlipped = false;
+      persistLocal();
+      if (typeof toast === 'function') toast(`🃏 ${created.length} flashcards criados com sucesso!`);
+      if (typeof render === 'function') render();
+    },
+    togglePresence(clsId, rowIdx) {
+      const cls = loadState().classes.find((c) => c.id === clsId);
+      if (!cls || !cls.pauta || !cls.pauta[rowIdx]) return;
+      cls.pauta[rowIdx].presente = cls.pauta[rowIdx].presente === false;
+      persistLocal();
+      saveToMvpDb('classes', cls);
+      if (typeof render === 'function') render();
+    },
+    updatePautaGrade(clsId, rowIdx, field, val) {
+      const cls = loadState().classes.find((c) => c.id === clsId);
+      if (!cls || !cls.pauta || !cls.pauta[rowIdx]) return;
+      cls.pauta[rowIdx][field] = val === '' ? '' : Math.max(0, Math.min(20, Number(val) || 0));
+      persistLocal();
+      saveToMvpDb('classes', cls);
+      if (typeof render === 'function') render();
+    },
+    addPautaStudent(clsId) {
+      const cls = loadState().classes.find((c) => c.id === clsId);
+      const nome = String((document.getElementById('pf-nome') || {}).value || '').trim();
+      const numero = String((document.getElementById('pf-num') || {}).value || '').trim() || `CEU-${String(Date.now()).slice(-4)}`;
+      if (!cls || !nome) return;
+      cls.pauta = Array.isArray(cls.pauta) ? cls.pauta : [];
+      cls.pauta.push({ id: `st-${Date.now()}`, numero, nome, presente: true, pp1: 12, pp2: 12, exame: '' });
+      persistLocal();
+      saveToMvpDb('classes', cls);
+      if (typeof toast === 'function') toast(`Estudante ${nome} adicionado à pauta.`);
+      if (typeof render === 'function') render();
+    },
+    exportClassPautaCsv(clsId) {
+      const cls = loadState().classes.find((c) => c.id === clsId);
+      const tools = window.Study && window.Study.CampusTools;
+      if (!cls || !tools || typeof tools.exportPautaCsv !== 'function') return;
+      const csv = tools.exportPautaCsv(cls.codigo, cls.pauta || [], CS.pesoFreq);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pauta-${cls.codigo.toLowerCase()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1200);
+      if (typeof toast === 'function') toast(`📊 Pauta ${cls.codigo}.csv exportada (pronta para Excel)!`);
+    },
+    printClassPauta(clsId) {
+      const cls = loadState().classes.find((c) => c.id === clsId);
+      const tools = (window.Study && window.Study.CampusTools) || {};
+      if (!cls || !tools.computeFinalPautaRow) return;
+      const rows = (cls.pauta || []).map((r) => tools.computeFinalPautaRow(r, CS.pesoFreq));
+      const w = window.open('', '_blank', 'width=900,height=680');
+      if (!w) return typeof toast === 'function' && toast('Permita popups para imprimir a Pauta Oficial.');
+      w.document.open();
+      w.document.write(`<!doctype html><html lang="pt-AO"><head><meta charset="utf-8"><title>Pauta Oficial · ${esc(cls.codigo)}</title>
+      <style>
+        @page{size:A4 landscape;margin:14mm}body{font-family:system-ui,sans-serif;color:#0b1c3d;padding:20px}
+        h1{margin:4px 0;font-size:20px;color:#00217e}.k{font:800 10px monospace;color:#0066b8;letter-spacing:.1em}
+        table{width:100%;border-collapse:collapse;margin-top:16px;font-size:12.5px}
+        th,td{border:1px solid #cbd9ea;padding:8px 10px;text-align:left}th{background:#00217e;color:#fff;font-size:11px;text-transform:uppercase}
+        tr:nth-child(even){background:#f7faff}
+        .signs{display:flex;justify-content:space-between;margin-top:42px;font-size:12px}
+        .signs div{border-top:1px solid #0b1c3d;padding-top:6px;min-width:220px;text-align:center}
+      </style></head><body>
+        <div class="k">CEU ACADEMY · PAUTA ACADÉMICA DE FREQUÊNCIA E EXAME (ESCALA 0–20)</div>
+        <h1>${esc(cls.instituicao)} · ${esc(cls.codigo)} — ${esc(cls.nome)}</h1>
+        <div>Faculdade/Curso: <b>${esc(cls.faculdade)}</b> · Docente: <b>${esc(cls.docente)}</b> · Horário: ${esc(cls.horario)}</div>
+        <table><thead><tr><th>N.º Estudante</th><th>Nome Completo</th><th>Presença</th><th>PP1</th><th>PP2</th><th>Média Freq.</th><th>Exame</th><th>Nota Final</th><th>Resultado</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr><td>${esc(r.numero)}</td><td><b>${esc(r.nome)}</b></td><td>${r.presente !== false ? 'Presente' : 'Falta'}</td><td>${esc(r.pp1 ?? '')}</td><td>${esc(r.pp2 ?? '')}</td><td><b>${esc(r.mf ?? '')}</b></td><td>${esc(r.exame ?? '—')}</td><td><b>${esc(r.notaFinal ?? '—')}</b></td><td>${esc(r.estado)}</td></tr>`).join('')}</tbody></table>
+        <div class="signs"><div>O Docente Responsável<br><b>${esc(cls.docente)}</b></div><div>Coordenação Académica<br><b>${esc(cls.instituicao)}</b></div></div>
+        <script>setTimeout(()=>window.print(),300);</script>
+      </body></html>`);
+      w.document.close();
+    },
     setCareerSubTab(v) { CS.careerSubTab = v; if (typeof render === 'function') render(); },
     setTurmaFilter(v) { CS.turmaFilter = v; CS.activeClassId = ''; if (typeof render === 'function') render(); },
     setSubjectFilter(v) { CS.subjectFilter = v; if (typeof render === 'function') render(); },
@@ -1414,6 +1781,7 @@
     on('/escolas', campusView);
     on('/turmas', campusView);
     on('/materias', () => { CS.tab = 'materias'; return campusView(); });
+    on('/exames', () => { CS.tab = 'exames'; return campusView(); });
     on('/aulas-online', () => { CS.tab = 'online'; return campusView(); });
     on('/mentorias', () => { CS.tab = 'carreira'; CS.careerSubTab = 'mentorias'; return campusView(); });
     on('/estagios', () => { CS.tab = 'carreira'; CS.careerSubTab = 'estagios'; return campusView(); });

@@ -83,6 +83,57 @@
     },
   ];
 
+  const CEU_LESSON_NOTES = {
+    101: [
+      'Domine simplificação de frações algébricas, produtos notáveis ((a+b)² = a² + 2ab + b²) e fatorização antes de avançar para o cálculo. Exemplo prático: simplificar custos unitários de produção em função do volume.',
+      'Resolva equações do 1.º e 2.º grau (fórmula resolvente Δ = b² - 4ac) e estude sinais em inequações com quadro de sinais completo — erro comum em exame: esquecer de inverter a desigualdade ao multiplicar por número negativo.',
+      'Interprete domínio, contradomínio, zeros, monotonia e gráficos cartesianos de funções afins, quadráticas e exponenciais.',
+      'Modele receitas, custos fixos/variáveis e ponto de equilíbrio (break-even) em problemas reais de Engenharia e Economia em Angola.',
+    ],
+    102: [
+      '1.ª Lei (Inércia): todo corpo permanece em repouso ou MRU se a resultante das forças for nula (ΣF = 0). Exemplo em Luanda: o cinto de segurança aplica a força externa que trava o passageiro.',
+      '2.ª Lei Fundamental: F_res = m · a. Decomponha forças nos eixos Ox e Oy antes de substituir valores em unidades SI (kg, m/s², Newton).',
+      'Massa (kg, escalar invariante) vs. Peso (P = m · g, força vetorial vertical que depende da gravidade local g ≈ 9,8 m/s²).',
+      'Método em 4 passos para qualquer exercício de dinâmica: 1) Isolar cada corpo; 2) Desenhar Peso, Normal, Tração e Atrito; 3) Escolher eixos; 4) Resolver o sistema.',
+    ],
+    103: [
+      'Substitua sublinhados passivos pelo método Cornell: coluna de perguntas à esquerda, ideias nucleares à direita e síntese de 3 linhas no rodapé.',
+      'Divida o estudo em blocos focados de 25–45 minutos com metas concretas por unidade do programa oficial da disciplina.',
+      'Aplique repetição espaçada (1 dia, 3 dias, 7 dias e 21 dias) para transferir fórmulas e definições da memória curta para a memória de longo prazo.',
+      'Na véspera e no dia do exame: resolva provas anteriores cronometradas, comece pelas perguntas que domina e reserve 10 minutos finais para rever sinais e unidades.',
+    ],
+    104: [
+      'Compreenda limites laterais, continuidade e levantamento de indeterminações 0/0 e ∞/∞ por fatorização ou conjugado.',
+      'Domine as regras de derivação (potência, produto, quociente) e a regra da cadeia (f(g(x)))\' = f\'(g(x)) · g\'(x) sem saltar etapas.',
+      'A derivada f\'(x₀) representa o declive da reta tangente e a taxa instantânea de variação (velocidade na Física, custo marginal na Economia).',
+      'Encontre máximos e mínimos reais anulando a 1.ª derivada (f\'(x) = 0) e validando concavidade com o estudo do sinal ou 2.ª derivada.',
+    ],
+    105: [
+      'Estruture apresentações orais em inglês com Signposting claro: "Today I will cover three main points…", "Turning now to…", "To sum up, the key takeaway is…".',
+      'Leia papers e capítulos técnicos usando Skimming (ideia global pelo abstract e subtítulos) e Scanning (dados e conclusões), anotando conectores académicos (moreover, tuttavia/however, therefore).',
+      'Escreva emails formais para docentes/empresas ("I am writing regarding the internship opening…") e construa um CV internacional orientado a resultados mensuráveis.',
+      'Domine vocabulário técnico e o método STAR (Situation, Task, Action, Result) para responder com segurança em entrevistas de estágio e bolsas internacionais.',
+    ],
+    106: [
+      'Aplique a matriz editorial 4:3:3 (40% conteúdo educativo útil, 30% autoridade/bastidores, 30% oferta direta) adaptada ao público angolano.',
+      'Configure campanhas Meta Ads segmentadas para Luanda, Benguela, Huambo ou Lubango com criativos verticais claros e encaminhamento direto para WhatsApp Business.',
+      'Leia e otimize indicadores reais: CTR (atratividade do anúncio), CPL (custo por conversa iniciada), CAC (custo por cliente) e ROAS (retorno sobre investimento em Kz).',
+      'Monte um estudo de caso real de uma marca ou negócio local para apresentar como portfólio prático em candidaturas de estágio.',
+    ],
+    107: [
+      'Limpe bases de dados desorganizadas, domine PROCX / PROCV, SE aninhado, SOMASES e crie Tabelas Dinâmicas em segundos.',
+      'Ligue tabelas no Power BI, crie medidas DAX essenciais (Total Vendas, Variação Mensal %) e desenhe visuais limpos e interativos.',
+      'Automatize mapas de tesouraria em Kwanzas, pautas escolares e relatórios mensais sem retrabalho manual.',
+      'Transforme números brutos em recomendações executivas claras para tomada de decisão em Banca, Energia, Logística e Gestão.',
+    ],
+    108: [
+      'Conduza assembleias de turma objetivas com ordem de trabalhos definida, tempo controlado e elaboração imediata de Ata com responsáveis e prazos.',
+      'Comunique pedidos e propostas da turma à coordenação de curso de forma construtiva, documentada e orientada a soluções.',
+      'Domine respiração, dicção, postura e estrutura PREP (Ponto, Razão, Exemplo, Conclusão) para falar em público e defender a monografia.',
+      'Planeie jornadas científicas, grupos de monitoria entre pares e feiras de estágio em parceria com a Associação de Estudantes (AE).',
+    ],
+  };
+
   function injectCourses() {
     if (!isCeu()) return;
     const data = window.AMA_DATA || (window.AMA_DATA = { cursos: [] });
@@ -90,26 +141,60 @@
     data.categorias = Array.isArray(data.categorias) ? data.categorias : ['Todas'];
     const detail = data.detalhe || (data.detalhe = {});
     CEU_COURSES.forEach((c, ci) => {
-      if (!data.cursos.some((x) => x.id === c.id || x.slug === c.slug)) data.cursos.unshift(JSON.parse(JSON.stringify(c)));
+      const existingIdx = data.cursos.findIndex((x) => x.id === c.id || x.slug === c.slug);
+      if (existingIdx < 0) data.cursos.unshift(JSON.parse(JSON.stringify(c)));
+      else data.cursos[existingIdx] = { ...data.cursos[existingIdx], poster: c.poster, preco_kz: 0 };
       if (c.categoria && !data.categorias.includes(c.categoria)) data.categorias.push(c.categoria);
-      if (!detail[String(c.id)]) {
-        const lessons = (c.aprendizagens || []).slice(0, 5).map((a, li) => ({
+      const richNotes = CEU_LESSON_NOTES[c.id] || [];
+      const curDet = detail[String(c.id)];
+      const needsUpgrade = !curDet || !Array.isArray(curDet.seccoes) || curDet.seccoes.some((s) => (s.aulas || []).some((a) => !a.livre || String(a.resumo || '').length < 110));
+      if (needsUpgrade) {
+        const items = (c.aprendizagens || []).slice(0, 4);
+        const mod1 = items.slice(0, 2).map((a, li) => ({
           id: 9000 + ci * 10 + li,
           course_id: c.id,
           titulo: a,
-          dur_seg: 360 + li * 60,
-          livre: li === 0 ? 1 : 0,
+          dur_seg: 420 + li * 60,
+          livre: 1,
           tipo: 'video',
-          resumo: `${a}. Aula do curso ${c.titulo}, na CEU Academy.`,
+          resumo: richNotes[li] || `${a} — explicação estruturada passo a passo com exemplos aplicados em Angola no curso ${c.titulo}.`,
+        }));
+        const mod2 = items.slice(2, 4).map((a, li) => ({
+          id: 9000 + ci * 10 + 2 + li,
+          course_id: c.id,
+          titulo: a,
+          dur_seg: 480 + li * 60,
+          livre: 1,
+          tipo: 'video',
+          resumo: richNotes[2 + li] || `${a} — aplicação prática e preparação para avaliações e mercado de trabalho.`,
         }));
         detail[String(c.id)] = {
-          seccoes: [{ id: 900 + ci, course_id: c.id, titulo: 'Módulo 1 · Fundamentos', ordem: 1, aulas: lessons }],
+          seccoes: [
+            { id: 900 + ci * 2, course_id: c.id, titulo: 'Módulo 1 · Base Essencial & Conceitos', ordem: 1, aulas: mod1 },
+            { id: 901 + ci * 2, course_id: c.id, titulo: 'Módulo 2 · Prática Aplicada & Exame', ordem: 2, aulas: mod2 },
+          ],
           instrutor: { id: c.instrutor_id, nome: c.instrutor, handle: c.instrutor.split(' ').slice(-1)[0], avatar_cor: '#0b63c5' },
           aoVivo: [],
         };
       }
     });
     try { localStorage.setItem('ama-data-v1', JSON.stringify(data)); } catch { }
+    // Sincronizar também aulas enriquecidas na base local ama-v1-db se já existir
+    try {
+      const dbRaw = localStorage.getItem('ama-v1-db');
+      if (dbRaw) {
+        const db = JSON.parse(dbRaw);
+        db.detalhe = { ...(db.detalhe || {}), ...detail };
+        CEU_COURSES.forEach((c) => {
+          if (Array.isArray(db.cursos)) {
+            const idx = db.cursos.findIndex((x) => x.id === c.id);
+            if (idx < 0) db.cursos.unshift(JSON.parse(JSON.stringify(c)));
+            else db.cursos[idx] = { ...db.cursos[idx], poster: c.poster, preco_kz: 0 };
+          }
+        });
+        localStorage.setItem('ama-v1-db', JSON.stringify(db));
+      }
+    } catch { }
   }
   injectCourses();
 

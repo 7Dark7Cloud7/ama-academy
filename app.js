@@ -170,8 +170,13 @@ async function render() {
     const m = r.path.replace(/:[^/]+/g, '([^/]+)').replace(/\//g, '\\/');
     const exec = new RegExp('^' + m + '$').exec(pathRaw);
     if (!exec) continue;
-    const prot = /^\/(aluno|certificados|aprender|instrutor|admin|assistente|estudar|revisao|professor|turmas?|lecionar)/.test(pathRaw);
+    const prot = isCeuSite()
+      ? /^\/(aluno|certificados|instrutor|admin|assistente|estudar|revisao|professor|lecionar)/.test(pathRaw)
+      : /^\/(aluno|certificados|aprender|instrutor|admin|assistente|estudar|revisao|professor|turmas?|lecionar)/.test(pathRaw);
     if (prot && !S.user) { return renderAuthNeeded(); }
+    if (/^\/aprender\//.test(pathRaw) && !S.user && isCeuSite()) {
+      await ensureCeuStudentSession();
+    }
     const need = { instrutor: ['INSTRUCTOR', 'ADMIN'], professor: ['INSTRUCTOR', 'ADMIN'], admin: ['ADMIN'], lecionar: ['INSTRUCTOR', 'ADMIN'] }[pathRaw.split('/')[1]];
     if (need && !need.includes(S.user?.papel)) { toast('Sem permissão para essa área.'); return go('/' + homePath()); }
     const names = (r.path.match(/:[^/]+/g) || []).map(s => s.slice(1));
@@ -965,7 +970,7 @@ on('/curso/:id', async ({ args }) => {
   const nAval = curso.alunos.toLocaleString('pt-PT').replace(/ /g, '.');
   return shellPublic(`<div class="detail-hero angola-bg">
   <div class="in">
-    <nav class="crumbs"><a href="#/">${I.home}</a><span>/</span><a href="#/catalogo">Cursos</a><span>/</span><span class="cr-cur">${esc(curso.titulo)}</span></nav>
+    <nav class="crumbs"><a href="${isCeuSite() ? '#/ceu-inicio' : '#/'}">${I.home}</a><span>/</span><a href="#/catalogo">Cursos</a><span>/</span><span class="cr-cur">${esc(curso.titulo)}</span></nav>
     <div class="dh-grid">
       <div class="dh-left">
         <span class="chip chip-lav cat-uppercase">${esc(curso.categoria)}</span>
@@ -977,8 +982,11 @@ on('/curso/:id', async ({ args }) => {
           ${inscrito
             ? `<button class="btn btn-f btn-lg" onclick="go('/aprender/${curso.id}')">Continuar a aprender <span class="btn-arr">${I.arrow}</span></button>
                <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">✦ Abrir em Slides 3D</button>`
-            : `<button class="btn btn-f btn-lg" onclick="openCheckout(${curso.id})">Começar agora <span class="btn-arr">${I.arrow}</span></button>
-               <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">✦ Abrir em Slides 3D</button>`}
+            : (!curso.preco_kz
+                ? `<button class="btn btn-f btn-lg" onclick="enrollFreeCourse(${curso.id})">🎓 Estudar Curso Gratuito <span class="btn-arr">${I.arrow}</span></button>
+                   <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">✦ Abrir em Slides 3D</button>`
+                : `<button class="btn btn-f btn-lg" onclick="openCheckout(${curso.id})">Começar agora <span class="btn-arr">${I.arrow}</span></button>
+                   <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">✦ Abrir em Slides 3D</button>`)}
         </div>
       </div>
       <div class="dh-right">
@@ -987,7 +995,7 @@ on('/curso/:id', async ({ args }) => {
           <div class="arch-ring" aria-hidden="true"></div>
           <div class="arch-photo"><img src="media/${heroMentor}.jpg?v=70" alt="${escAttr(instrutor.nome)} a apresentar a aula" decoding="async"></div>
           <div class="cover-card">
-            <span class="cc-head">${I.brand}<b>AMA<i>Academy</i></b></span>
+            <span class="cc-head">${I.brand}<b>${isCeuSite() ? 'CEU' : 'AMA'}<i>Academy</i></b></span>
             <h4 class="cc-title">${esc(curso.titulo)}</h4>
             <div class="cc-art"><i class="cc-crescent" aria-hidden="true"></i><span class="cc-bubble">${objImg ? `<img src="media/${objImg}.jpg?v=70" alt="" decoding="async">` : objIcon}</span><i class="cc-bubble2" aria-hidden="true"></i></div>
             <span class="cc-foot"><em>${esc(copy.promise || curso.aprendizagens[0])}</em><i class="cc-bar" aria-hidden="true"></i></span>
@@ -1018,21 +1026,31 @@ on('/curso/:id', async ({ args }) => {
       <h2 class="section-title">Requisitos</h2><ul class="req-list">${curso.requisitos.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
       ${reviewsHTML(curso)}
       <div class="trust-4 rv">
-        <span>${I.shield}<b>Compra segura</b><small>MULTICAIXA e Unitel Money</small></span>
-        <span>${I.check}<b>7 dias de garantia</b><small>reembolso total</small></span>
-        <span>${I.globe}<b>Acesso em qualquer lugar</b><small>telemóvel, tablet, PC</small></span>
-        <span>${I.chat}<b>Suporte dedicado</b><small>mentores e tutores</small></span>
+        ${!curso.preco_kz
+          ? `<span>${I.shield}<b>100% Gratuito</b><small>Rede CEU Academy</small></span>
+             <span>${I.cert}<b>Certificado com QR</b><small>verificação instantânea</small></span>
+             <span>${I.globe}<b>Slides 3D &amp; PDF</b><small>telemóvel, tablet e PC</small></span>
+             <span>${I.chat}<b>Tutor IA &amp; Turmas</b><small>apoio contínuo</small></span>`
+          : `<span>${I.shield}<b>Compra segura</b><small>MULTICAIXA e Unitel Money</small></span>
+             <span>${I.check}<b>7 dias de garantia</b><small>reembolso total</small></span>
+             <span>${I.globe}<b>Acesso em qualquer lugar</b><small>telemóvel, tablet, PC</small></span>
+             <span>${I.chat}<b>Suporte dedicado</b><small>mentores e tutores</small></span>`}
       </div>
     </div>
     <aside class="db-right">
       <div class="buy-card">
         ${inscrito
-          ? `<span class="chip chip-g">✓ Matriculado · ${pctDone}% concluído</span><div class="prog-bar" style="margin:12px 0 14px"><i style="width:${pctDone}%"></i></div><button class="btn btn-p btn-lg" style="width:100%;justify-content:center" onclick="go('/aprender/${curso.id}')">Entrar no player</button>`
-          : `<div class="bc-price"><b>${kz(curso.preco_kz)}</b><s>${kz(curso.preco_anterior_kz)}</s></div>
-             <p class="bc-inst">ou <b>${kz(Math.round(curso.preco_kz / 3))}</b> × 3 com MULTICAIXA</p>
-             <button class="btn btn-f btn-lg" style="width:100%;justify-content:center" onclick="openCheckout(${curso.id})">Comprar curso</button>
-             <button class="btn btn-o" style="width:100%;margin-top:10px" onclick="go('/aprender/${curso.id}/${(seccoes[0].aulas.find(a=>a.livre)||{}).id||''}')">${I.play} Assistir aula grátis</button>`}
-        <ul class="bc-perks"><li>✓ Acesso vitalício + certificado</li><li>✓ Aulas ao vivo com o professor</li><li>✓ Kuzaya AI incluído</li><li>✓ Pagamento em Kz · garantia 7 dias</li></ul>
+          ? `<span class="chip chip-g">✓ Matriculado · ${pctDone}% concluído</span><div class="prog-bar" style="margin:12px 0 14px"><i style="width:${pctDone}%"></i></div><button class="btn btn-p btn-lg" style="width:100%;justify-content:center" onclick="go('/aprender/${curso.id}')">Entrar nas aulas</button>`
+          : (!curso.preco_kz
+              ? `<div class="bc-price"><b class="free">Gratuito CEU</b></div>
+                 <p class="bc-inst">Acesso aberto imediato para estudantes e docentes</p>
+                 <button class="btn btn-p btn-lg" style="width:100%;justify-content:center" onclick="enrollFreeCourse(${curso.id})">🎓 Começar Curso Gratuito</button>
+                 <button class="btn btn-o" style="width:100%;margin-top:10px" onclick="projectCourse(${curso.id})">✦ Gerar Slides 3D deste Curso</button>`
+              : `<div class="bc-price"><b>${kz(curso.preco_kz)}</b><s>${kz(curso.preco_anterior_kz)}</s></div>
+                 <p class="bc-inst">ou <b>${kz(Math.round(curso.preco_kz / 3))}</b> × 3 com MULTICAIXA</p>
+                 <button class="btn btn-f btn-lg" style="width:100%;justify-content:center" onclick="openCheckout(${curso.id})">Comprar curso</button>
+                 <button class="btn btn-o" style="width:100%;margin-top:10px" onclick="go('/aprender/${curso.id}/${(seccoes[0].aulas.find(a=>a.livre)||{}).id||''}')">${I.play} Assistir aula grátis</button>`)}
+        <ul class="bc-perks"><li>✓ Acesso completo + certificado com QR Code</li><li>✓ Aulas em Slides 3D e Sebenta PDF</li><li>✓ ${isCeuSite() ? 'Tutor IA CEU incluído' : 'Kuzaya AI incluído'}</li><li>✓ ${curso.preco_kz ? 'Pagamento em Kz · garantia 7 dias' : '100% gratuito na Rede CEU Academy'}</li></ul>
       </div>
       <div class="instrutor-panel rv">
         <span class="ip-eyebrow">SEU INSTRUTOR</span>
@@ -1273,9 +1291,36 @@ on('/biblioteca', async () => {
 });
 
 /* ================================ checkout ================================ */
-window.openCheckout = async (cursoId) => {
+async function ensureCeuStudentSession() {
+  if (S.user) return S.user;
+  let card = null;
+  try { card = JSON.parse(localStorage.getItem('ceu-student-card-v1') || 'null'); } catch { }
+  const nome = (card && card.nome && card.nome !== 'Estudante Universitário CEU') ? card.nome : 'Estudante CEU';
+  const email = 'estudante.ceu.auto@ceu.ao';
+  const senha = 'ceu-auto-session-2026';
+  try { await api('/api/auth/registo', { method: 'POST', body: { nome, email, senha } }); } catch { }
+  try {
+    const { user } = await api('/api/auth/login', { method: 'POST', body: { email, senha } });
+    S.user = user;
+    return user;
+  } catch { return null; }
+}
+
+window.enrollFreeCourse = async (cursoId) => {
+  await ensureCeuStudentSession();
   if (!S.user) return go('/entrar');
+  try {
+    const o = await api('/api/checkout', { method: 'POST', body: { cursoId, metodo: 'MULTICAIXA' } });
+    if (o && o.encomendaId) await api('/api/pagamentos/simular', { method: 'POST', body: { encomendaId: o.encomendaId } });
+  } catch { }
+  toast('🎓 Matrícula gratuita activada! Bom estudo.');
+  go('/aprender/' + cursoId);
+};
+
+window.openCheckout = async (cursoId) => {
   const { curso } = await api('/api/cursos/' + cursoId);
+  if (!curso.preco_kz) return window.enrollFreeCourse(cursoId);
+  if (!S.user) return go('/entrar');
   $('#overlay')?.remove();
   const ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'overlay';
   ov.innerHTML = `<div class="modal"><div class="mh"><h3>Matrícula · simulação local</h3><button class="icon-btn" onclick="document.getElementById('overlay').remove()">✕</button></div>
@@ -1439,23 +1484,30 @@ const CERT_CSS = `
 document.head.insertAdjacentHTML('beforeend', '<style id="oma-cert-css">' + CERT_CSS + '</style>');
 function certDocHTML(c) {
   const horas = Math.round((c.dur_seg || 0) / 360) / 10;
-  return `<article class="cert-doc">
+  const ceu = isCeuSite();
+  const orgName = ceu ? 'CEU Academy · Rede Universitária de Angola' : 'Aristides Miguel Academy';
+  const leadName = ceu ? 'A CEU Academy certifica que' : 'A Aristides Miguel Academy certifica que';
+  const verifyUrl = `${location.origin}${location.pathname}#/verificar/${encodeURIComponent(c.codigo || 'CEU-CERT')}`;
+  const qrMarkup = (window.Study && window.Study.QR && typeof window.Study.QR.renderQrSvg === 'function')
+    ? window.Study.QR.renderQrSvg(verifyUrl, { size: 78, fg: ceu ? '#00217e' : '#0a4229', bg: '#ffffff', label: `QR Certificado ${c.codigo}` })
+    : CERT_SEAL;
+  return `<article class="cert-doc ${ceu ? 'cert-doc-ceu' : ''}">
   ${CERT_CORNERS}
   <div class="cert-in">
-    <div class="cert-top"><span class="cert-mark">${LOGO_SM}</span><div><b>Aristides Miguel Academy</b><small>Academia online feita em Angola · Luanda</small></div></div>
-    <p class="cert-kicker">Certificado de Conclusão</p>
-    <p class="cert-lead">A Aristides Miguel Academy certifica que</p>
-    <h2 class="cert-name">${esc(c.nome)}</h2>
-    <svg class="cert-rule" viewBox="0 0 320 12" preserveAspectRatio="none" aria-hidden="true"><path d="M6 8C80 3 240 3 314 8" pathLength="100"/></svg>
+    <div class="cert-top"><span class="cert-mark" ${ceu ? 'style="background:linear-gradient(140deg,#00217e,#0066b8)"' : ''}>${LOGO_SM}</span><div><b>${orgName}</b><small>${ceu ? 'Ensino Superior & Escolas · Luanda, Angola' : 'Academia online feita em Angola · Luanda'}</small></div></div>
+    <p class="cert-kicker" ${ceu ? 'style="color:#00217e"' : ''}>Certificado de Conclusão</p>
+    <p class="cert-lead">${leadName}</p>
+    <h2 class="cert-name" ${ceu ? 'style="color:#00217e"' : ''}>${esc(c.nome)}</h2>
+    <svg class="cert-rule" viewBox="0 0 320 12" preserveAspectRatio="none" aria-hidden="true"><path d="M6 8C80 3 240 3 314 8" pathLength="100" ${ceu ? 'style="stroke:#0066b8"' : ''}/></svg>
     <p class="cert-lead">concluiu com aproveitamento o curso</p>
     <p class="cert-course">${esc(c.curso)}</p>
     <p class="cert-meta">${c.aulas} aulas · ${String(horas).replace('.', ',')} h de formação · ${esc(c.nivel)}</p>
     <div class="cert-signs">
-      <div class="cert-sign"><span class="cs-nome">${esc(c.instrutor)}</span><span class="cs-lbl">Instrutor</span></div>
-      <div class="cert-stamp">${CERT_SEAL}</div>
+      <div class="cert-sign"><span class="cs-nome">${esc(c.instrutor)}</span><span class="cs-lbl">Docente Responsável</span></div>
+      <div class="cert-stamp" title="Código QR de verificação">${qrMarkup}</div>
       <div class="cert-sign"><span class="cs-data">${esc(fmtData(c.emitido_em))}</span><span class="cs-lbl">Emitido em</span></div>
     </div>
-    <div class="cert-foot"><span>Código de verificação <b>${esc(c.codigo)}</b></span><a href="#/verificar/${escAttr(c.codigo)}">verificar na app ${I.arrow}</a></div>
+    <div class="cert-foot"><span>Código de verificação <b>${esc(c.codigo)}</b></span><a href="#/verificar/${escAttr(c.codigo)}" ${ceu ? 'style="color:#0053a6"' : ''}>verificar autenticidade ${I.arrow}</a></div>
   </div></article>`;
 }
 window.printCert = (i) => {
@@ -1560,6 +1612,7 @@ const aprenderView = async ({ args }) => {
             ${aula.resumo ? `<p>${esc(aula.resumo)}…</p>` : ''}
           </div>
           <div class="lf-r">
+            <button type="button" class="btn btn-o" onclick="projectCurrentLesson()">✦ Slides 3D</button>
             <button class="btn ${doneAula ? 'btn-o' : 'btn-f'}" id="markbtn" onclick="markDone(${aula.id},${curso.id})">${doneAula ? I.check + ' Concluída — anular' : I.check + ' Marcar aula como concluída'}</button>
             ${next ? `<button class="btn btn-o lf-next" onclick="go('/aprender/${curso.id}/${next.id}')">Próxima aula ${I.arrow}</button>` : `<span class="lf-end">${I.cert} Última aula — conclua para o certificado</span>`}
           </div>
@@ -1568,7 +1621,7 @@ const aprenderView = async ({ args }) => {
       <div class="side-tabs">
         <div class="tabs"><button class="on" data-t="conteudo" onclick="playerTab(this)">Conteúdo</button>
           <button data-t="estudo" onclick="playerTab(this)">Resumo IA</button>
-          <button data-t="ia" onclick="playerTab(this)">Kuzaya AI</button>
+          <button data-t="ia" onclick="playerTab(this)">${isCeuSite() ? 'Tutor IA' : 'Kuzaya AI'}</button>
           <button data-t="resumo" onclick="playerTab(this)">Notas</button></div>
         <div class="tab-body" id="tab-body">
           ${seccoes.map(s => `<div class="nav-h lh-sec">${esc(s.titulo)}<b>${s.aulas.filter(a => done.has(a.id)).length}/${s.aulas.length}</b></div>` + s.aulas.map(a =>
@@ -1581,6 +1634,18 @@ const aprenderView = async ({ args }) => {
 };
 on('/aprender/:cid', aprenderView);
 on('/aprender/:cid/:aid', aprenderView);
+window.projectCurrentLesson = () => {
+  const ctx = window.__aulaCtx || {};
+  try {
+    sessionStorage.setItem('ama-pj-prefill', JSON.stringify({
+      title: ctx.titulo || ctx.curso || 'Aula CEU',
+      subject: 'geral',
+      sourceName: ctx.curso || 'CEU Academy',
+      text: `${ctx.titulo || ''}\n\n${ctx.resumo || ''}`,
+    }));
+  } catch { }
+  go('/projetor');
+};
 window.playerTab = (btn) => {
   $$('.tabs button').forEach(b => b.classList.toggle('on', b === btn));
   const body = $('#tab-body'); const t = btn.dataset.t;

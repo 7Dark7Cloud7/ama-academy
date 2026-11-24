@@ -575,6 +575,15 @@ body.pj-is-fs .ft{display:none!important}
 }
 .pj-bento-card p{margin:0;font-size:clamp(13px,1.2vw,15.5px);line-height:1.5;color:var(--s-ink)}
 
+.pj-caption-bar{
+  position:absolute; left:50%; bottom:42px; transform:translateX(-50%); z-index:27;
+  display:flex; align-items:center; gap:10px; padding:9px 14px; border-radius:14px;
+  background:rgba(5,14,32,.92); border:1px solid rgba(56,189,248,.45); color:#f0f8ff;
+  box-shadow:0 16px 36px rgba(0,0,0,.48); backdrop-filter:blur(10px); width:min(760px,calc(100% - 28px));
+}
+.pj-cap-tag{flex:none;padding:3px 8px;border-radius:999px;background:#00a4dc;color:#041638;font:800 9.5px var(--font-m,monospace)}
+.pj-caption-bar p{margin:0;flex:1;min-width:0;font:500 13px/1.42 var(--font-b);color:#eef7ff}
+.pj-caption-bar button{flex:none;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;cursor:pointer}
 .pj-pulse-bar{
   position:absolute; left:50%; bottom:44px; transform:translateX(-50%); z-index:26;
   display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 14px; border-radius:999px;

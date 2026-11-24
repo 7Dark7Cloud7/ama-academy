@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import { analyzePagesLayout, groupItemsIntoLines } from '../engine/pdf-engine.js';
 import { buildEditableOutline, buildDeckFromOutline, moveOutlineCard, toggleOutlineCard, addOutlineCard } from '../engine/outline-engine.js';
@@ -10,6 +11,7 @@ import { detectDocumentType, analyzeDocument, buildAdaptiveDocumentDeck } from '
 import { pickCoherent3DMode, synthesizeAndFuseDeck, parseCreativeBrief, autoSelfAnalyzeAndHeal, getExternalAIPrompt, buildDeckFromExternalBlueprint } from '../engine/ai-engine.js';
 import { buildCoherentImageQueries } from '../engine/web-enrichment.js';
 import { generateQrMatrix, renderQrSvg } from '../engine/qr-svg.js';
+import { computeAngolaGrade, computeFinalPautaRow, exportPautaCsv, EXAM_BANKS, scoreExamAttempt, FLASHCARD_DECKS, buildFlashcardsFromText } from '../engine/campus-tools.js';
 import { FIXTURES_10, PDF_SAMPLE_MULTI_PAGE, PDF_SAMPLE_STEM, PDF_SAMPLE_SCANNED } from './fixtures/ceu-v3.fixtures.mjs';
 
 test('10/10 fixtures (5 PT + 5 EN) generate with qualityScore === 100 and zero Núcleo AMA leaks', () => {
@@ -225,4 +227,78 @@ test('Offline ISO QR Code SVG generator creates valid matrices and crisp SVG', (
   assert.ok(longQr.version >= 4 && longQr.size >= 33, 'Expected auto-scaled QR version for URL');
   const svg = renderQrSvg(url, { size: 200, fg: '#00217e', bg: '#ffffff', label: 'QR Aula' });
   assert.ok(svg.startsWith('<svg') && svg.includes('viewBox=') && svg.includes('path d="M'), 'Expected valid SVG path');
+});
+
+test('Angolan 0–20 grading engine computes Dispensa, Exame Normal minimum and Recurso accurately', () => {
+  const disp = computeAngolaGrade(14, 16, 0.4);
+  assert.equal(disp.status, 'dispensado');
+  assert.equal(disp.mf, 15);
+
+  const ex = computeAngolaGrade(11, 12, 0.4);
+  assert.equal(ex.status, 'exame');
+  assert.equal(ex.mf, 11.5);
+  assert.equal(ex.needed, 8.2);
+
+  const rec = computeAngolaGrade(5, 6, 0.4);
+  assert.equal(rec.status, 'recurso');
+  assert.equal(rec.mf, 5.5);
+});
+
+test('Teacher Pauta engine computes final 0–20 grades and exports Excel UTF-8 BOM CSV', () => {
+  const rows = [
+    { numero: 'CEU-01', nome: 'João Mateus', presente: true, pp1: 15, pp2: 15, exame: '' },
+    { numero: 'CEU-02', nome: 'Ana Silva', presente: true, pp1: 10, pp2: 12, exame: 11 },
+    { numero: 'CEU-03', nome: 'Pedro Costa', presente: false, pp1: 8, pp2: 8, exame: 8 },
+  ];
+  const r0 = computeFinalPautaRow(rows[0], 0.4);
+  assert.equal(r0.estado, 'Dispensado');
+  assert.equal(r0.notaFinal, 15);
+
+  const r1 = computeFinalPautaRow(rows[1], 0.4);
+  assert.equal(r1.estado, 'Aprovado');
+  assert.equal(r1.notaFinal, 11);
+
+  const r2 = computeFinalPautaRow(rows[2], 0.4);
+  assert.equal(r2.estado, 'Recurso');
+  assert.equal(r2.aprovado, false);
+
+  const csv = exportPautaCsv('UAN-ENG-1A', rows, 0.4);
+  assert.ok(csv.startsWith('\uFEFFNumero_CEU;Nome_Estudante;'));
+  assert.ok(csv.includes('"Dispensado"') && csv.includes('"Aprovado"') && csv.includes('"Falta"'));
+});
+
+test('Timed Mock Exam Simulator grades 0–20 across all 5 subjects with explanations', () => {
+  assert.equal(EXAM_BANKS.length, 5);
+  const mathExam = EXAM_BANKS.find((b) => b.id === 'ex-acesso-mat');
+  const perfectAnswers = Object.fromEntries(mathExam.questions.map((q, i) => [i, q.ans]));
+  const res = scoreExamAttempt('ex-acesso-mat', perfectAnswers);
+  assert.equal(res.nota20, 20);
+  assert.equal(res.aprovado, true);
+  assert.ok(res.details.every((d) => d.isRight && d.explanation.length > 10));
+
+  const partial = scoreExamAttempt('ex-ingles', { 0: 1, 1: 1, 2: 0 });
+  assert.equal(partial.correct, 2);
+  assert.equal(partial.nota20, 8);
+  assert.equal(partial.aprovado, false);
+});
+
+test('Flashcards studio ships multi-subject cards and parses custom student notes', () => {
+  assert.ok(FLASHCARD_DECKS.length >= 8);
+  const custom = buildFlashcardsFromText('Biologia', 'Fotossíntese: Conversão de luz solar em energia química.\nMitose — Divisão celular equacional.');
+  assert.equal(custom.length, 2);
+  assert.equal(custom[0].front, 'Fotossíntese');
+  assert.ok(custom[0].back.includes('luz solar'));
+});
+
+test('All CEU course posters exist on disk and Supabase schema covers all 11 multi-turma tables', () => {
+  const ceuJs = fs.readFileSync(new URL('../ama-ceu.js', import.meta.url), 'utf8');
+  const posters = [...ceuJs.matchAll(/poster:\s*'([^']+)'/g)].map((m) => m[1]);
+  assert.ok(posters.length >= 8);
+  for (const p of posters) {
+    assert.ok(fs.existsSync(new URL(`../media/${p}.jpg`, import.meta.url)), `Missing media/${p}.jpg`);
+  }
+  const sql = fs.readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8');
+  for (const tbl of ['mvp_decks', 'mvp_classes', 'mvp_lessons', 'mvp_mentorships', 'mvp_internships', 'mvp_delegates', 'mvp_universities', 'mvp_online_classes']) {
+    assert.ok(sql.includes(tbl), `Expected ${tbl} in supabase/schema.sql`);
+  }
 });

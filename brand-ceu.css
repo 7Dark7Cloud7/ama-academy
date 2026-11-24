@@ -618,6 +618,55 @@ html[data-brand="ceu"] .ceu-main-hero .ceu-cta .btn.btn-o{background:rgba(255,25
 .cp-finder-item small{display:block;font-size:11.5px;color:var(--muted)}
 
 @media(max-width:860px){.cp-grade-grid,.cp-cr-cols{grid-template-columns:minmax(0,1fr)}}
+
+/* Exames 0-20, Flashcards 3D & Pauta Académica */
+.cp-att-card{padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.cp-att-qr{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border-radius:12px;background:#fff;border:1px solid var(--line)}
+.cp-att-qr small{font:800 10px var(--font-m,monospace);color:#00217e}
+.cp-table-scroll{width:100%;overflow-x:auto}
+.cp-pauta-tbl{width:100%;border-collapse:collapse;font-size:12.5px;min-width:660px}
+.cp-pauta-tbl th,.cp-pauta-tbl td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+.cp-pauta-tbl th{font:800 10px var(--font-m,monospace);text-transform:uppercase;color:var(--muted)}
+.cp-pauta-tbl input{width:58px;padding:5px 6px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:700 12.5px var(--font-m,monospace)}
+.cp-pres-btn{padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--muted);font:700 11px var(--font-b);cursor:pointer}
+.cp-pres-btn.is-on{background:rgba(16,185,129,.16);border-color:rgba(16,185,129,.45);color:#059669}
+:root[data-brand="ceu"][data-theme="dark"] .cp-pres-btn.is-on{color:#34d399}
+
+.cp-q-list{display:flex;flex-direction:column;gap:14px;margin-top:8px}
+.cp-q-box{padding:14px 16px;border-radius:14px;background:var(--bg);border:1px solid var(--line);display:flex;flex-direction:column;gap:9px}
+.cp-q-box>b{font-size:14px;line-height:1.45;color:var(--ink)}
+.cp-q-opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.cp-q-opt{
+  display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;
+  border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:13px;color:var(--ink);transition:.14s;
+}
+.cp-q-opt.is-sel{border-color:#0066b8;background:var(--signal-soft);font-weight:700}
+.cp-exam-res{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+.cp-exam-corr{display:flex;flex-direction:column;gap:8px}
+.cp-corr-item{padding:11px 14px;border-radius:12px;border:1px solid var(--line);display:flex;flex-direction:column;gap:3px;font-size:12.5px}
+.cp-corr-item.is-ok{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.35)}
+.cp-corr-item.is-bad{background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.32)}
+.cp-corr-item small{color:var(--muted)}
+
+.cp-fc-stage{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.cp-fc-card{
+  width:100%;min-height:220px;padding:26px 24px;border-radius:22px;cursor:pointer;
+  background:linear-gradient(135deg,var(--surface),var(--bg));border:1.5px solid var(--line);
+  box-shadow:0 20px 44px -26px rgba(0,33,126,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;
+  transition:transform .24s,border-color .2s;
+}
+.cp-fc-card:hover{border-color:#00a4dc;transform:translateY(-2px)}
+.cp-fc-card.is-flipped{background:linear-gradient(135deg,#001d66,#004da3);color:#fff;border-color:#38bdf8}
+.cp-fc-card.is-flipped h3,.cp-fc-card.is-flipped small,.cp-fc-card.is-flipped .cp-fc-label{color:#fff}
+.cp-fc-label{font:800 10px var(--font-m,monospace);letter-spacing:.12em;color:#0066b8}
+.cp-fc-card h3{margin:0;font:800 clamp(17px,2.2vw,22px)/1.35 var(--font-d);color:var(--ink);max-width:520px}
+.cp-fc-card small{font-size:11.5px;color:var(--muted);opacity:.85}
+.cp-fc-controls{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+:root[data-brand="ceu"] .learn-foot{display:flex;flex-direction:column;align-items:stretch;gap:14px}
+:root[data-brand="ceu"] .learn-foot .lf-l{max-width:100%}
+:root[data-brand="ceu"] .learn-foot .lf-r{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-start}
+:root[data-brand="ceu"] .player .wm{top:auto!important;left:auto!important;right:14px!important;bottom:12px!important;opacity:.55}
+@media(max-width:640px){.cp-q-opts{grid-template-columns:minmax(0,1fr)}}
 :root[data-brand="ceu"][data-theme="dark"] .cp-badge{background:rgba(0,164,220,.2);color:#9be5ff}
 :root[data-brand="ceu"][data-theme="dark"] .cp-badge.is-navy{background:#00a4dc;color:#041638}
 .cp-code{font:800 11px var(--font-m,monospace);color:var(--muted)}
