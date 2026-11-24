@@ -234,9 +234,9 @@ export function buildStandaloneOfflineHtml(deck) {
     }
     const list = (sl.steps && sl.steps.length ? sl.steps : sl.bullets) || [];
     return `${sl.subtitle ? `<p class="lead">${esc(sl.subtitle)}</p>` : ''}
-      ${sl.intuition ? `<div class="intuition"><b>✦ INTUIÇÃO:</b> ${esc(sl.intuition)}</div>` : ''}
+      ${sl.intuition ? `<div class="intuition"><b>INTUIÇÃO:</b> ${esc(sl.intuition)}</div>` : ''}
       ${list.length ? `<ul class="cards">${list.slice(0, 4).map((b, i) => `<li><b>${String(i + 1).padStart(2, '0')}</b><span>${esc(b)}</span></li>`).join('')}</ul>` : ''}
-      ${sl.fusedInsight ? `<div class="fused"><b>🌐 ${esc(sl.fusedInsight.source || 'Wikipédia')}:</b> ${esc(sl.fusedInsight.text)}</div>` : ''}`;
+      ${sl.fusedInsight ? `<div class="fused"><b>${esc(sl.fusedInsight.source || 'Wikipédia')}:</b> ${esc(sl.fusedInsight.text)}</div>` : ''}`;
   };
 
   return `<!doctype html><html lang="${L ? 'en' : 'pt-AO'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -285,7 +285,7 @@ ${slides.map((sl, i) => `<section class="slide" data-i="${i}" ${i ? 'hidden' : '
   <span class="badge">${esc(sl.rhythm || sl.kicker || `SLIDE ${i + 1}`)}</span>
   <h2>${esc(sl.title || '')}</h2>
   ${renderBody(sl)}
-  <span class="hand">${esc(sl.handnote || sl.handNote || 'Repara nisto ✎')}</span>
+  <span class="hand">${esc(sl.handnote || sl.handNote || 'Repara nisto')}</span>
   <span class="ghost">${String(i + 1).padStart(2, '0')}</span>
   <footer><span>Núcleo CEU · ${esc(title)} · APP FEITO PELA HORIZONTE FUTURO</span><span>${String(i + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}</span></footer>
 </section>`).join('')}

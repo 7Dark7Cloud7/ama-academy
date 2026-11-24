@@ -3,7 +3,7 @@
    explicação. Este worker não pré-carrega nada: guarda o que o navegador já
    pediu e serve esse cache quando a rede falha. Por isso o código da app é
    "rede primeiro" — um ficheiro velho em cache seria uma versão fantasma. */
-const CODIGO = 'ama-codigo-v4';
+const CODIGO = 'ama-codigo-v6';
 const TIPOS = 'ama-tipos-v1';
 
 self.addEventListener('install', () => self.skipWaiting());

@@ -309,21 +309,21 @@ function buildIntuition(slide, webItem, subject) {
 /* Constrói handnote estilo Ingenium 3.0 contextual por tipo de slide. */
 function pickHandnote(slide, index) {
   const byLayout = {
-    cover: ['Começa pela intuição!', 'Pronto a explorar ✦', 'Aula visual & 3D'],
+    cover: ['Começa pela intuição!', 'Pronto a explorar', 'Aula visual & 3D'],
     agenda: ['O mapa da aula →', 'Passo a passo!'],
-    objectives: ['Meta clara = foco!', 'O que vais dominar ✓'],
+    objectives: ['Meta clara = foco!', 'O que vais dominar'],
     formula: ['Clica nas variáveis!', 'Vê como se ligam →', 'Cada letra tem sentido!'],
-    concept: ['Guarda esta intuição!', 'PDF + Web fundidos ✦', 'Ideia-chave aqui!'],
-    comparison: ['Nota a diferença ⚖', 'Compara os dois lados!'],
+    concept: ['Guarda esta intuição!', 'PDF + Web fundidos', 'Ideia-chave aqui!'],
+    comparison: ['Nota a diferença', 'Compara os dois lados!'],
     'animated-flow': ['Segue a sequência →', 'Cada passo prepara o próximo'],
     timeline: ['Ordem importa →', 'Linha do tempo clara'],
-    mindmap: ['Tudo se conecta ✦', 'Visão panorâmica'],
+    mindmap: ['Tudo se conecta', 'Visão panorâmica'],
     'scene-3d': ['Arrasta para rodar 3D ↻', 'Explora as camadas!'],
     quote: ['Número que marca!', 'Repara neste dado!'],
     quiz: ['Pensa antes de clicar!', 'Testa o que ficou!'],
-    closing: ['Leva isto contigo ✓', 'Revê em 2 minutos!'],
+    closing: ['Leva isto contigo', 'Revê em 2 minutos!'],
   };
-  const list = byLayout[slide.layout] || ['Repara nisto ✎', 'Ponto essencial!', 'Liga ao teu dia a dia'];
+  const list = byLayout[slide.layout] || ['Repara nisto', 'Ponto essencial!', 'Liga ao teu dia a dia'];
   return list[index % list.length];
 }
 
@@ -1107,7 +1107,7 @@ export function buildDeckFromExternalBlueprint(rawInput = '', opts = {}) {
     title,
     subject,
     docType,
-    docTypeMeta: { icon: '🤖', label: 'Super-IA Externa', tone: 'Guião estruturado via ChatGPT / IA externa' },
+    docTypeMeta: { icon: 'IA', label: 'Super-IA Externa', tone: 'Guião estruturado via ChatGPT / IA externa' },
     sourceName: 'Instruções ChatGPT / Super-IA',
     brand: opts.brand || 'Núcleo CEU',
     credit: 'APP FEITO PELA HORIZONTE FUTURO',

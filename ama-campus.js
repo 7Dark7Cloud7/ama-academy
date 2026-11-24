@@ -1,13 +1,10 @@
-/* CEU Academy — Ecossistema Completo para Escolas & Universidades de Angola
-   Sala de Turma Interativa (Programa Oficial, Matérias, Sebentas PDF, Slides 3D, Mural),
-   Biblioteca de Matérias & PDFs, Aulas Online Ao Vivo com Inscrição + .ICS,
-   Simulador de Média/Dispensa (0–20 valores), Pesquisa Global Rápida (Ctrl+K),
-   Grandes Faculdades & Escolas, Presidentes AE & Delegados, Mentorias e Estágios. */
+/* CEU Academy — Campus Académico Simplificado (4 Secções Claras, Ícones SVG, Zero Emojis) */
 (function () {
   'use strict';
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const escAttr = esc;
+  const ic = (k) => (window.CI && window.CI[k]) || '';
 
   const LS_KEY = 'ceu-campus-school-v2';
   const CARD_KEY = 'ceu-student-card-v1';
@@ -25,8 +22,8 @@
     { id: 'u-ukb', sigla: 'UKB', nome: 'Universidade Katyavala Bwila', tipo: 'Universidade Pública', provincia: 'Benguela', faculdades: ['Direito', 'Economia', 'Medicina', 'Ciências da Educação'], parceria: 'Rede Nacional CEU', turmasAtivas: 7 },
     { id: 'u-imetro', sigla: 'IMETRO', nome: 'Instituto Superior Politécnico Metropolitano de Angola', tipo: 'Universidade Privada', provincia: 'Luanda', faculdades: ['Comunicação Social', 'Direito', 'Informática', 'Gestão'], parceria: 'Parceiro Oficial CEU', turmasAtivas: 6 },
     { id: 'u-unibelas', sigla: 'Unibelas', nome: 'Universidade de Belas', tipo: 'Universidade Privada', provincia: 'Luanda', faculdades: ['Ciências da Saúde', 'Engenharia', 'Direito', 'Gestão'], parceria: 'Parceiro Oficial CEU', turmasAtivas: 6 },
-    { id: 'u-imil', sigla: 'IMIL', nome: 'Instituto Médio Industrial de Luanda (Makarenko)', tipo: 'Escola / Ensino Médio Técnico', provincia: 'Luanda', faculdades: ['Informática', 'Eletricidade', 'Mecânica', 'Construção Civil'], parceria: 'Escolas CEU', turmasAtivas: 10 },
-    { id: 'u-imel', sigla: 'IMEL', nome: 'Instituto Médio de Economia de Luanda', tipo: 'Escola / Ensino Médio Técnico', provincia: 'Luanda', faculdades: ['Contabilidade', 'Gestão Empresarial', 'Finanças', 'Marketing'], parceria: 'Escolas CEU', turmasAtivas: 9 },
+    { id: 'u-imil', sigla: 'IMIL', nome: 'Instituto Médio Industrial de Luanda (Makarenko)', tipo: 'Ensino Médio Técnico', provincia: 'Luanda', faculdades: ['Informática', 'Eletricidade', 'Mecânica', 'Construção Civil'], parceria: 'Escolas CEU', turmasAtivas: 10 },
+    { id: 'u-imel', sigla: 'IMEL', nome: 'Instituto Médio de Economia de Luanda', tipo: 'Ensino Médio Técnico', provincia: 'Luanda', faculdades: ['Contabilidade', 'Gestão Empresarial', 'Finanças', 'Marketing'], parceria: 'Escolas CEU', turmasAtivas: 9 },
   ];
 
   const SEED_CLASSES = [
@@ -41,8 +38,8 @@
         'Unidade 4 · Projeto Prático: Sistema de Dados e Exame Final',
       ],
       mural: [
-        { autor: 'Eng.ª Mei Lin Zhao', papel: 'Docente', data: 'Hoje', texto: 'A sebenta da Unidade 3 (Pesquisa Binária) e os slides 3D já estão disponíveis abaixo.' },
-        { autor: 'Delegado Turma 2A', papel: 'Delegado', data: 'Ontem', texto: 'Grupo de resolução da ficha prática na sexta-feira às 16h na sala online.' },
+        { autor: 'Eng.ª Mei Lin Zhao', papel: 'Docente', data: 'Hoje', texto: 'A sebenta da Unidade 3 (Pesquisa Binária) e os slides 3D já estão disponíveis.' },
+        { autor: 'Delegado Turma 2A', papel: 'Delegado', data: 'Ontem', texto: 'Resolução da ficha prática na sexta-feira às 16h na sala online.' },
       ],
     },
     {
@@ -97,13 +94,13 @@
     },
     {
       id: 'cls-imil-12a', codigo: 'IMIL-INF-12A', nome: 'Preparação ao Ensino Superior — Matemática & Redes',
-      instituicao: 'IMIL', faculdade: 'Curso Técnico de Informática', nivel: 'Escola / Ensino Médio',
+      instituicao: 'IMIL', faculdade: 'Curso Técnico de Informática', nivel: 'Ensino Médio',
       docente: 'Prof.ª Ana Silva', delegado: 'Chefe de Turma 12.ª A', horario: 'Ter & Sex · 13h30–15h', alunos: 39, vagas: 45, subject: 'matematica',
       programa: [
         'Unidade 1 · Álgebra, Polinómios, Equações e Inequações',
         'Unidade 2 · Funções Reais, Exponenciais e Logaritmos',
         'Unidade 3 · Limites, Derivadas e Problemas de Exames de Acesso (UAN/ISPTEC)',
-        'Unidade 4 · Fundamentos de Redes TCP/IP e Simulado GeralCronometrado',
+        'Unidade 4 · Fundamentos de Redes TCP/IP e Simulado Geral',
       ],
       mural: [],
     },
@@ -112,84 +109,36 @@
   const SEED_LESSONS = [
     { id: 'les-1', turmaId: 'cls-uan-eng1', turmaNome: 'UAN-ENG-1A · Física I', titulo: 'Leis de Newton & Dinâmica com Modelos 3D', autor: 'Prof. Nelson Duarte', tipo: 'Slides 3D + PDF', data: 'Hoje', resumo: 'Explicação visual das 3 leis de Newton com exemplos rodoviários de Luanda, diagrama de forças 3D e 5 questões de exame.', slidesText: 'Primeira Lei e Inércia\nInércia é a tendência de qualquer corpo manter o seu estado de repouso ou movimento retilíneo uniforme enquanto a força resultante for nula.\nSegunda Lei: F = m × a\nUm veículo de 1000 kg que acelera a 2 m/s² exige uma força resultante de 2000 N.\nTerceira Lei: Ação e Reação\nAs forças atuam em corpos diferentes e têm igual módulo e sentidos opostos.', subject: 'fisica' },
     { id: 'les-2', turmaId: 'cls-ceu-mkt1', turmaNome: 'CEU-MKT-01 · Marketing Digital', titulo: 'Funil de Vendas & Anúncios em Kwanzas (Angola)', autor: 'Prof.ª Sofia Almeida', tipo: 'Slides 3D + Sebenta', data: 'Ontem', resumo: 'Como estruturar campanhas de baixo orçamento para negócios angolanos, medir CAC/ROAS e converter via WhatsApp Business.', slidesText: 'Os 3 Pilares do Conteúdo Digital\nConteúdo que vende educa, inspira e apresenta prova social real no mercado angolano.\nSegmentação de Anúncios em Angola\nSegmente por província (Luanda, Benguela, Huambo), faixa etária e interesse com 3 criativos em teste A/B.\nFunil Alcance → Lead → WhatsApp → Venda\nSem acompanhamento disciplinado no WhatsApp Business, até 60% dos contactos qualificados perdem-se.', subject: 'empreendedorismo' },
-    { id: 'les-3', turmaId: 'cls-ceu-ing1', turmaNome: 'CEU-ING-B2 · Inglês Académico', titulo: 'Academic Presentations & Job Interview Pitch (EN)', autor: 'Prof.ª Carla Mendes', tipo: 'Sebenta PDF + Áudio', data: 'Há 2 dias', resumo: 'Estruturas essenciais em inglês para abrir apresentações universitárias, defender projetos e responder em entrevistas de estágio.', slidesText: 'Structuring an Academic Presentation in English\nHook the audience in 15 seconds, signpost three key points, and close with a clear takeaway.\nThe STAR Method for Internship Interviews\nDescribe Situation, Task, Action and measurable Result using confident action verbs.\nCommon Pitfalls for Portuguese Speakers\nAvoid false friends like actually vs atualmente and practice clear pronunciation of technical terms.', subject: 'geral' },
+    { id: 'les-3', turmaId: 'cls-ceu-ing1', turmaNome: 'CEU-ING-B2 · Inglês Académico', titulo: 'Academic Presentations & Job Interview Pitch (EN)', autor: 'Prof.ª Carla Mendes', tipo: 'Sebenta PDF', data: 'Há 2 dias', resumo: 'Estruturas essenciais em inglês para abrir apresentações universitárias, defender projetos e responder em entrevistas de estágio.', slidesText: 'Structuring an Academic Presentation in English\nHook the audience in 15 seconds, signpost three key points, and close with a clear takeaway.\nThe STAR Method for Internship Interviews\nDescribe Situation, Task, Action and measurable Result using confident action verbs.\nCommon Pitfalls for Portuguese Speakers\nAvoid false friends like actually vs atualmente and practice clear pronunciation of technical terms.', subject: 'geral' },
     { id: 'les-4', turmaId: 'cls-imil-12a', turmaNome: 'IMIL-INF-12A · Matemática', titulo: 'Funções, Limites e Preparação de Exame de Acesso', autor: 'Prof.ª Ana Silva', tipo: 'Sebenta PDF + Slides', data: 'Há 3 dias', resumo: 'Revisão guiada dos exercícios mais frequentes nos exames de acesso da UAN, ISPTEC e ULuanda.', slidesText: 'Domínio e Imagem de Funções\nIdentifique restrições de denominador nulo e raízes de índice par antes de esboçar o gráfico.\nCálculo de Limites e Indeterminações 0/0\nFatore numerador e denominador ou racionalize expressões com radicais.\nEstratégia de Exame de Acesso\nResolva primeiro as questões diretas em 25 minutos e reserve tempo final para verificação de sinais.', subject: 'matematica' },
   ];
 
   const SEED_SUBJECTS = [
-    {
-      id: 'sub-calc', area: 'Exatas & Tech', titulo: 'Cálculo I & Análise Matemática', nivel: '1.º Ano / Acesso', subject: 'matematica', turmaId: 'cls-imil-12A',
-      programa: ['Funções reais, domínio, paridade e inversas', 'Limites notáveis, continuidade e indeterminações', 'Derivadas: regra da cadeia, máximos e mínimos', 'Primitivas imediatas e integral definido'],
-      formulas: ['lim (x→0) sen(x)/x = 1', '(u · v)\' = u\'v + uv\'', 'f\'(x) = 0 ⇒ pontos críticos de máximo/mínimo'],
-      resumo: 'Base indispensável para Engenharias, Economia e Ciências. Domine o estudo completo de funções e otimização com exercícios passo a passo.',
-      perguntas: ['Como levantar uma indeterminação do tipo 0/0 com raízes quadradas?', 'Qual é a interpretação geométrica e económica da derivada num ponto?', 'Como confirmar se um ponto crítico é máximo ou mínimo local?'],
-    },
-    {
-      id: 'sub-fis', area: 'Exatas & Tech', titulo: 'Física I — Mecânica Clássica & Energia', nivel: '1.º Ano / 12.ª Classe', subject: 'fisica', turmaId: 'cls-uan-eng1',
-      programa: ['Cinemática escalar e vetorial (MRU, MRUV, projéteis)', 'Leis de Newton, atrito estático/cinético e plano inclinado', 'Trabalho de uma força, potência e Teorema da Energia Cinética', 'Conservação do momento linear e colisões'],
-      formulas: ['F_res = m · a', 'E_c = ½ m · v²   |   E_pg = m · g · h', 'W_total = ΔE_c'],
-      resumo: 'Da análise de forças em pontes e veículos à conservação de energia em sistemas reais em Angola.',
-      perguntas: ['Porque é que as forças de ação e reação nunca se anulam entre si?', 'Como decompor o peso num plano inclinado com ângulo θ?', 'Quando é que a energia mecânica total de um sistema se conserva?'],
-    },
-    {
-      id: 'sub-py', area: 'Exatas & Tech', titulo: 'Programação Python & Estruturas de Dados', nivel: '1.º & 2.º Ano', subject: 'programacao', turmaId: 'cls-isptec-inf2',
-      programa: ['Variáveis, condicionais, ciclos e funções modulares', 'Listas, dicionários, conjuntos e leitura de ficheiros CSV/JSON', 'Pesquisa linear vs. binária e complexidade O(log n)', 'Consumo de APIs REST e automação de relatórios'],
-      formulas: ['Pesquisa Binária: máx. log₂(N) comparações', 'Lista ordenada de 1.024 itens → máx. 10 passos'],
-      resumo: 'Aprenda a pensar de forma algorítmica, escrever código Python limpo e construir projetos reais para estágios.',
-      perguntas: ['Qual é a condição obrigatória para aplicar pesquisa binária numa lista?', 'Quando devemos preferir um dicionário (hash map) em vez de uma lista?', 'Como evitar ciclos infinitos num bloco while?'],
-    },
-    {
-      id: 'sub-mkt', area: 'Negócios & Finanças', titulo: 'Marketing Digital, Tráfego & Vendas em Angola', nivel: 'Curso Prático', subject: 'empreendedorismo', turmaId: 'cls-ceu-mkt1',
-      programa: ['Estratégia de conteúdo 4:3:3 (educar, inspirar, provar)', 'Guiões de vídeo curto e retenção nos primeiros 2 segundos', 'Gestão de anúncios Meta/TikTok Ads com orçamento em Kwanzas', 'Funil WhatsApp Business, CRM simples e métricas CAC/ROAS'],
-      formulas: ['ROAS = Receita Gerada ÷ Investimento em Anúncios', 'CAC = Custo Total de Aquisição ÷ Novos Clientes'],
-      resumo: 'Guia prático para criar campanhas digitais lucrativas para empresas, projetos universitários e marcas angolanas.',
-      perguntas: ['Qual é a diferença prática entre alcance topo de funil e campanha de conversão?', 'Como reduzir o desperdício de orçamento no atendimento por WhatsApp?', 'Que métricas indicam que o criativo do anúncio precisa ser trocado?'],
-    },
-    {
-      id: 'sub-ing', area: 'Idiomas & Direito', titulo: 'Inglês Académico, Speaking & Bolsas (B1–C1)', nivel: 'Todos os níveis', subject: 'geral', turmaId: 'cls-ceu-ing1',
-      programa: ['Academic connectors & reading scientific papers fast', 'Structuring university presentations (Hook → Body → Takeaway)', 'Writing formal emails, cover letters & international CVs', 'Job & scholarship interview mastery with the STAR framework'],
-      formulas: ['STAR = Situation · Task · Action · Result', 'Signposting: "First, let us examine…" / "To sum up…"'],
-      resumo: 'Inglês focado no que abre portas: ler bibliografia técnica, apresentar sem bloqueios e passar em entrevistas.',
-      perguntas: ['How do you structure a 90-second "Tell me about yourself" pitch?', 'What is the difference between "actually" and "currently"?', 'How do you highlight measurable impact using the STAR method?'],
-    },
-    {
-      id: 'sub-fin', area: 'Negócios & Finanças', titulo: 'Contabilidade, Juros & Finanças em Kwanzas', nivel: '1.º & 2.º Ano', subject: 'financas', turmaId: 'cls-ucan-eco2',
-      programa: ['Balanço patrimonial: Ativo, Passivo e Capital Próprio', 'Capitalização simples vs. composta e Regra dos 72', 'Inflação, taxa de juro nominal vs. ganho real em Kz', 'Análise de viabilidade: VAL (VPL), TIR e Ponto de Equilíbrio'],
-      formulas: ['M = C · (1 + i)^n', 'Taxa Real ≈ [(1 + i_nom) ÷ (1 + inflação)] − 1'],
-      resumo: 'Domine os cálculos financeiros essenciais para Economia, Gestão, Contabilidade e decisões empresariais.',
-      perguntas: ['Porque é que um investimento com retorno inferior à inflação perde poder de compra?', 'Como funciona a equação fundamental da contabilidade (Ativo = Passivo + CP)?', 'Quando um projeto com VAL > 0 deve ser aceite?'],
-    },
-    {
-      id: 'sub-dir', area: 'Idiomas & Direito', titulo: 'Direito Constitucional & Metodologia Jurídica', nivel: '1.º Ano Direito', subject: 'historia', turmaId: 'cls-ucan-eco2',
-      programa: ['Princípios fundamentais da Constituição da República de Angola', 'Direitos, liberdades e garantias fundamentais dos cidadãos', 'Organização do poder político e separação de funções', 'Interpretação da norma jurídica e resolução de casos práticos'],
-      formulas: ['Método Jurídico: Factos → Norma Aplicável → Subsunção → Conclusão'],
-      resumo: 'Síntese clara da arquitetura constitucional angolana e do método de resolução de hipóteses práticas em exame.',
-      perguntas: ['Como estruturar a resposta a um caso prático de Direito em 4 etapas?', 'Em que consiste o princípio da constitucionalidade e hierarquia das normas?', 'Qual a distinção entre órgãos de soberania e administração local?'],
-    },
-    {
-      id: 'sub-bio', area: 'Saúde', titulo: 'Biologia Celular, Genética & Ecossistemas', nivel: 'Ensino Médio / 1.º Ano Saúde', subject: 'biologia', turmaId: 'cls-uan-eng1',
-      programa: ['Organização celular: membrana, organelos e transporte ativo/passivo', 'Metabolismo energético: respiração celular e fotossíntese', 'Duplicação do ADN, síntese proteica, mitose e meiose', 'Genética mendeliana e biodiversidade angolana (Maiombe / Cangandala)'],
-      formulas: ['Fotossíntese: 6 CO₂ + 6 H₂O + luz → C₆H₁₂O₆ + 6 O₂', 'Fluxo génico: ADN → ARN mensageiro → Proteína'],
-      resumo: 'Revisão visual para Ciências da Saúde, Medicina, Enfermagem, Biologia e exames de acesso.',
-      perguntas: ['Qual a diferença essencial entre mitose e meiose quanto à variabilidade genética?', 'Onde ocorrem a fase fotoquímica e o ciclo de Calvin?', 'Como diferenciar transporte passivo por osmose de transporte ativo?'],
-    },
+    { id: 'sub-calc', area: 'Exatas & Tech', titulo: 'Cálculo I & Análise Matemática', nivel: '1.º Ano / Acesso', subject: 'matematica', programa: ['Funções reais, domínio, paridade e inversas', 'Limites notáveis, continuidade e indeterminações', 'Derivadas: regra da cadeia, máximos e mínimos', 'Primitivas imediatas e integral definido'], formulas: ['lim (x→0) sen(x)/x = 1', '(u · v)\' = u\'v + uv\'', 'f\'(x) = 0 ⇒ pontos críticos'], resumo: 'Base indispensável para Engenharias, Economia e Ciências. Estudo completo de funções e otimização.', perguntas: ['Como levantar uma indeterminação 0/0 com raízes?', 'Qual é a interpretação geométrica da derivada?', 'Como confirmar se um ponto crítico é máximo ou mínimo?'] },
+    { id: 'sub-fis', area: 'Exatas & Tech', titulo: 'Física I — Mecânica Clássica & Energia', nivel: '1.º Ano / 12.ª Classe', subject: 'fisica', programa: ['Cinemática escalar e vetorial (MRU, MRUV)', 'Leis de Newton, atrito e plano inclinado', 'Trabalho, potência e Energia Cinética', 'Conservação do momento linear e colisões'], formulas: ['F_res = m · a', 'E_c = ½ m · v²', 'W_total = ΔE_c'], resumo: 'Da análise de forças em pontes e veículos à conservação de energia em sistemas reais.', perguntas: ['Por que as forças de ação e reação não se anulam?', 'Como decompor o peso num plano inclinado?', 'Quando se conserva a energia mecânica?'] },
+    { id: 'sub-py', area: 'Exatas & Tech', titulo: 'Programação Python & Estruturas de Dados', nivel: '1.º & 2.º Ano', subject: 'programacao', programa: ['Variáveis, condicionais, ciclos e funções', 'Listas, dicionários e leitura CSV/JSON', 'Pesquisa linear vs. binária O(log n)', 'APIs REST e automação de relatórios'], formulas: ['Pesquisa Binária: log₂(N)', '1.024 itens → máx. 10 passos'], resumo: 'Pensamento algorítmico, código Python limpo e projetos práticos.', perguntas: ['Qual a condição obrigatória da pesquisa binária?', 'Quando preferir dicionário em vez de lista?', 'Como evitar ciclos infinitos num while?'] },
+    { id: 'sub-mkt', area: 'Negócios & Finanças', titulo: 'Marketing Digital, Tráfego & Vendas em Angola', nivel: 'Curso Prático', subject: 'empreendedorismo', programa: ['Estratégia de conteúdo 4:3:3', 'Guiões de vídeo curto e retenção inicial', 'Campanhas Meta/TikTok Ads em Kwanzas', 'Funil WhatsApp Business, CAC e ROAS'], formulas: ['ROAS = Receita ÷ Investimento', 'CAC = Custo Total ÷ Novos Clientes'], resumo: 'Guia prático para campanhas digitais, posicionamento e vendas em Angola.', perguntas: ['Diferença entre alcance e conversão?', 'Como estruturar atendimento rápido no WhatsApp?', 'Quando renovar o criativo de um anúncio?'] },
+    { id: 'sub-ing', area: 'Idiomas & Direito', titulo: 'Inglês Académico, Speaking & Bolsas (B1–C1)', nivel: 'Todos os níveis', subject: 'geral', programa: ['Reading scientific papers fast', 'University presentations (Hook → Body → Takeaway)', 'Formal emails & international CVs', 'Interview mastery with STAR framework'], formulas: ['STAR = Situation · Task · Action · Result', 'Signposting: "First…" / "To sum up…"'], resumo: 'Inglês orientado para leitura técnica, apresentações orais e entrevistas.', perguntas: ['How do you structure a 90-second pitch?', 'Difference between "actually" and "currently"?', 'How do you quantify results with STAR?'] },
+    { id: 'sub-fin', area: 'Negócios & Finanças', titulo: 'Contabilidade, Juros & Finanças em Kwanzas', nivel: '1.º & 2.º Ano', subject: 'financas', programa: ['Balanço: Ativo, Passivo e Capital Próprio', 'Capitalização simples vs. composta', 'Inflação, juro nominal vs. ganho real em Kz', 'Análise de viabilidade: VAL, TIR e Payback'], formulas: ['M = C · (1 + i)^n', 'Regra dos 72: Anos ≈ 72 ÷ taxa%'], resumo: 'Cálculos financeiros essenciais para Economia, Gestão e Contabilidade.', perguntas: ['Por que retorno abaixo da inflação reduz poder de compra?', 'Equação fundamental da contabilidade?', 'Quando aceitar um projeto pelo VAL?'] },
+    { id: 'sub-dir', area: 'Idiomas & Direito', titulo: 'Direito Constitucional & Metodologia Jurídica', nivel: '1.º Ano Direito', subject: 'historia', programa: ['Princípios fundamentais da Constituição de Angola', 'Direitos, liberdades e garantias fundamentais', 'Organização do poder político', 'Resolução estruturada de casos práticos'], formulas: ['Factos → Norma → Subsunção → Conclusão'], resumo: 'Síntese da arquitetura constitucional angolana e método de exame.', perguntas: ['Como estruturar um caso prático em 4 etapas?', 'Princípio da constitucionalidade?', 'Órgãos de soberania vs. administração local?'] },
+    { id: 'sub-bio', area: 'Saúde', titulo: 'Biologia Celular, Genética & Ecossistemas', nivel: 'Ensino Médio / 1.º Ano', subject: 'biologia', programa: ['Organização celular e transporte membranar', 'Respiração celular e fotossíntese', 'ADN, síntese proteica, mitose e meiose', 'Genética mendeliana e biodiversidade angolana'], formulas: ['6 CO₂ + 6 H₂O → C₆H₁₂O₆ + 6 O₂', 'ADN → ARN → Proteína'], resumo: 'Revisão estruturada para Ciências da Saúde, Medicina, Biologia e acesso.', perguntas: ['Diferença entre mitose e meiose?', 'Fases da fotossíntese?', 'Osmose vs. transporte ativo?'] },
   ];
 
   const SEED_ONLINE_CLASSES = [
-    { id: 'onl-1', titulo: 'Intensivo ao Vivo: Resolução de Exame de Física I & Dinâmica', docente: 'Prof. Nelson Duarte', instituicao: 'UAN · Aberta a todas as turmas', dataHora: 'Hoje · 18h30 (60 min)', estado: 'AO VIVO', inscritos: 84, vagas: 150, subject: 'fisica', resumo: 'Resolução passo a passo de 6 problemas clássicos de leis de Newton, plano inclinado e conservação de energia com espaço aberto para dúvidas.' },
-    { id: 'onl-2', titulo: 'English Speaking Club: Simulação de Entrevista de Estágio', docente: 'Prof.ª Carla Mendes', instituicao: 'CEU Idiomas', dataHora: 'Amanhã · 19h00 (50 min)', estado: 'INSCRIÇÕES ABERTAS', inscritos: 62, vagas: 100, subject: 'geral', resumo: 'Prática guiada em inglês do método STAR, vocabulário corporativo e feedback imediato de pronúncia.' },
-    { id: 'onl-3', titulo: 'Masterclass Prática: Campanha Real de Marketing Digital em Kz', docente: 'Prof.ª Sofia Almeida', instituicao: 'CEU Marketing', dataHora: 'Quinta · 18h00 (60 min)', estado: 'INSCRIÇÕES ABERTAS', inscritos: 95, vagas: 200, subject: 'empreendedorismo', resumo: 'Construção ao vivo de criativos, segmentação para Luanda/Benguela/Huambo e estrutura de fecho no WhatsApp.' },
-    { id: 'onl-4', titulo: 'Maratona de Cálculo & Matemática — Preparação Exames de Acesso', docente: 'Prof.ª Ana Silva', instituicao: 'IMIL / ISPTEC / UAN', dataHora: 'Sábado · 10h00 (90 min)', estado: 'INSCRIÇÕES ABERTAS', inscritos: 141, vagas: 250, subject: 'matematica', resumo: 'Limites, derivadas e estudo de funções com foco nas provas parcelares e exames de admissão universitária.' },
-    { id: 'onl-5', titulo: 'Laboratório Python: Do CSV ao Dashboard Financeiro', docente: 'Eng.ª Mei Lin Zhao', instituicao: 'ISPTEC · Eng. Informática', dataHora: 'Sábado · 15h00 (75 min)', estado: 'INSCRIÇÕES ABERTAS', inscritos: 58, vagas: 120, subject: 'programacao', resumo: 'Sessão mão-na-massa de tratamento de dados reais e criação de portfólio técnico para estágios.' },
+    { id: 'onl-1', titulo: 'Intensivo ao Vivo: Resolução de Exame de Física I & Dinâmica', docente: 'Prof. Nelson Duarte', instituicao: 'UAN · Aberta', dataHora: 'Hoje · 18h30 (60 min)', estado: 'AO VIVO', inscritos: 84, vagas: 150, subject: 'fisica', resumo: 'Resolução passo a passo de 6 problemas clássicos de leis de Newton, plano inclinado e conservação de energia.' },
+    { id: 'onl-2', titulo: 'English Speaking Club: Simulação de Entrevista de Estágio', docente: 'Prof.ª Carla Mendes', instituicao: 'CEU Idiomas', dataHora: 'Amanhã · 19h00 (50 min)', estado: 'ABERTA', inscritos: 62, vagas: 100, subject: 'geral', resumo: 'Prática guiada em inglês do método STAR, vocabulário corporativo e feedback de pronúncia.' },
+    { id: 'onl-3', titulo: 'Masterclass Prática: Campanha de Marketing Digital em Kz', docente: 'Prof.ª Sofia Almeida', instituicao: 'CEU Marketing', dataHora: 'Quinta · 18h00 (60 min)', estado: 'ABERTA', inscritos: 95, vagas: 200, subject: 'empreendedorismo', resumo: 'Construção de criativos, segmentação para Luanda/Benguela/Huambo e fecho comercial.' },
+    { id: 'onl-4', titulo: 'Maratona de Cálculo & Matemática — Exames de Acesso', docente: 'Prof.ª Ana Silva', instituicao: 'IMIL / ISPTEC / UAN', dataHora: 'Sábado · 10h00 (90 min)', estado: 'ABERTA', inscritos: 141, vagas: 250, subject: 'matematica', resumo: 'Limites, derivadas e estudo de funções com foco nas provas parcelares e admissão.' },
+    { id: 'onl-5', titulo: 'Laboratório Python: Do CSV ao Dashboard Financeiro', docente: 'Eng.ª Mei Lin Zhao', instituicao: 'ISPTEC · Informática', dataHora: 'Sábado · 15h00 (75 min)', estado: 'ABERTA', inscritos: 58, vagas: 120, subject: 'programacao', resumo: 'Sessão prática de tratamento de dados reais e criação de portfólio para estágios.' },
   ];
 
   const SEED_DELEGATES = [
-    { id: 'del-uan', nome: 'Presidência da Associação de Estudantes — UAN', cargo: 'Presidente AE', instituicao: 'UAN', faculdade: 'Associação de Estudantes (Geral)', contacto: 'ae.uan@ceu.ao · Perfil institucional', comunicado: 'Abertas as inscrições para as Jornadas Científicas e grupos de revisão de Cálculo e Física.' },
-    { id: 'del-isptec', nome: 'Presidência da Associação de Estudantes — ISPTEC', cargo: 'Presidente AE', instituicao: 'ISPTEC', faculdade: 'Conselho Estudantil ISPTEC', contacto: 'ae.isptec@ceu.ao · Perfil institucional', comunicado: 'Hackathon Académico & Feira de Estágios de Engenharia com empresas parceiras este mês.' },
-    { id: 'del-ucan', nome: 'Presidência da Associação de Estudantes — UCAN', cargo: 'Presidente AE', instituicao: 'UCAN', faculdade: 'AE-UCAN (Direito, Economia & Eng.)', contacto: 'ae.ucan@ceu.ao · Perfil institucional', comunicado: 'Ciclo de mentorias de carreira, debates jurídicos e apoio à monografia com docentes.' },
-    { id: 'del-uluanda', nome: 'Coordenação Estudantil — Universidade de Luanda', cargo: 'Presidente AE', instituicao: 'ULuanda', faculdade: 'Associação de Estudantes ULuanda', contacto: 'ae.uluanda@ceu.ao · Perfil institucional', comunicado: 'Registo de novos delegados de turma aberto para o semestre letivo 2026/2027.' },
-    { id: 'del-imil', nome: 'Conselho de Chefes de Turma — IMIL', cargo: 'Delegado Geral', instituicao: 'IMIL', faculdade: 'Ensino Médio Técnico', contacto: 'delegados.imil@ceu.ao · Perfil institucional', comunicado: 'Aulas de preparação gratuita de Matemática e Informática para o acesso ao Ensino Superior.' },
-    { id: 'del-turma1', nome: 'Delegado de Turma — Eng. Informática 2.º A', cargo: 'Delegado de Turma', instituicao: 'ISPTEC', faculdade: 'Eng. Informática', contacto: 'Turma ISPTEC-INF-2A', comunicado: 'Todos os slides e sebentas PDF de Python já estão disponíveis na Sala da Turma.' },
+    { id: 'del-uan', nome: 'Associação de Estudantes — UAN', cargo: 'Presidente AE', instituicao: 'UAN', faculdade: 'Direção Geral Estudantil', contacto: 'ae.uan@ceu.ao', comunicado: 'Inscrições abertas para as Jornadas Científicas e grupos de revisão de Cálculo e Física.' },
+    { id: 'del-isptec', nome: 'Associação de Estudantes — ISPTEC', cargo: 'Presidente AE', instituicao: 'ISPTEC', faculdade: 'Conselho Estudantil ISPTEC', contacto: 'ae.isptec@ceu.ao', comunicado: 'Hackathon Académico e Feira de Estágios de Engenharia este mês.' },
+    { id: 'del-ucan', nome: 'Associação de Estudantes — UCAN', cargo: 'Presidente AE', instituicao: 'UCAN', faculdade: 'AE-UCAN', contacto: 'ae.ucan@ceu.ao', comunicado: 'Ciclo de mentorias de carreira, debates jurídicos e apoio à monografia.' },
+    { id: 'del-uluanda', nome: 'Coordenação Estudantil — ULuanda', cargo: 'Presidente AE', instituicao: 'ULuanda', faculdade: 'AE Universidade de Luanda', contacto: 'ae.uluanda@ceu.ao', comunicado: 'Registo de novos delegados de turma aberto para o ano letivo 2026/2027.' },
+    { id: 'del-imil', nome: 'Conselho de Chefes de Turma — IMIL', cargo: 'Delegado Geral', instituicao: 'IMIL', faculdade: 'Ensino Médio Técnico', contacto: 'delegados.imil@ceu.ao', comunicado: 'Aulas de preparação gratuita de Matemática e Informática para o acesso superior.' },
+    { id: 'del-turma1', nome: 'Delegado — Eng. Informática 2.º A', cargo: 'Delegado de Turma', instituicao: 'ISPTEC', faculdade: 'Eng. Informática', contacto: 'Turma ISPTEC-INF-2A', comunicado: 'Slides e sebentas PDF de Python já disponíveis na Sala da Turma.' },
   ];
 
   const SEED_MENTORSHIPS = [
@@ -197,23 +146,26 @@
     { id: 'men-2', mentor: 'Prof.ª Sofia Almeida', area: 'Marketing Digital', instituicao: 'CEU Academy', tema: 'Revisão de estratégia digital, redes sociais e portfólio criativo', formato: 'Online · 45 min', horario: 'Terças · 18h00', vagas: 8 },
     { id: 'men-3', mentor: 'Prof.ª Carla Mendes', area: 'Inglês & Bolsas', instituicao: 'CEU Idiomas', tema: 'Simulação de entrevista em inglês e candidaturas a bolsas internacionais', formato: 'Online · 40 min', horario: 'Quartas · 19h00', vagas: 5 },
     { id: 'men-4', mentor: 'Prof. Duarte Costa', area: 'Finanças & Carreira', instituicao: 'UCAN / Banca', tema: 'CV financeiro, Excel/Power BI e preparação para estágios bancários', formato: 'Online / Presencial', horario: 'Sábados · 09h30', vagas: 7 },
-    { id: 'men-5', mentor: 'Prof. Adolfo Camacho', area: 'Defesa de Tese & Liderança', instituicao: 'UAN / CEU', tema: 'Estrutura de monografia, postura de palco e gestão de associações estudantis', formato: 'Online · 45 min', horario: 'Sextas · 16h30', vagas: 6 },
-    { id: 'men-6', mentor: 'Prof.ª Ana Silva', area: 'Acesso à Universidade', instituicao: 'IMIL / ULuanda', tema: 'Plano de revisão de Matemática e Física para estudantes da 12.ª/13.ª classe', formato: 'Grupo · 60 min', horario: 'Sábados · 14h00', vagas: 20 },
+    { id: 'men-5', mentor: 'Prof. Adolfo Camacho', area: 'Defesa de Tese', instituicao: 'UAN / CEU', tema: 'Estrutura de monografia, oratória e liderança estudantil', formato: 'Online · 45 min', horario: 'Sextas · 16h30', vagas: 6 },
+    { id: 'men-6', mentor: 'Prof.ª Ana Silva', area: 'Acesso Superior', instituicao: 'IMIL / ULuanda', tema: 'Plano de revisão de Matemática e Física (12.ª/13.ª classe)', formato: 'Grupo · 60 min', horario: 'Sábados · 14h00', vagas: 20 },
   ];
 
   const SEED_INTERNSHIPS = [
     { id: 'int-1', titulo: 'Estágio Júnior em Desenvolvimento Web & IA', empresa: 'Horizonte Futuro Tech', local: 'Luanda · Híbrido', area: 'Tecnologia', duracao: '6 meses', bolsa: 'Remunerado + Mentoria', requisitos: 'Estudante de Informática/Engenharia ou curso Python CEU.' },
-    { id: 'int-2', titulo: 'Estágio em Marketing Digital & Gestão de Conteúdo', empresa: 'Rede Parceira CEU Media', local: 'Luanda · Remoto/Híbrido', area: 'Marketing', duracao: '4 meses', bolsa: 'Subsídio + Certificado', requisitos: 'Conhecimentos de redes sociais, copywriting e curso Marketing CEU.' },
+    { id: 'int-2', titulo: 'Estágio em Marketing Digital & Conteúdo', empresa: 'Rede Parceira CEU Media', local: 'Luanda · Híbrido', area: 'Marketing', duracao: '4 meses', bolsa: 'Subsídio + Certificado', requisitos: 'Redes sociais, copywriting e curso Marketing CEU.' },
     { id: 'int-3', titulo: 'Estágio Académico — Análise Financeira & Dados', empresa: 'Parceiro Bancário Luanda', local: 'Luanda · Presencial', area: 'Finanças', duracao: '6 meses', bolsa: 'Bolsa de Estágio', requisitos: '3.º/4.º ano de Economia, Gestão ou Contabilidade + Excel/Power BI.' },
-    { id: 'int-4', titulo: 'Estágio Técnico — Redes, Energia & Automação', empresa: 'Polo Industrial de Viana', local: 'Viana, Luanda · Presencial', area: 'Engenharia', duracao: '6 meses', bolsa: 'Bolsa + Transporte', requisitos: 'Finalistas do IMIL, UAN, ISPTEC ou UTANGA.' },
-    { id: 'int-5', titulo: 'Estágio em Comunicação Bilíngue & Relações Institucionais', empresa: 'Hub Internacional de Negócios AO', local: 'Benguela / Luanda · Híbrido', area: 'Idiomas', duracao: '4 meses', bolsa: 'Remunerado', requisitos: 'Inglês B2+ e boa expressão escrita.' },
+    { id: 'int-4', titulo: 'Estágio Técnico — Redes, Energia & Automação', empresa: 'Polo Industrial de Viana', local: 'Viana · Presencial', area: 'Engenharia', duracao: '6 meses', bolsa: 'Bolsa + Transporte', requisitos: 'Finalistas do IMIL, UAN, ISPTEC ou UTANGA.' },
+    { id: 'int-5', titulo: 'Estágio em Comunicação Bilíngue', empresa: 'Hub Internacional AO', local: 'Benguela / Luanda', area: 'Idiomas', duracao: '4 meses', bolsa: 'Remunerado', requisitos: 'Inglês B2+ e boa expressão escrita.' },
   ];
 
   let pomoTimerId = null;
   let examTimerId = null;
 
+  // 4 secções principais limpas: 'turmas' | 'estudo' | 'online' | 'rede'
   const CS = {
-    tab: 'turmas', // 'turmas' | 'materias' | 'exames' | 'online' | 'universidades' | 'delegados' | 'carreira'
+    tab: 'turmas',
+    studySub: 'materias', // 'materias' | 'exames' | 'flashcards' | 'media'
+    netSub: 'universidades', // 'universidades' | 'carreira' | 'delegados'
     activeClassId: '',
     classSubView: 'programa', // 'programa' | 'pauta'
     liveRoomId: '',
@@ -222,8 +174,7 @@
     turmaFilter: 'Todos',
     subjectFilter: 'Todas',
     subjectQuery: '',
-    careerSubTab: 'todos', // 'todos' | 'mentorias' | 'estagios'
-    examMode: 'simulado', // 'simulado' | 'flashcards'
+    careerSubTab: 'todos',
     activeExamId: 'ex-acesso-mat',
     examAnswers: {},
     examResult: null,
@@ -245,7 +196,7 @@
     finderQuery: '',
     pp1: '13',
     pp2: '15',
-    pesoFreq: '0.4', // 40% freq + 60% exame (padrão universitário AO) ou 0.5
+    pesoFreq: '0.4',
     dbLoaded: false,
     data: null,
   };
@@ -270,14 +221,13 @@
       appliedInternships: (saved && Array.isArray(saved.appliedInternships)) ? saved.appliedInternships : [],
       customFlashcards: (saved && Array.isArray(saved.customFlashcards)) ? saved.customFlashcards : [],
     };
-    // Garantir que turmas antigas sem programa/pauta recebem estrutura completa
     CS.data.classes.forEach((c) => {
       if (!Array.isArray(c.programa) || !c.programa.length) {
         c.programa = [
-          `Unidade 1 · Fundamentos e Conceitos Base de ${c.nome}`,
-          'Unidade 2 · Desenvolvimento Prático e Resolução de Problemas',
-          'Unidade 3 · Aplicações Reais no Contexto Angolano',
-          'Unidade 4 · Síntese, Revisão Geral e Preparação para Exame',
+          `Unidade 1 · Fundamentos de ${c.nome}`,
+          'Unidade 2 · Desenvolvimento Prático e Exercícios',
+          'Unidade 3 · Aplicações no Contexto Angolano',
+          'Unidade 4 · Síntese e Preparação para Exame',
         ];
       }
       if (!Array.isArray(c.mural)) c.mural = [];
@@ -339,51 +289,42 @@
       st.universities = mergeRecords(st.universities, unis);
       st.onlineClasses = mergeRecords(st.onlineClasses, onl);
       persistLocal();
-      if (/^#\/(campus|escolas|turmas|mentorias|estagios|materias|aulas-online)/.test(location.hash) && typeof render === 'function') render();
+      if (/^#\/(campus|escolas|turmas|mentorias|estagios|materias|exames|aulas-online)/.test(location.hash) && typeof render === 'function') render();
     } catch { }
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Simulador Inteligente de Média & Exame (0–20 valores · Angola)     */
-  /* ------------------------------------------------------------------ */
-  function computeAngolaGrade(pp1Raw, pp2Raw, pesoFreqRaw) {
+  function computeGradeLocal(pp1Raw, pp2Raw, pesoFreqRaw) {
+    const tools = window.Study && window.Study.CampusTools;
+    if (tools && typeof tools.computeAngolaGrade === 'function') {
+      const r = tools.computeAngolaGrade(pp1Raw, pp2Raw, pesoFreqRaw);
+      const cleanBadge = r.status === 'dispensado' ? 'DISPENSADO DE EXAME' : (r.status === 'recurso' ? 'ÉPOCA DE RECURSO' : 'APTO A EXAME NORMAL');
+      return { ...r, badge: cleanBadge };
+    }
     const p1 = Math.max(0, Math.min(20, Number(String(pp1Raw).replace(',', '.')) || 0));
     const p2 = Math.max(0, Math.min(20, Number(String(pp2Raw).replace(',', '.')) || 0));
     const wf = Number(pesoFreqRaw) === 0.5 ? 0.5 : 0.4;
     const we = 1 - wf;
     const mf = Number(((p1 + p2) / 2).toFixed(1));
-    if (mf >= 14) {
-      return { mf, status: 'dispensado', badge: '🎉 DISPENSADO DE EXAME', msg: `Com média de frequência ${mf} val. (>= 14), aprova diretamente sem precisar de exame final!` };
-    }
-    if (mf < 7) {
-      return { mf, status: 'recurso', badge: '⚠ VAI DIRETO A RECURSO', msg: `Com média ${mf} val. (< 7), na maioria dos regulamentos universitários segue diretamente para época de recurso.` };
-    }
-    // Nota mínima no exame para média final >= 9.5 (arredonda a 10 valores)
-    const target = 9.5;
-    const needed = Math.max(0, Math.ceil(((target - mf * wf) / we) * 10) / 10);
-    return {
-      mf,
-      needed,
-      status: 'exame',
-      badge: '📝 APTO A EXAME NORMAL',
-      msg: `Média de frequência: ${mf} val. Precisa de pelo menos ${needed.toFixed(1)} valores no Exame Final (${Math.round(wf * 100)}% Freq + ${Math.round(we * 100)}% Exame) para aprovar com 10.`,
-    };
+    if (mf >= 14) return { mf, status: 'dispensado', badge: 'DISPENSADO DE EXAME', msg: `Média de frequência ${mf} valores (>= 14): aprovação direta.` };
+    if (mf < 7) return { mf, status: 'recurso', badge: 'ÉPOCA DE RECURSO', msg: `Média ${mf} valores (< 7): segue para recurso.` };
+    const needed = Math.max(0, Math.ceil(((9.5 - mf * wf) / we) * 10) / 10);
+    return { mf, needed, status: 'exame', badge: 'APTO A EXAME NORMAL', msg: `Média ${mf} val. Nota mínima necessária no Exame Final: ${needed.toFixed(1)} valores.` };
   }
 
-  function renderGradeCalculator() {
-    if (!CS.showGradeCalc) return '';
-    const g = computeAngolaGrade(CS.pp1, CS.pp2, CS.pesoFreq);
+  function renderGradeCalculatorBox(alwaysShow = false) {
+    if (!alwaysShow && !CS.showGradeCalc) return '';
+    const g = computeGradeLocal(CS.pp1, CS.pp2, CS.pesoFreq);
     return `<section class="card cp-grade-box" data-testid="campus-grade-calc">
       <div class="cp-form-h">
-        <div><span class="eyebrow-t">FERRAMENTA DO ESTUDANTE · ESCALA 0–20 VALORES</span><h3 style="margin-top:3px">Simulador de Frequência, Dispensa &amp; Exame</h3></div>
-        <button type="button" class="icon-btn" aria-label="Fechar simulador" onclick="CEUCampus.toggleForm('showGradeCalc')">✕</button>
+        <div><span class="eyebrow-t">SIMULADOR ACADÉMICO · 0–20 VALORES</span><h3 style="margin-top:3px">Cálculo de Frequência, Dispensa e Exame</h3></div>
+        ${!alwaysShow ? `<button type="button" class="icon-btn" aria-label="Fechar" onclick="CEUCampus.toggleForm('showGradeCalc')">${ic('close')}</button>` : ''}
       </div>
       <div class="cp-grade-grid">
         <label>1.ª Parcelar (0–20) <input type="number" min="0" max="20" step="0.5" value="${escAttr(CS.pp1)}" oninput="CEUCampus.setGradeInput('pp1', this.value)"></label>
         <label>2.ª Parcelar (0–20) <input type="number" min="0" max="20" step="0.5" value="${escAttr(CS.pp2)}" oninput="CEUCampus.setGradeInput('pp2', this.value)"></label>
-        <label>Regra da Instituição
+        <label>Ponderação
           <select onchange="CEUCampus.setGradeInput('pesoFreq', this.value)">
-            <option value="0.4" ${CS.pesoFreq === '0.4' ? 'selected' : ''}>40% Frequência + 60% Exame (UAN/ISPTEC)</option>
+            <option value="0.4" ${CS.pesoFreq === '0.4' ? 'selected' : ''}>40% Frequência + 60% Exame</option>
             <option value="0.5" ${CS.pesoFreq === '0.5' ? 'selected' : ''}>50% Frequência + 50% Exame</option>
           </select>
         </label>
@@ -395,9 +336,6 @@
     </section>`;
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Sala Completa da Turma (Programa, Slides, PDFs, Online, Mural)     */
-  /* ------------------------------------------------------------------ */
   function renderClassroomPauta(cls) {
     const tools = (window.Study && window.Study.CampusTools) || {};
     const calcRow = tools.computeFinalPautaRow || ((r) => ({ ...r, mf: Number(((Number(r.pp1 || 0) + Number(r.pp2 || 0)) / 2).toFixed(1)), notaFinal: '—', estado: 'Em curso' }));
@@ -411,12 +349,12 @@
     return `<div class="cp-pauta-wrap" data-testid="campus-classroom-pauta">
       <div class="card cp-att-card">
         <div>
-          <span class="eyebrow-t">CHAMADA RÁPIDA &amp; QR DE PRESENÇA</span>
-          <h3 style="margin:4px 0 6px">Registo de Presenças (${presCount}/${rows.length} presentes)</h3>
-          <p class="cp-meta">Projete o código QR no quadro para os estudantes confirmarem presença com o telemóvel, ou marque manualmente na pauta abaixo.</p>
+          <span class="eyebrow-t">PRESENÇAS &amp; PAUTA OFICIAL</span>
+          <h3 style="margin:4px 0 6px">Chamada da Aula (${presCount}/${rows.length} presentes)</h3>
+          <p class="cp-meta">Projete o código QR para registo de presença ou exporte a pauta calculada automaticamente na escala 0–20.</p>
           <div class="flex wrap" style="gap:8px;margin-top:10px">
-            <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.exportClassPautaCsv('${escAttr(cls.id)}')">⬇ Exportar Pauta Excel (.CSV)</button>
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.printClassPauta('${escAttr(cls.id)}')">🖨 Imprimir Pauta Oficial (PDF)</button>
+            <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.exportClassPautaCsv('${escAttr(cls.id)}')">${ic('download')} Exportar Excel (.CSV)</button>
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.printClassPauta('${escAttr(cls.id)}')">${ic('printer')} Imprimir Pauta (PDF)</button>
           </div>
         </div>
         ${qrSvg ? `<div class="cp-att-qr">${qrSvg}<small>${esc(cls.codigo)}</small></div>` : ''}
@@ -424,7 +362,7 @@
 
       <section class="card cp-cr-box" style="margin-top:14px">
         <div class="cp-form-h">
-          <h3>📊 Mini-Pauta Automática (0–20 valores)</h3>
+          <h3>Pauta de Frequência e Exame (0–20)</h3>
           <form class="flex wrap" style="gap:6px" onsubmit="event.preventDefault();CEUCampus.addPautaStudent('${escAttr(cls.id)}')">
             <input id="pf-nome" placeholder="Nome do estudante" required style="padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:12.5px">
             <input id="pf-num" placeholder="N.º CEU" style="width:120px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:12.5px">
@@ -440,7 +378,7 @@
               ${rows.map((r, ri) => `<tr>
                 <td><code>${esc(r.numero)}</code></td>
                 <td><b>${esc(r.nome)}</b></td>
-                <td><button type="button" class="cp-pres-btn ${r.presente !== false ? 'is-on' : ''}" onclick="CEUCampus.togglePresence('${escAttr(cls.id)}', ${ri})">${r.presente !== false ? '✓ Presente' : '✕ Falta'}</button></td>
+                <td><button type="button" class="cp-pres-btn ${r.presente !== false ? 'is-on' : ''}" onclick="CEUCampus.togglePresence('${escAttr(cls.id)}', ${ri})">${r.presente !== false ? 'Presente' : 'Falta'}</button></td>
                 <td><input type="number" min="0" max="20" step="0.5" value="${escAttr(r.pp1 ?? '')}" onchange="CEUCampus.updatePautaGrade('${escAttr(cls.id)}', ${ri}, 'pp1', this.value)"></td>
                 <td><input type="number" min="0" max="20" step="0.5" value="${escAttr(r.pp2 ?? '')}" onchange="CEUCampus.updatePautaGrade('${escAttr(cls.id)}', ${ri}, 'pp2', this.value)"></td>
                 <td><b>${esc(r.mf ?? '—')}</b></td>
@@ -466,15 +404,15 @@
     return `<div class="cp-classroom" data-testid="campus-classroom-detail">
       <div class="cp-cr-top">
         <div class="flex wrap" style="gap:8px;align-items:center">
-          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.openClass('')">← Todas as Turmas</button>
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.openClass('')">${ic('back')} Turmas</button>
           <div class="cp-pills">
-            <button type="button" class="${CS.classSubView !== 'pauta' ? 'on' : ''}" onclick="CEUCampus.setClassSubView('programa')">📋 Programa &amp; Aulas</button>
-            <button type="button" class="${CS.classSubView === 'pauta' ? 'on' : ''}" onclick="CEUCampus.setClassSubView('pauta')">📊 Pauta 0–20 &amp; Presenças QR</button>
+            <button type="button" class="${CS.classSubView !== 'pauta' ? 'on' : ''}" onclick="CEUCampus.setClassSubView('programa')">Programa &amp; Materiais</button>
+            <button type="button" class="${CS.classSubView === 'pauta' ? 'on' : ''}" onclick="CEUCampus.setClassSubView('pauta')">Pauta &amp; Presenças</button>
           </div>
         </div>
         <div class="flex wrap" style="gap:8px">
-          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadSyllabusPdf('${escAttr(cls.id)}')">📄 Baixar Programa &amp; Sebenta (PDF)</button>
-          <button type="button" class="btn ${joined ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.toggleJoinClass('${escAttr(cls.id)}')">${joined ? '✓ Inscrito nesta Turma' : '+ Inscrever na Turma'}</button>
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadSyllabusPdf('${escAttr(cls.id)}')">${ic('file')} Sebenta PDF</button>
+          <button type="button" class="btn ${joined ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.toggleJoinClass('${escAttr(cls.id)}')">${joined ? 'Inscrito' : 'Inscrever na Turma'}</button>
         </div>
       </div>
 
@@ -485,7 +423,7 @@
           <p class="cp-meta">${esc(cls.faculdade)} · Docente: <b>${esc(cls.docente)}</b> · Delegado: <b>${esc(cls.delegado)}</b> · ${esc(cls.horario)}</p>
         </div>
         <div class="cp-cr-prog">
-          <small>PROGRESSO DO PROGRAMA (${doneCount}/${units.length})</small>
+          <small>UNIDADES CONCLUÍDAS (${doneCount}/${units.length})</small>
           <div class="cp-prog-bar"><i style="width:${pct}%"></i></div>
           <b>${pct}% estudado</b>
         </div>
@@ -493,7 +431,7 @@
 
       ${CS.classSubView === 'pauta' ? renderClassroomPauta(cls) : `<div class="cp-cr-cols">
         <section class="card cp-cr-box">
-          <div class="cp-form-h"><h3>📋 Programa &amp; Matérias da Disciplina</h3><small class="muted">Marque o que já estudou</small></div>
+          <div class="cp-form-h"><h3>Programa da Disciplina</h3><small class="muted">Marque o progresso</small></div>
           <ul class="cp-unit-list">
             ${units.map((u, idx) => {
               const checked = !!st.completedUnits[`${cls.id}:${idx}`];
@@ -502,7 +440,7 @@
                   <input type="checkbox" ${checked ? 'checked' : ''} onchange="CEUCampus.toggleUnit('${escAttr(cls.id)}', ${idx})">
                   <span>${esc(u)}</span>
                 </label>
-                <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.openUnitInSlides('${escAttr(cls.id)}', ${idx})">✦ Slides 3D</button>
+                <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.openUnitInSlides('${escAttr(cls.id)}', ${idx})">Slides 3D</button>
               </li>`;
             }).join('')}
           </ul>
@@ -510,8 +448,8 @@
 
         <section class="card cp-cr-box">
           <div class="cp-form-h">
-            <h3>📚 Aulas, Slides &amp; PDFs (${classLessons.length})</h3>
-            <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.toggleForm('showPublishLesson')">+ Publicar</button>
+            <h3>Aulas &amp; Sebentas (${classLessons.length})</h3>
+            <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.toggleForm('showPublishLesson')">+ Publicar Aula</button>
           </div>
           ${classLessons.length ? `<div class="cp-mini-lessons">
             ${classLessons.map((l) => `<div class="cp-ml-item">
@@ -521,17 +459,17 @@
                 <p>${esc(l.resumo)}</p>
               </div>
               <div class="flex wrap" style="gap:6px">
-                <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openLessonInProjector('${escAttr(l.id)}')">✦ Slides 3D</button>
-                <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadLessonPdf('${escAttr(l.id)}')">📄 PDF</button>
+                <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openLessonInProjector('${escAttr(l.id)}')">Slides 3D</button>
+                <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadLessonPdf('${escAttr(l.id)}')">PDF</button>
               </div>
             </div>`).join('')}
-          </div>` : `<p class="muted">Ainda sem aulas avulsas — clique em «✦ Slides 3D» em qualquer unidade do programa ao lado para estudar já!</p>`}
+          </div>` : `<p class="muted">Clique em «Slides 3D» em qualquer unidade ao lado para abrir no Projetor.</p>`}
 
           <div class="cp-mural">
-            <h4>💬 Mural de Avisos &amp; Dúvidas da Turma</h4>
+            <h4>Mural de Avisos da Turma</h4>
             <form class="cp-mural-form" onsubmit="event.preventDefault();CEUCampus.postClassNote('${escAttr(cls.id)}')">
-              <input id="cp-mural-in" placeholder="Escreva uma dúvida, data de prova ou aviso para a turma…" required>
-              <button type="submit" class="btn btn-o btn-sm">Publicar</button>
+              <input id="cp-mural-in" placeholder="Escrever dúvida ou aviso…" required>
+              <button type="submit" class="btn btn-o btn-sm">Enviar</button>
             </form>
             <div class="cp-mural-list">
               ${mural.map((m) => `<div class="cp-mural-msg"><b>${esc(m.autor)}</b> <small>(${esc(m.papel)} · ${esc(m.data)})</small><p>${esc(m.texto)}</p></div>`).join('')}
@@ -548,7 +486,7 @@
       if (cls) return renderClassroomDetail(st, cls);
       CS.activeClassId = '';
     }
-    const levels = ['Todos', 'Universidade', 'Escola / Ensino Médio', 'Curso Livre'];
+    const levels = ['Todos', 'Universidade', 'Ensino Médio', 'Curso Livre'];
     const filtered = st.classes.filter((c) => {
       if (CS.turmaFilter !== 'Todos' && c.nivel !== CS.turmaFilter && c.instituicao !== CS.turmaFilter) return false;
       return true;
@@ -560,44 +498,44 @@
       <div class="cp-bar">
         <div class="cp-pills" role="group" aria-label="Filtrar turmas">
           ${levels.map((lv) => `<button type="button" class="${CS.turmaFilter === lv ? 'on' : ''}" onclick="CEUCampus.setTurmaFilter('${escAttr(lv)}')">${esc(lv)}</button>`).join('')}
-          ${!levels.includes(CS.turmaFilter) ? `<button type="button" class="on" onclick="CEUCampus.setTurmaFilter('Todos')">${esc(CS.turmaFilter)} ✕</button>` : ''}
+          ${!levels.includes(CS.turmaFilter) ? `<button type="button" class="on" onclick="CEUCampus.setTurmaFilter('Todos')">${esc(CS.turmaFilter)} ×</button>` : ''}
         </div>
         <div class="flex wrap" style="gap:8px">
           <div class="cp-code-join">
             <input id="cp-join-code" placeholder="Código (ex. UAN-ENG-1A)" aria-label="Código da turma">
             <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.joinByCode()">Entrar</button>
           </div>
-          <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.toggleForm('showCreateClass')">+ Criar Turma</button>
-          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleForm('showPublishLesson')">📢 Publicar Aula</button>
+          <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.toggleForm('showCreateClass')">${ic('plus')} Nova Turma</button>
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleForm('showPublishLesson')">Publicar Aula</button>
         </div>
       </div>
 
       ${CS.showCreateClass ? `<form class="card cp-form" onsubmit="event.preventDefault();CEUCampus.createClass()">
-        <div class="cp-form-h"><h3>Criar Nova Turma (Escola ou Universidade)</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showCreateClass')">✕</button></div>
+        <div class="cp-form-h"><h3>Criar Nova Turma</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showCreateClass')">${ic('close')}</button></div>
         <div class="cp-form-grid">
-          <label>Nome da Disciplina / Turma <input id="cf-nome" required placeholder="Ex.: Álgebra Linear — Turma B"></label>
-          <label>Instituição / Escola <input id="cf-inst" required placeholder="Ex.: UAN, ISPTEC, IMIL, Colégio..."></label>
+          <label>Disciplina / Turma <input id="cf-nome" required placeholder="Ex.: Álgebra Linear — Turma B"></label>
+          <label>Instituição / Escola <input id="cf-inst" required placeholder="Ex.: UAN, ISPTEC, IMIL"></label>
           <label>Faculdade / Classe <input id="cf-fac" placeholder="Ex.: Eng. Informática / 12.ª Classe"></label>
-          <label>Nível <select id="cf-nivel"><option>Universidade</option><option>Escola / Ensino Médio</option><option>Curso Livre</option></select></label>
-          <label>Docente Responsável <input id="cf-doc" placeholder="Ex.: Prof. Manuel António"></label>
-          <label>Delegado / Chefe de Turma <input id="cf-del" placeholder="Ex.: Ana Pedro"></label>
+          <label>Nível <select id="cf-nivel"><option>Universidade</option><option>Ensino Médio</option><option>Curso Livre</option></select></label>
+          <label>Docente <input id="cf-doc" placeholder="Ex.: Prof. Manuel António"></label>
+          <label>Delegado <input id="cf-del" placeholder="Ex.: Ana Pedro"></label>
           <label>Horário <input id="cf-hor" placeholder="Ex.: Seg & Qua · 10h–12h"></label>
-          <label>Código de Entrada <input id="cf-cod" placeholder="Auto (ex. UAN-2026-B)"></label>
+          <label>Código <input id="cf-cod" placeholder="Auto (ex. UAN-2026-B)"></label>
         </div>
-        <label style="display:block;margin-top:8px">Programa / Unidades da Matéria (1 por linha — opcional) <textarea id="cf-prog" rows="3" placeholder="Unidade 1 · Introdução&#10;Unidade 2 · Prática e Exercícios"></textarea></label>
+        <label style="display:block;margin-top:8px">Programa (1 unidade por linha — opcional) <textarea id="cf-prog" rows="3" placeholder="Unidade 1 · Introdução&#10;Unidade 2 · Exercícios Práticos"></textarea></label>
         <div class="flex" style="gap:8px;margin-top:12px"><button type="submit" class="btn btn-p btn-sm">Guardar Turma</button></div>
       </form>` : ''}
 
       ${CS.showPublishLesson ? `<form class="card cp-form" onsubmit="event.preventDefault();CEUCampus.publishLesson()">
-        <div class="cp-form-h"><h3>Publicar Nova Aula / Sebenta para a Turma</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showPublishLesson')">✕</button></div>
+        <div class="cp-form-h"><h3>Publicar Aula ou Sebenta</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showPublishLesson')">${ic('close')}</button></div>
         <div class="cp-form-grid">
-          <label>Turma de Destino <select id="lf-turma">${st.classes.map((c) => `<option value="${escAttr(c.id)}">${esc(c.codigo)} · ${esc(c.nome)}</option>`).join('')}</select></label>
+          <label>Turma <select id="lf-turma">${st.classes.map((c) => `<option value="${escAttr(c.id)}">${esc(c.codigo)} · ${esc(c.nome)}</option>`).join('')}</select></label>
           <label>Título da Aula <input id="lf-titulo" required placeholder="Ex.: Aula 05 — Derivadas e Aplicações"></label>
-          <label>Tipo de Material <select id="lf-tipo"><option>Slides 3D + PDF</option><option>Sebenta PDF</option><option>Aula Gravada</option><option>Exercício / Exame</option></select></label>
-          <label>Vincular Deck do Projetor IA (opcional) <select id="lf-deck"><option value="">— Gerar slides e PDF a partir do texto abaixo —</option>${savedDecks.map((d) => `<option value="${escAttr(d.id)}">${esc(d.title)}</option>`).join('')}</select></label>
+          <label>Formato <select id="lf-tipo"><option>Slides 3D + PDF</option><option>Sebenta PDF</option><option>Aula Gravada</option><option>Ficha de Exame</option></select></label>
+          <label>Deck do Projetor (opcional) <select id="lf-deck"><option value="">— Gerar a partir do resumo abaixo —</option>${savedDecks.map((d) => `<option value="${escAttr(d.id)}">${esc(d.title)}</option>`).join('')}</select></label>
         </div>
-        <label style="display:block;margin-top:8px">Conteúdo / Resumo da Aula (gera Slides 3D e Sebenta PDF para os alunos) <textarea id="lf-resumo" rows="3" required placeholder="Escreva os pontos-chave, fórmulas ou resumo da aula…"></textarea></label>
-        <div class="flex" style="gap:8px;margin-top:12px"><button type="submit" class="btn btn-p btn-sm">📢 Publicar na Turma</button></div>
+        <label style="display:block;margin-top:8px">Resumo / Conteúdo da Aula <textarea id="lf-resumo" rows="3" required placeholder="Pontos principais, fórmulas ou síntese da aula…"></textarea></label>
+        <div class="flex" style="gap:8px;margin-top:12px"><button type="submit" class="btn btn-p btn-sm">Publicar na Turma</button></div>
       </form>` : ''}
 
       <div class="cp-grid" data-testid="campus-classes-grid">
@@ -611,22 +549,19 @@
               <span class="cp-code">${esc(c.codigo)}</span>
             </div>
             <h3>${esc(c.nome)}</h3>
-            <p class="cp-meta">${esc(c.faculdade)} · ${esc(c.nivel)}</p>
-            <div class="cp-info-list">
-              <span><b>Docente:</b> ${esc(c.docente)}</span>
-              <span><b>Horário:</b> ${esc(c.horario)}</span>
-              <span><b>Programa:</b> ${units.length} unidades (${done}/${units.length} concluídas)</span>
-            </div>
+            <p class="cp-meta">${esc(c.faculdade)} · ${esc(c.docente)}</p>
+            <p class="cp-desc">${esc(c.horario)} · ${done}/${units.length} unidades concluídas</p>
             <div class="cp-card-foot">
-              <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openClass('${escAttr(c.id)}')">Abrir Sala &amp; Programa →</button>
-              <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleJoinClass('${escAttr(c.id)}')">${joined ? '✓ Inscrito' : '+ Inscrever'}</button>
+              <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openClass('${escAttr(c.id)}')">Abrir Sala →</button>
+              <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleJoinClass('${escAttr(c.id)}')">${joined ? 'Inscrito' : 'Inscrever'}</button>
             </div>
           </article>`;
         }).join('')}
       </div>
 
       <div class="cp-subhead">
-        <div><span class="eyebrow-t">MATERIAIS RECENTES DAS TURMAS</span><h2>Aulas, Slides 3D &amp; Sebentas PDF (${st.lessons.length})</h2></div>
+        <span class="eyebrow-t">PUBLICAÇÕES RECENTES</span>
+        <h2>Aulas &amp; Sebentas das Turmas</h2>
       </div>
       <div class="cp-lessons" data-testid="campus-lessons-list">
         ${st.lessons.map((l) => `<article class="card cp-lesson-card">
@@ -637,10 +572,10 @@
           <h4>${esc(l.titulo)}</h4>
           <p>${esc(l.resumo)}</p>
           <div class="cp-card-foot">
-            <small>Por ${esc(l.autor)}</small>
+            <small>${esc(l.autor)}</small>
             <div class="flex wrap" style="gap:6px">
-              <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadLessonPdf('${escAttr(l.id)}')">📄 Sebenta PDF</button>
-              <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openLessonInProjector('${escAttr(l.id)}')">✦ Abrir em Slides 3D</button>
+              <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadLessonPdf('${escAttr(l.id)}')">${ic('file')} PDF</button>
+              <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openLessonInProjector('${escAttr(l.id)}')">${ic('slides')} Slides 3D</button>
             </div>
           </div>
         </article>`).join('')}
@@ -648,10 +583,117 @@
     </div>`;
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Tab 2: Biblioteca de Matérias, Programas, Slides 3D & Sebentas PDF */
-  /* ------------------------------------------------------------------ */
-  function renderSubjectsTab(st) {
+  function renderStudyHub(st) {
+    const tools = (window.Study && window.Study.CampusTools) || {};
+    const banks = tools.EXAM_BANKS || [];
+    const baseCards = (tools.FLASHCARD_DECKS || []).concat(st.customFlashcards || []);
+
+    const subNav = `<div class="cp-bar">
+      <div class="cp-pills" role="tablist" aria-label="Ferramentas de Estudo">
+        <button type="button" class="${CS.studySub === 'materias' ? 'on' : ''}" onclick="CEUCampus.setStudySub('materias')">Matérias &amp; Sebentas (${st.subjects.length})</button>
+        <button type="button" class="${CS.studySub === 'exames' ? 'on' : ''}" onclick="CEUCampus.setStudySub('exames')">Simulados 0–20 (${banks.length})</button>
+        <button type="button" class="${CS.studySub === 'flashcards' ? 'on' : ''}" onclick="CEUCampus.setStudySub('flashcards')">Cartões de Revisão (${baseCards.length})</button>
+        <button type="button" class="${CS.studySub === 'media' ? 'on' : ''}" onclick="CEUCampus.setStudySub('media')">Calculadora 0–20</button>
+      </div>
+    </div>`;
+
+    if (CS.studySub === 'media') {
+      return `<div class="cp-section">${subNav}${renderGradeCalculatorBox(true)}</div>`;
+    }
+
+    if (CS.studySub === 'flashcards') {
+      const subjects = ['Todas', ...Array.from(new Set(baseCards.map((c) => c.subject)))];
+      const deck = baseCards.filter((c) => CS.fcSubject === 'Todas' || c.subject === CS.fcSubject);
+      const curIdx = deck.length ? Math.max(0, Math.min(CS.fcIdx, deck.length - 1)) : 0;
+      const cur = deck[curIdx] || null;
+      const knownCount = deck.filter((c) => CS.fcKnown[c.id]).length;
+
+      return `<div class="cp-section" data-testid="campus-flashcards-view">
+        ${subNav}
+        <div class="cp-bar">
+          <div class="cp-pills">
+            ${subjects.map((s) => `<button type="button" class="${CS.fcSubject === s ? 'on' : ''}" onclick="CEUCampus.setFcSubject('${escAttr(s)}')">${esc(s)}</button>`).join('')}
+          </div>
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleForm('showFcGen')">${ic('plus')} Criar dos Apontamentos</button>
+        </div>
+
+        ${CS.showFcGen ? `<form class="card cp-form" onsubmit="event.preventDefault();CEUCampus.generateCustomFlashcards()">
+          <div class="cp-form-h"><h3>Gerar Cartões de Revisão</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showFcGen')">${ic('close')}</button></div>
+          <label>Disciplina <input id="fc-gen-sub" value="Meus Cartões" required></label>
+          <label style="margin-top:8px">Definições no formato "Conceito: Explicação" (1 por linha)
+            <textarea id="fc-gen-txt" rows="4" required placeholder="Fotossíntese: Conversão de luz solar, água e CO2 em glicose e oxigénio."></textarea>
+          </label>
+          <div class="flex" style="gap:8px;margin-top:10px"><button type="submit" class="btn btn-p btn-sm">Criar Cartões</button></div>
+        </form>` : ''}
+
+        ${cur ? `<div class="cp-fc-stage">
+          <button type="button" class="cp-fc-card ${CS.fcFlipped ? 'is-flipped' : ''}" onclick="CEUCampus.flipFlashcard()" aria-label="Virar cartão de estudo">
+            <span class="cp-badge is-navy">${esc(cur.subject)} · ${curIdx + 1}/${deck.length}</span>
+            <div class="cp-fc-label">${CS.fcFlipped ? 'RESPOSTA / EXPLICAÇÃO' : 'PERGUNTA / CONCEITO'}</div>
+            <h3>${esc(CS.fcFlipped ? cur.back : cur.front)}</h3>
+            <small>Clique para ${CS.fcFlipped ? 'ver a pergunta' : 'revelar a resposta'}</small>
+          </button>
+          <div class="cp-fc-controls">
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.stepFlashcard(-1)">Anterior</button>
+            <button type="button" class="btn ${CS.fcKnown[cur.id] ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.markFlashcardKnown('${escAttr(cur.id)}')">${CS.fcKnown[cur.id] ? 'Dominado' : 'Marcar como dominado'}</button>
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.stepFlashcard(1)">Próximo</button>
+          </div>
+          <p class="muted" style="text-align:center;font-size:12.5px;margin:8px 0 0">Dominados: <b>${knownCount} de ${deck.length}</b></p>
+        </div>` : '<p class="muted">Sem cartões nesta categoria.</p>'}
+      </div>`;
+    }
+
+    if (CS.studySub === 'exames') {
+      const activeExam = banks.find((e) => e.id === CS.activeExamId) || banks[0];
+      const mm = String(Math.floor(CS.examSecLeft / 60)).padStart(2, '0');
+      const ss = String(CS.examSecLeft % 60).padStart(2, '0');
+      return `<div class="cp-section" data-testid="campus-exams-view">
+        ${subNav}
+        <div class="cp-bar">
+          <div class="cp-pills">
+            ${banks.map((b) => `<button type="button" class="${activeExam && activeExam.id === b.id ? 'on' : ''}" onclick="CEUCampus.selectExam('${escAttr(b.id)}')">${esc(b.area)}</button>`).join('')}
+          </div>
+          ${activeExam ? `<span class="cp-badge is-navy" id="cp-exam-clock">Tempo: ${mm}:${ss}</span>` : ''}
+        </div>
+
+        ${CS.examResult ? `<div class="card cp-exam-res" data-testid="campus-exam-result">
+          <div class="cp-cr-banner" style="padding:0;border:0;box-shadow:none">
+            <div>
+              <span class="cp-badge is-navy">CLASSIFICAÇÃO (0–20 VALORES)</span>
+              <h2 style="margin:6px 0 4px">${CS.examResult.nota20.toFixed(1).replace('.', ',')} / 20 — ${esc(CS.examResult.nivel)}</h2>
+              <p class="cp-meta">Acertou <b>${CS.examResult.correct} de ${CS.examResult.total}</b> questões em «${esc(CS.examResult.title)}».</p>
+            </div>
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.resetExam()">Repetir Simulado</button>
+          </div>
+          <div class="cp-exam-corr">
+            ${CS.examResult.details.map((d, i) => `<div class="cp-corr-item ${d.isRight ? 'is-ok' : 'is-bad'}">
+              <b>${i + 1}. ${esc(d.question)}</b>
+              <span>Resposta: <em>${esc(d.pickedOption)}</em> ${d.isRight ? '(Correta)' : `(Correta: ${esc(d.correctOption)})`}</span>
+              <small>Explicação: ${esc(d.explanation)}</small>
+            </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+        ${activeExam ? `<div class="card cp-form" style="margin-top:12px">
+          <div class="cp-form-h"><h3>${esc(activeExam.titulo)}</h3><small class="muted">${activeExam.questions.length} questões</small></div>
+          <div class="cp-q-list">
+            ${activeExam.questions.map((q, qi) => `<div class="cp-q-box">
+              <b>${qi + 1}. ${esc(q.q)}</b>
+              <div class="cp-q-opts">
+                ${q.opts.map((opt, oi) => `<label class="cp-q-opt ${Number(CS.examAnswers[qi]) === oi ? 'is-sel' : ''}">
+                  <input type="radio" name="exq-${qi}" ${Number(CS.examAnswers[qi]) === oi ? 'checked' : ''} onchange="CEUCampus.pickExamAnswer(${qi}, ${oi})">
+                  <span>${esc(opt)}</span>
+                </label>`).join('')}
+              </div>
+            </div>`).join('')}
+          </div>
+          <div class="flex wrap" style="gap:10px;margin-top:14px">
+            <button type="button" class="btn btn-p" onclick="CEUCampus.submitExam()">Entregar e Corrigir (0–20 valores)</button>
+          </div>
+        </div>` : ''}
+      </div>`;
+    }
+
     const areas = ['Todas', 'Exatas & Tech', 'Negócios & Finanças', 'Idiomas & Direito', 'Saúde'];
     const q = CS.subjectQuery.trim().toLowerCase();
     const list = st.subjects.filter((s) => {
@@ -661,13 +703,13 @@
     });
 
     return `<div class="cp-section" data-testid="campus-subjects-tab">
+      ${subNav}
       <div class="cp-bar">
         <div class="cp-pills">
           ${areas.map((a) => `<button type="button" class="${CS.subjectFilter === a ? 'on' : ''}" onclick="CEUCampus.setSubjectFilter('${escAttr(a)}')">${esc(a)}</button>`).join('')}
         </div>
-        <input class="cp-search" placeholder="Procurar matéria, fórmula ou tópico (ex. Derivadas, Inglês, Python)…" value="${escAttr(CS.subjectQuery)}" oninput="CEUCampus.setSubjectQuery(this.value)">
+        <input class="cp-search" placeholder="Filtrar matéria ou tópico…" value="${escAttr(CS.subjectQuery)}" oninput="CEUCampus.setSubjectQuery(this.value)">
       </div>
-
       <div class="cp-lessons">
         ${list.map((s) => `<article class="card cp-lesson-card">
           <div class="cp-card-top">
@@ -677,15 +719,14 @@
           <h4>${esc(s.titulo)}</h4>
           <p>${esc(s.resumo)}</p>
           <div class="cp-syl-box">
-            <b>Programa Oficial (${s.programa.length} módulos):</b>
+            <b>Programa (${s.programa.length} módulos):</b>
             <ul>${s.programa.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
           </div>
-          ${(s.formulas && s.formulas.length) ? `<div class="cp-tags">${s.formulas.map((f) => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
           <div class="cp-card-foot">
-            <small>${s.perguntas.length} questões de exame incluídas</small>
+            <small>${s.perguntas.length} questões de exame</small>
             <div class="flex wrap" style="gap:6px">
-              <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadSubjectPdf('${escAttr(s.id)}')">📄 Baixar Sebenta PDF</button>
-              <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openSubjectInSlides('${escAttr(s.id)}')">✦ Gerar Slides 3D</button>
+              <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadSubjectPdf('${escAttr(s.id)}')">${ic('file')} Sebenta PDF</button>
+              <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openSubjectInSlides('${escAttr(s.id)}')">${ic('slides')} Slides 3D</button>
             </div>
           </div>
         </article>`).join('')}
@@ -693,26 +734,23 @@
     </div>`;
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Tab 3: Aulas Online Ao Vivo & Inscrição com 1 Clique + .ICS        */
-  /* ------------------------------------------------------------------ */
   function renderOnlineTab(st) {
     const card = getStudentCard();
     return `<div class="cp-section" data-testid="campus-online-tab">
       <div class="cp-bar">
-        <span class="cp-pill-soft">Inscreva-se gratuitamente nas aulas online com o seu Cartão CEU (<b>${esc(card.numero)}</b>) e guarde no calendário.</span>
-        <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.toggleForm('showCreateOnline')">+ Agendar Aula Online</button>
+        <span class="cp-pill-soft">Inscrição gratuita com Cartão CEU (<b>${esc(card.numero)}</b>).</span>
+        <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.toggleForm('showCreateOnline')">${ic('plus')} Agendar Aula Online</button>
       </div>
 
       ${CS.showCreateOnline ? `<form class="card cp-form" onsubmit="event.preventDefault();CEUCampus.createOnlineClass()">
-        <div class="cp-form-h"><h3>Agendar Nova Aula Online Aberta / Turma</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showCreateOnline')">✕</button></div>
+        <div class="cp-form-h"><h3>Agendar Nova Aula Online</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showCreateOnline')">${ic('close')}</button></div>
         <div class="cp-form-grid">
-          <label>Título da Aula Online <input id="of-titulo" required placeholder="Ex.: Revisão Geral de Cálculo II"></label>
-          <label>Docente / Orador <input id="of-doc" required placeholder="Ex.: Prof.ª Ana Silva"></label>
-          <label>Instituição / Público <input id="of-inst" value="CEU Academy · Aberta"></label>
-          <label>Data, Hora e Duração <input id="of-data" required placeholder="Ex.: Sábado · 16h00 (60 min)"></label>
+          <label>Título da Aula <input id="of-titulo" required placeholder="Ex.: Revisão Geral de Cálculo II"></label>
+          <label>Docente <input id="of-doc" required placeholder="Ex.: Prof.ª Ana Silva"></label>
+          <label>Instituição <input id="of-inst" value="CEU Academy · Aberta"></label>
+          <label>Data e Hora <input id="of-data" required placeholder="Ex.: Sábado · 16h00 (60 min)"></label>
         </div>
-        <label style="display:block;margin-top:8px"> Tópicos que serão resolvidos em direto <textarea id="of-res" rows="2" required placeholder="Descreva o programa desta sessão online…"></textarea></label>
+        <label style="display:block;margin-top:8px">Programa da sessão <textarea id="of-res" rows="2" required placeholder="Tópicos que serão resolvidos em direto…"></textarea></label>
         <div class="flex" style="gap:8px;margin-top:12px"><button type="submit" class="btn btn-p btn-sm">Publicar Aula Online</button></div>
       </form>` : ''}
 
@@ -722,7 +760,7 @@
           const isLive = /VIVO/i.test(o.estado);
           return `<article class="card cp-card">
             <div class="cp-card-top">
-              <span class="cp-badge ${isLive ? 'is-live' : 'is-navy'}">${isLive ? '● AO VIVO AGORA' : esc(o.estado)}</span>
+              <span class="cp-badge ${isLive ? 'is-live' : 'is-navy'}">${isLive ? 'AO VIVO' : esc(o.estado)}</span>
               <span class="cp-pill-soft">${esc(o.dataHora)}</span>
             </div>
             <h3>${esc(o.titulo)}</h3>
@@ -731,9 +769,9 @@
             <div class="cp-card-foot">
               <small>${o.inscritos}/${o.vagas} inscritos</small>
               <div class="flex wrap" style="gap:6px">
-                <button type="button" class="btn btn-o btn-sm" title="Guardar no Calendário (.ics)" onclick="CEUCampus.downloadIcs('${escAttr(o.id)}')">📅 Agenda</button>
-                <button type="button" class="btn ${enrolled ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.toggleEnrollOnline('${escAttr(o.id)}')">${enrolled ? '✓ Inscrito' : 'Inscrever-se'}</button>
-                ${(isLive || enrolled) ? `<button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openLiveRoom('${escAttr(o.id)}')">▶ Sala</button>` : ''}
+                <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadIcs('${escAttr(o.id)}')">${ic('calendar')} Agenda</button>
+                <button type="button" class="btn ${enrolled ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.toggleEnrollOnline('${escAttr(o.id)}')">${enrolled ? 'Inscrito' : 'Inscrever'}</button>
+                ${(isLive || enrolled) ? `<button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openLiveRoom('${escAttr(o.id)}')">Sala</button>` : ''}
               </div>
             </div>
           </article>`;
@@ -742,7 +780,100 @@
     </div>`;
   }
 
-  function renderUniversitiesTab(st) {
+  function renderNetworkAndCareerHub(st) {
+    const card = getStudentCard();
+    const subNav = `<div class="cp-bar">
+      <div class="cp-pills" role="tablist" aria-label="Rede Académica e Carreira">
+        <button type="button" class="${CS.netSub === 'universidades' ? 'on' : ''}" onclick="CEUCampus.setNetSub('universidades')">Escolas &amp; Faculdades (${st.universities.length})</button>
+        <button type="button" class="${CS.netSub === 'carreira' ? 'on' : ''}" onclick="CEUCampus.setNetSub('carreira')">Estágios &amp; Mentorias (${st.internships.length + st.mentorships.length})</button>
+        <button type="button" class="${CS.netSub === 'delegados' ? 'on' : ''}" onclick="CEUCampus.setNetSub('delegados')">Associações &amp; Delegados (${st.delegates.length})</button>
+      </div>
+    </div>`;
+
+    if (CS.netSub === 'delegados') {
+      return `<div class="cp-section">
+        ${subNav}
+        <div class="cp-bar">
+          <span class="muted" style="font-size:13px">Presidentes de Associações de Estudantes (AE) e Delegados de Turma em escolas e universidades.</span>
+          <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.toggleForm('showAddDelegate')">${ic('plus')} Registar Representante</button>
+        </div>
+        ${CS.showAddDelegate ? `<form class="card cp-form" onsubmit="event.preventDefault();CEUCampus.addDelegate()">
+          <div class="cp-form-h"><h3>Registar Presidente AE ou Delegado</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showAddDelegate')">${ic('close')}</button></div>
+          <div class="cp-form-grid">
+            <label>Nome <input id="df-nome" required placeholder="Nome completo"></label>
+            <label>Cargo <select id="df-cargo"><option>Presidente AE</option><option>Vice-Presidente AE</option><option>Delegado de Turma</option><option>Chefe de Turma</option></select></label>
+            <label>Instituição <input id="df-inst" required placeholder="Ex.: UAN, ISPTEC, UCAN, IMIL"></label>
+            <label>Faculdade / Turma <input id="df-fac" required placeholder="Ex.: Direito 3.º Ano"></label>
+            <label>Contacto <input id="df-cont" placeholder="Email institucional"></label>
+          </div>
+          <label style="display:block;margin-top:8px">Comunicado Oficial <textarea id="df-msg" rows="2" placeholder="Aviso de reunião, jornadas científicas ou exames…"></textarea></label>
+          <div class="flex" style="gap:8px;margin-top:12px"><button type="submit" class="btn btn-p btn-sm">Guardar</button></div>
+        </form>` : ''}
+        <div class="cp-grid" data-testid="campus-delegates-grid">
+          ${st.delegates.map((d) => `<article class="card cp-card">
+            <div class="cp-card-top">
+              <span class="cp-badge ${/Presidente/i.test(d.cargo) ? 'is-navy' : ''}">${esc(d.cargo)}</span>
+              <span class="cp-pill-soft">${esc(d.instituicao)}</span>
+            </div>
+            <h3>${esc(d.nome)}</h3>
+            <p class="cp-meta">${esc(d.faculdade)}</p>
+            ${d.comunicado ? `<div class="cp-notice">${esc(d.comunicado)}</div>` : ''}
+            <div class="cp-card-foot"><small>${esc(d.contacto)}</small></div>
+          </article>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    if (CS.netSub === 'carreira') {
+      const showMen = CS.careerSubTab !== 'estagios';
+      const showInt = CS.careerSubTab !== 'mentorias';
+      return `<div class="cp-section">
+        ${subNav}
+        <div class="cp-bar">
+          <div class="cp-pills">
+            <button type="button" class="${CS.careerSubTab === 'todos' ? 'on' : ''}" onclick="CEUCampus.setCareerSubTab('todos')">Tudo</button>
+            <button type="button" class="${CS.careerSubTab === 'estagios' ? 'on' : ''}" onclick="CEUCampus.setCareerSubTab('estagios')">Estágios (${st.internships.length})</button>
+            <button type="button" class="${CS.careerSubTab === 'mentorias' ? 'on' : ''}" onclick="CEUCampus.setCareerSubTab('mentorias')">Mentorias (${st.mentorships.length})</button>
+          </div>
+          <span class="cp-pill-soft">Cartão CEU ativo: <b>${esc(card.numero)}</b></span>
+        </div>
+
+        ${showInt ? `<div class="cp-subhead" style="margin-top:4px"><span class="eyebrow-t">OPORTUNIDADES EM ANGOLA</span><h2>Vagas de Estágio</h2></div>
+        <div class="cp-grid" data-testid="campus-internships-grid" style="margin-bottom:24px">
+          ${st.internships.map((i) => {
+            const applied = st.appliedInternships.includes(i.id);
+            return `<article class="card cp-card">
+              <div class="cp-card-top"><span class="cp-badge is-navy">${esc(i.area)}</span><span class="cp-pill-soft">${esc(i.local)}</span></div>
+              <h3>${esc(i.titulo)}</h3>
+              <p class="cp-meta">${esc(i.empresa)} · ${esc(i.duracao)} · ${esc(i.bolsa)}</p>
+              <p class="cp-desc">${esc(i.requisitos)}</p>
+              <div class="cp-card-foot">
+                <small>${applied ? `Enviado (${card.nome})` : 'Candidatura 1 clique'}</small>
+                <button type="button" class="btn ${applied ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.applyInternship('${escAttr(i.id)}')">${applied ? 'Candidatura Enviada' : 'Candidatar'}</button>
+              </div>
+            </article>`;
+          }).join('')}
+        </div>` : ''}
+
+        ${showMen ? `<div class="cp-subhead"><span class="eyebrow-t">ORIENTAÇÃO ACADÉMICA</span><h2>Mentorias</h2></div>
+        <div class="cp-grid" data-testid="campus-mentorships-grid">
+          ${st.mentorships.map((m) => {
+            const booked = st.bookedMentorships.includes(m.id);
+            return `<article class="card cp-card">
+              <div class="cp-card-top"><span class="cp-badge">${esc(m.area)}</span><span class="cp-pill-soft">${esc(m.formato)}</span></div>
+              <h3>${esc(m.mentor)}</h3>
+              <p class="cp-meta">${esc(m.instituicao)} · ${esc(m.horario)}</p>
+              <p class="cp-desc">${esc(m.tema)}</p>
+              <div class="cp-card-foot">
+                <small>${m.vagas} vagas</small>
+                <button type="button" class="btn ${booked ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.bookMentorship('${escAttr(m.id)}')">${booked ? 'Sessão Marcada' : 'Marcar'}</button>
+              </div>
+            </article>`;
+          }).join('')}
+        </div>` : ''}
+      </div>`;
+    }
+
     const provs = ['Todas', 'Luanda', 'Huambo', 'Huíla', 'Benguela'];
     const q = CS.uniQuery.trim().toLowerCase();
     const list = st.universities.filter((u) => {
@@ -752,38 +883,36 @@
     });
 
     return `<div class="cp-section">
+      ${subNav}
       <div class="cp-bar">
         <div class="cp-pills">
           ${provs.map((p) => `<button type="button" class="${CS.uniFilter === p ? 'on' : ''}" onclick="CEUCampus.setUniFilter('${escAttr(p)}')">${esc(p)}</button>`).join('')}
         </div>
         <div class="flex wrap" style="gap:8px">
-          <input class="cp-search" placeholder="Pesquisar UAN, ISPTEC, UCAN, IMIL, Direito…" value="${escAttr(CS.uniQuery)}" oninput="CEUCampus.setUniQuery(this.value)">
-          <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.toggleForm('showAddUni')">+ Registar Escola / Faculdade</button>
+          <input class="cp-search" placeholder="Pesquisar UAN, ISPTEC, UCAN, IMIL…" value="${escAttr(CS.uniQuery)}" oninput="CEUCampus.setUniQuery(this.value)">
+          <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.toggleForm('showAddUni')">${ic('plus')} Registar Instituição</button>
         </div>
       </div>
 
       ${CS.showAddUni ? `<form class="card cp-form" onsubmit="event.preventDefault();CEUCampus.addUniversity()">
-        <div class="cp-form-h"><h3>Registar Universidade, Faculdade ou Escola Parceira</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showAddUni')">✕</button></div>
+        <div class="cp-form-h"><h3>Registar Universidade ou Escola</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showAddUni')">${ic('close')}</button></div>
         <div class="cp-form-grid">
-          <label>Sigla <input id="uf-sigla" required placeholder="Ex.: ISPAJ / Colégio X"></label>
-          <label>Nome Completo <input id="uf-nome" required placeholder="Nome oficial da instituição"></label>
-          <label>Tipo <select id="uf-tipo"><option>Universidade Pública</option><option>Universidade Privada</option><option>Escola / Ensino Médio Técnico</option><option>Colégio / Liceu</option></select></label>
+          <label>Sigla <input id="uf-sigla" required placeholder="Ex.: ISPAJ"></label>
+          <label>Nome Oficial <input id="uf-nome" required placeholder="Nome completo"></label>
+          <label>Tipo <select id="uf-tipo"><option>Universidade Pública</option><option>Universidade Privada</option><option>Ensino Médio Técnico</option><option>Colégio / Liceu</option></select></label>
           <label>Província <input id="uf-prov" value="Luanda"></label>
-          <label>Faculdades / Cursos (separados por vírgula) <input id="uf-facs" placeholder="Engenharia, Direito, Informática, Gestão"></label>
+          <label>Faculdades / Cursos (vírgula) <input id="uf-facs" placeholder="Engenharia, Direito, Informática"></label>
         </div>
-        <div class="flex" style="gap:8px;margin-top:12px"><button type="submit" class="btn btn-p btn-sm">Guardar Instituição Parceira</button></div>
+        <div class="flex" style="gap:8px;margin-top:12px"><button type="submit" class="btn btn-p btn-sm">Guardar Instituição</button></div>
       </form>` : ''}
 
       <div class="cp-grid" data-testid="campus-universities-grid">
         ${list.map((u) => `<article class="card cp-card">
-          <div class="cp-card-top">
-            <span class="cp-badge is-navy">${esc(u.sigla)}</span>
-            <span class="cp-pill-soft">${esc(u.provincia)} · ${esc(u.tipo)}</span>
-          </div>
+          <div class="cp-card-top"><span class="cp-badge is-navy">${esc(u.sigla)}</span><span class="cp-pill-soft">${esc(u.provincia)} · ${esc(u.tipo)}</span></div>
           <h3>${esc(u.nome)}</h3>
           <div class="cp-tags">${(u.faculdades || []).map((f) => `<span>${esc(f)}</span>`).join('')}</div>
           <div class="cp-card-foot">
-            <small>${esc(u.parceria)} · ${u.turmasAtivas || 1} turmas</small>
+            <small>${u.turmasAtivas || 1} turmas</small>
             <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.filterTurmasByInst('${escAttr(u.sigla)}')">Ver Turmas →</button>
           </div>
         </article>`).join('')}
@@ -791,102 +920,6 @@
     </div>`;
   }
 
-  function renderDelegatesTab(st) {
-    return `<div class="cp-section">
-      <div class="cp-bar">
-        <p class="muted" style="margin:0">Representação estudantil em escolas e universidades: Presidentes de Associações de Estudantes (AE) e Delegados de Turma publicam avisos e apoiam os colegas.</p>
-        <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.toggleForm('showAddDelegate')">+ Registar Presidente AE / Delegado</button>
-      </div>
-
-      ${CS.showAddDelegate ? `<form class="card cp-form" onsubmit="event.preventDefault();CEUCampus.addDelegate()">
-        <div class="cp-form-h"><h3>Registar Presidente de AE ou Delegado de Turma</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showAddDelegate')">✕</button></div>
-        <div class="cp-form-grid">
-          <label>Nome Completo <input id="df-nome" required placeholder="Nome do Presidente ou Delegado"></label>
-          <label>Cargo <select id="df-cargo"><option>Presidente AE</option><option>Vice-Presidente AE</option><option>Delegado de Turma</option><option>Chefe de Turma (Ensino Médio)</option><option>Coordenador de Núcleo</option></select></label>
-          <label>Universidade / Escola <input id="df-inst" required placeholder="Ex.: UAN, ISPTEC, UCAN, IMIL"></label>
-          <label>Faculdade / Turma <input id="df-fac" required placeholder="Ex.: Direito 3.º Ano / Eng. Civil"></label>
-          <label>Contacto Institucional <input id="df-cont" placeholder="Email ou sala / grupo"></label>
-        </div>
-        <label style="display:block;margin-top:8px">Comunicado à Comunidade Estudantil <textarea id="df-msg" rows="2" placeholder="Aviso de reunião, jornadas científicas, exames ou estágios…"></textarea></label>
-        <div class="flex" style="gap:8px;margin-top:12px"><button type="submit" class="btn btn-p btn-sm">Guardar Representante</button></div>
-      </form>` : ''}
-
-      <div class="cp-grid" data-testid="campus-delegates-grid">
-        ${st.delegates.map((d) => `<article class="card cp-card">
-          <div class="cp-card-top">
-            <span class="cp-badge ${/Presidente/i.test(d.cargo) ? 'is-navy' : ''}">${esc(d.cargo)}</span>
-            <span class="cp-pill-soft">${esc(d.instituicao)}</span>
-          </div>
-          <h3>${esc(d.nome)}</h3>
-          <p class="cp-meta">${esc(d.faculdade)}</p>
-          ${d.comunicado ? `<div class="cp-notice"><b>Comunicado:</b> ${esc(d.comunicado)}</div>` : ''}
-          <div class="cp-card-foot">
-            <small>${esc(d.contacto)}</small>
-          </div>
-        </article>`).join('')}
-      </div>
-    </div>`;
-  }
-
-  function renderCareerTab(st) {
-    const card = getStudentCard();
-    const showMen = CS.careerSubTab !== 'estagios';
-    const showInt = CS.careerSubTab !== 'mentorias';
-    return `<div class="cp-section">
-      <div class="cp-bar">
-        <div class="cp-pills">
-          <button type="button" class="${CS.careerSubTab === 'todos' ? 'on' : ''}" onclick="CEUCampus.setCareerSubTab('todos')">Tudo (Mentorias + Estágios)</button>
-          <button type="button" class="${CS.careerSubTab === 'mentorias' ? 'on' : ''}" onclick="CEUCampus.setCareerSubTab('mentorias')">🧭 Só Mentorias (${st.mentorships.length})</button>
-          <button type="button" class="${CS.careerSubTab === 'estagios' ? 'on' : ''}" onclick="CEUCampus.setCareerSubTab('estagios')">💼 Só Estágios (${st.internships.length})</button>
-        </div>
-        <span class="cp-pill-soft">Candidatura com 1 clique via Cartão CEU: <b>${esc(card.numero)}</b></span>
-      </div>
-
-      ${showMen ? `<div class="cp-subhead" style="margin-top:4px"><span class="eyebrow-t">ORIENTAÇÃO INDIVIDUAL &amp; GRUPO</span><h2>Mentorias Académicas &amp; Bolsas</h2></div>
-      <div class="cp-grid" data-testid="campus-mentorships-grid" style="margin-bottom:24px">
-        ${st.mentorships.map((m) => {
-          const booked = st.bookedMentorships.includes(m.id);
-          return `<article class="card cp-card">
-            <div class="cp-card-top">
-              <span class="cp-badge">${esc(m.area)}</span>
-              <span class="cp-pill-soft">${esc(m.formato)}</span>
-            </div>
-            <h3>${esc(m.mentor)}</h3>
-            <p class="cp-meta">${esc(m.instituicao)} · ${esc(m.horario)}</p>
-            <p class="cp-desc">${esc(m.tema)}</p>
-            <div class="cp-card-foot">
-              <small>${m.vagas} vagas esta semana</small>
-              <button type="button" class="btn ${booked ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.bookMentorship('${escAttr(m.id)}')">${booked ? '✓ Sessão Marcada' : 'Marcar Mentoria'}</button>
-            </div>
-          </article>`;
-        }).join('')}
-      </div>` : ''}
-
-      ${showInt ? `<div class="cp-subhead"><span class="eyebrow-t">PRIMEIRO EMPREGO &amp; ESTÁGIO CURRICULAR</span><h2>Vagas de Estágio em Angola</h2></div>
-      <div class="cp-grid" data-testid="campus-internships-grid">
-        ${st.internships.map((i) => {
-          const applied = st.appliedInternships.includes(i.id);
-          return `<article class="card cp-card">
-            <div class="cp-card-top">
-              <span class="cp-badge is-navy">${esc(i.area)}</span>
-              <span class="cp-pill-soft">${esc(i.local)}</span>
-            </div>
-            <h3>${esc(i.titulo)}</h3>
-            <p class="cp-meta">${esc(i.empresa)} · ${esc(i.duracao)} · ${esc(i.bolsa)}</p>
-            <p class="cp-desc">${esc(i.requisitos)}</p>
-            <div class="cp-card-foot">
-              <small>${applied ? `Enviado como ${card.nome}` : 'Aceita Cartão Digital CEU'}</small>
-              <button type="button" class="btn ${applied ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.applyInternship('${escAttr(i.id)}')">${applied ? '✓ Candidatura Enviada' : 'Candidatar com CEU'}</button>
-            </div>
-          </article>`;
-        }).join('')}
-      </div>` : ''}
-    </div>`;
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Sala de Aula Online ao Vivo + Pesquisa Global Rápida (Ctrl+K)      */
-  /* ------------------------------------------------------------------ */
   function renderLiveRoomModal(st) {
     if (!CS.liveRoomId) return '';
     const o = st.onlineClasses.find((x) => x.id === CS.liveRoomId);
@@ -894,20 +927,20 @@
     return `<div class="pj-modal-bg" role="dialog" aria-modal="true" aria-label="Sala de Aula Online" onclick="CEUCampus.openLiveRoom('')">
       <div class="pj-modal-card pj-modal-keys" onclick="event.stopPropagation()">
         <div class="pj-modal-head">
-          <div><span class="cp-badge is-live">● SALA ONLINE CEU · ${esc(o.instituicao)}</span><h3 style="margin-top:6px">${esc(o.titulo)}</h3></div>
-          <button type="button" class="icon-btn" aria-label="Fechar" onclick="CEUCampus.openLiveRoom('')">✕</button>
+          <div><span class="cp-badge is-live">SALA ONLINE · ${esc(o.instituicao)}</span><h3 style="margin-top:6px">${esc(o.titulo)}</h3></div>
+          <button type="button" class="icon-btn" aria-label="Fechar" onclick="CEUCampus.openLiveRoom('')">${ic('close')}</button>
         </div>
-        <p class="pj-modal-sub">Docente: <b>${esc(o.docente)}</b> · Horário: <b>${esc(o.dataHora)}</b> · ${o.inscritos} estudantes inscritos.</p>
+        <p class="pj-modal-sub">Docente: <b>${esc(o.docente)}</b> · Horário: <b>${esc(o.dataHora)}</b> · ${o.inscritos} inscritos.</p>
         <div class="cp-live-stage">
           <div class="cp-live-board">
-            <span>QUADRO INTERATIVO DA SESSÃO</span>
+            <span>QUADRO DA SESSÃO</span>
             <strong>${esc(o.titulo)}</strong>
             <p>${esc(o.resumo)}</p>
           </div>
           <div class="flex wrap" style="gap:8px;margin-top:12px">
-            <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openOnlineInSlides('${escAttr(o.id)}')">✦ Abrir Slides 3D desta Aula</button>
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadOnlinePdf('${escAttr(o.id)}')">📄 Baixar Folha de Apoio (PDF)</button>
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadIcs('${escAttr(o.id)}')">📅 Guardar no Calendário</button>
+            <button type="button" class="btn btn-p btn-sm" onclick="CEUCampus.openOnlineInSlides('${escAttr(o.id)}')">${ic('slides')} Abrir Slides 3D</button>
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadOnlinePdf('${escAttr(o.id)}')">${ic('file')} Sebenta PDF</button>
+            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.downloadIcs('${escAttr(o.id)}')">${ic('calendar')} Guardar na Agenda</button>
           </div>
         </div>
       </div>
@@ -921,10 +954,10 @@
       if (!q || `${kind} ${title} ${sub}`.toLowerCase().includes(q)) items.push({ kind, title, sub, action });
     };
     st.classes.forEach((c) => push('Turma', `${c.codigo} · ${c.nome}`, `${c.instituicao} · ${c.docente}`, `CEUCampus.setTab('turmas');CEUCampus.openClass('${c.id}');CEUCampus.toggleFinder(false)`));
-    st.subjects.forEach((s) => push('Matéria & PDF', s.titulo, `${s.area} · Sebenta PDF + Slides 3D`, `CEUCampus.setTab('materias');CEUCampus.toggleFinder(false)`));
+    st.subjects.forEach((s) => push('Matéria', s.titulo, `${s.area} · Sebenta PDF + Slides 3D`, `CEUCampus.setTab('materias');CEUCampus.toggleFinder(false)`));
     st.onlineClasses.forEach((o) => push('Aula Online', o.titulo, `${o.dataHora} · ${o.docente}`, `CEUCampus.setTab('online');CEUCampus.toggleFinder(false)`));
     ((window.AMA_DATA && window.AMA_DATA.cursos) || []).forEach((c) => push('Curso', c.titulo, `${c.categoria} · ${c.instrutor || 'CEU'}`, `CEUCampus.toggleFinder(false);location.hash='#/curso/${c.id}'`));
-    st.internships.forEach((i) => push('Estágio', i.titulo, `${i.empresa} · ${i.local}`, `CEUCampus.setTab('carreira');CEUCampus.setCareerSubTab('estagios');CEUCampus.toggleFinder(false)`));
+    st.internships.forEach((i) => push('Estágio', i.titulo, `${i.empresa} · ${i.local}`, `CEUCampus.setTab('estagios');CEUCampus.toggleFinder(false)`));
     return items.slice(0, 10);
   }
 
@@ -934,26 +967,23 @@
     return `<div class="pj-modal-bg" role="dialog" aria-modal="true" aria-label="Pesquisa Rápida Académica" onclick="CEUCampus.toggleFinder(false)">
       <div class="pj-modal-card pj-modal-keys" onclick="event.stopPropagation()">
         <div class="pj-modal-head">
-          <div><span class="pj-kicker">PESQUISA INTELIGENTE · CTRL+K</span><h3>Encontrar Turma, Matéria PDF, Curso ou Aula Online</h3></div>
-          <button type="button" class="icon-btn" aria-label="Fechar" onclick="CEUCampus.toggleFinder(false)">✕</button>
+          <div><span class="pj-kicker">PESQUISA RÁPIDA · CTRL+K</span><h3>Procurar no Campus</h3></div>
+          <button type="button" class="icon-btn" aria-label="Fechar" onclick="CEUCampus.toggleFinder(false)">${ic('close')}</button>
         </div>
-        <input id="cp-finder-in" class="cp-finder-input" placeholder="Escreva Física, Cálculo, Inglês, Marketing, UAN, Estágio…" value="${escAttr(CS.finderQuery)}" oninput="CEUCampus.updateFinder(this.value)" autofocus>
+        <input id="cp-finder-in" class="cp-finder-input" placeholder="Física, Cálculo, Inglês, Marketing, UAN, Estágio…" value="${escAttr(CS.finderQuery)}" oninput="CEUCampus.updateFinder(this.value)" autofocus>
         <div class="cp-finder-list" id="cp-finder-list">
           ${hits.length ? hits.map((h) => `<button type="button" class="cp-finder-item" onclick="${h.action}">
             <div><b>${esc(h.title)}</b><small>${esc(h.sub)}</small></div>
             <span class="cp-badge">${esc(h.kind)}</span>
-          </button>`).join('') : `<p class="muted" style="margin:12px 0 0">Nenhum resultado para "${esc(CS.finderQuery)}".</p>`}
+          </button>`).join('') : `<p class="muted" style="margin:12px 0 0">Sem resultados para "${esc(CS.finderQuery)}".</p>`}
         </div>
       </div>
     </div>`;
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Gerador de Sebenta Académica A4 Imprimível / PDF                   */
-  /* ------------------------------------------------------------------ */
   function openPrintableSebenta({ titulo, subtitulo, topicos = [], formulas = [], resumo = '', perguntas = [] }) {
     const w = window.open('', '_blank', 'width=860,height=720');
-    if (!w) return typeof toast === 'function' && toast('Permita popups para abrir e guardar a Sebenta em PDF.');
+    if (!w) return typeof toast === 'function' && toast('Permita popups para abrir a Sebenta em PDF.');
     w.document.open();
     w.document.write(`<!doctype html><html lang="pt-AO"><head><meta charset="utf-8"><title>Sebenta CEU · ${esc(titulo)}</title>
     <style>
@@ -973,128 +1003,19 @@
       .no-print button{padding:9px 16px;border-radius:9px;border:0;background:#00217e;color:#fff;font-weight:700;cursor:pointer}
       @media print{.no-print{display:none}}
     </style></head><body>
-      <div class="no-print"><button onclick="window.print()">🖨 Imprimir / Guardar como PDF</button></div>
+      <div class="no-print"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div>
       <header>
-        <div><div class="k">CEU ACADEMY · SEBENTA ACADÉMICA DE ESTUDO</div><h1>${esc(titulo)}</h1><div>${esc(subtitulo)}</div></div>
-        <div class="k">ANO LETIVO 2026/2027</div>
+        <div><div class="k">CEU ACADEMY · SEBENTA DE ESTUDO</div><h1>${esc(titulo)}</h1><div>${esc(subtitulo)}</div></div>
+        <div class="k">2026 / 2027</div>
       </header>
-      ${resumo ? `<div class="lead"><b>Síntese Essencial:</b> ${esc(resumo)}</div>` : ''}
+      ${resumo ? `<div class="lead"><b>Síntese:</b> ${esc(resumo)}</div>` : ''}
       ${topicos.length ? `<h2>1. Programa &amp; Pontos-Chave</h2><ol>${topicos.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>` : ''}
-      ${formulas.length ? `<h2>2. Fórmulas &amp; Estruturas Fundamentais</h2><div class="fml">${formulas.map((f) => `<code>${esc(f)}</code>`).join('')}</div>` : ''}
-      ${perguntas.length ? `<h2>3. Questões Tipo de Exame / Auto-Avaliação</h2><ol>${perguntas.map((q) => `<li>${esc(q)}</li>`).join('')}</ol>` : ''}
-      <div class="notes">Espaço para apontamentos pessoais e resolução de exercícios:</div>
-      <footer><span>CEU ACADEMY · ESCOLAS &amp; UNIVERSIDADES DE ANGOLA</span><span>APP FEITO PELA HORIZONTE FUTURO</span></footer>
+      ${formulas.length ? `<h2>2. Fórmulas &amp; Estruturas</h2><div class="fml">${formulas.map((f) => `<code>${esc(f)}</code>`).join('')}</div>` : ''}
+      ${perguntas.length ? `<h2>3. Questões de Exame</h2><ol>${perguntas.map((q) => `<li>${esc(q)}</li>`).join('')}</ol>` : ''}
+      <div class="notes">Apontamentos pessoais:</div>
+      <footer><span>CEU ACADEMY · ANGOLA</span><span>APP FEITO PELA HORIZONTE FUTURO</span></footer>
     </body></html>`);
     w.document.close();
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Tab Exames Cronometrados (0–20) & Flashcards 3D (Repetição Ativa)  */
-  /* ------------------------------------------------------------------ */
-  function renderExamsAndFlashcardsTab(st) {
-    const tools = (window.Study && window.Study.CampusTools) || {};
-    const banks = tools.EXAM_BANKS || [];
-    const baseCards = (tools.FLASHCARD_DECKS || []).concat(st.customFlashcards || []);
-
-    if (CS.examMode === 'flashcards') {
-      const subjects = ['Todas', ...Array.from(new Set(baseCards.map((c) => c.subject)))];
-      const deck = baseCards.filter((c) => CS.fcSubject === 'Todas' || c.subject === CS.fcSubject);
-      const curIdx = deck.length ? Math.max(0, Math.min(CS.fcIdx, deck.length - 1)) : 0;
-      const cur = deck[curIdx] || null;
-      const knownCount = deck.filter((c) => CS.fcKnown[c.id]).length;
-
-      return `<div class="cp-section" data-testid="campus-flashcards-view">
-        <div class="cp-bar">
-          <div class="cp-pills">
-            <button type="button" onclick="CEUCampus.setExamMode('simulado')">📝 Simulados de Exame (0–20)</button>
-            <button type="button" class="on" onclick="CEUCampus.setExamMode('flashcards')">🃏 Flashcards 3D (${baseCards.length})</button>
-          </div>
-          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleForm('showFcGen')">+ Criar dos Meus Apontamentos</button>
-        </div>
-
-        ${CS.showFcGen ? `<form class="card cp-form" onsubmit="event.preventDefault();CEUCampus.generateCustomFlashcards()">
-          <div class="cp-form-h"><h3>Gerar Flashcards Automáticos a partir de Apontamentos</h3><button type="button" class="icon-btn" onclick="CEUCampus.toggleForm('showFcGen')">✕</button></div>
-          <label>Disciplina / Etiqueta <input id="fc-gen-sub" value="Meus Cartões" required></label>
-          <label style="margin-top:8px">Cole definições ou pares "Conceito: Explicação" (1 por linha)
-            <textarea id="fc-gen-txt" rows="4" required placeholder="Fotossíntese: Conversão de luz solar, água e CO2 em glicose e oxigénio.&#10;Mitose: Divisão celular que origina duas células geneticamente idênticas."></textarea>
-          </label>
-          <div class="flex" style="gap:8px;margin-top:10px"><button type="submit" class="btn btn-p btn-sm">✦ Criar Cartões de Estudo</button></div>
-        </form>` : ''}
-
-        <div class="cp-pills" style="margin-bottom:14px">
-          ${subjects.map((s) => `<button type="button" class="${CS.fcSubject === s ? 'on' : ''}" onclick="CEUCampus.setFcSubject('${escAttr(s)}')">${esc(s)}</button>`).join('')}
-        </div>
-
-        ${cur ? `<div class="cp-fc-stage">
-          <button type="button" class="cp-fc-card ${CS.fcFlipped ? 'is-flipped' : ''}" onclick="CEUCampus.flipFlashcard()" aria-label="Virar cartão de estudo">
-            <span class="cp-badge is-navy">${esc(cur.subject)} · Cartão ${curIdx + 1}/${deck.length}</span>
-            <div class="cp-fc-label">${CS.fcFlipped ? 'RESPOSTA / EXPLICAÇÃO' : 'PERGUNTA / CONCEITO'}</div>
-            <h3>${esc(CS.fcFlipped ? cur.back : cur.front)}</h3>
-            <small>Clique no cartão para ${CS.fcFlipped ? 'voltar à pergunta' : 'revelar a resposta'} ↻</small>
-          </button>
-          <div class="cp-fc-controls">
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.stepFlashcard(-1)">← Anterior</button>
-            <button type="button" class="btn ${CS.fcKnown[cur.id] ? 'btn-o' : 'btn-p'} btn-sm" onclick="CEUCampus.markFlashcardKnown('${escAttr(cur.id)}')">${CS.fcKnown[cur.id] ? '✓ Dominado' : '✓ Já sei este!'}</button>
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.stepFlashcard(1)">Próximo →</button>
-          </div>
-          <p class="muted" style="text-align:center;font-size:12.5px;margin:8px 0 0">Dominados nesta seleção: <b>${knownCount} de ${deck.length}</b></p>
-        </div>` : '<p class="muted">Sem cartões nesta categoria.</p>'}
-      </div>`;
-    }
-
-    const activeExam = banks.find((e) => e.id === CS.activeExamId) || banks[0];
-    const mm = String(Math.floor(CS.examSecLeft / 60)).padStart(2, '0');
-    const ss = String(CS.examSecLeft % 60).padStart(2, '0');
-
-    return `<div class="cp-section" data-testid="campus-exams-view">
-      <div class="cp-bar">
-        <div class="cp-pills">
-          <button type="button" class="on" onclick="CEUCampus.setExamMode('simulado')">📝 Simulados de Exame (0–20)</button>
-          <button type="button" onclick="CEUCampus.setExamMode('flashcards')">🃏 Flashcards 3D (${baseCards.length})</button>
-        </div>
-        ${activeExam ? `<span class="cp-badge is-navy" id="cp-exam-clock">⏱ Tempo recomendado: ${mm}:${ss}</span>` : ''}
-      </div>
-
-      <div class="cp-pills" style="margin-bottom:16px">
-        ${banks.map((b) => `<button type="button" class="${activeExam && activeExam.id === b.id ? 'on' : ''}" onclick="CEUCampus.selectExam('${escAttr(b.id)}')">${esc(b.area)} · ${esc(b.titulo.split('—')[0].trim())}</button>`).join('')}
-      </div>
-
-      ${CS.examResult ? `<div class="card cp-exam-res" data-testid="campus-exam-result">
-        <div class="cp-cr-banner" style="padding:0;border:0;box-shadow:none">
-          <div>
-            <span class="cp-badge is-navy">NOTA NA ESCALA 0–20 VALORES</span>
-            <h2 style="margin:6px 0 4px">${CS.examResult.nota20.toFixed(1).replace('.', ',')} / 20 valores — ${esc(CS.examResult.nivel)}</h2>
-            <p class="cp-meta">Acertou <b>${CS.examResult.correct} de ${CS.examResult.total}</b> questões em «${esc(CS.examResult.title)}».</p>
-          </div>
-          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.resetExam()">↻ Repetir Simulado</button>
-        </div>
-        <div class="cp-exam-corr">
-          ${CS.examResult.details.map((d, i) => `<div class="cp-corr-item ${d.isRight ? 'is-ok' : 'is-bad'}">
-            <b>${i + 1}. ${esc(d.question)}</b>
-            <span>A sua resposta: <em>${esc(d.pickedOption)}</em> ${d.isRight ? '✓ Correta' : `✕ (Correta: ${esc(d.correctOption)})`}</span>
-            <small>💡 Explicação: ${esc(d.explanation)}</small>
-          </div>`).join('')}
-        </div>
-      </div>` : ''}
-
-      ${activeExam ? `<div class="card cp-form" style="margin-top:12px">
-        <div class="cp-form-h"><h3>${esc(activeExam.titulo)}</h3><small class="muted">${activeExam.questions.length} questões · Escala 0–20 valores</small></div>
-        <div class="cp-q-list">
-          ${activeExam.questions.map((q, qi) => `<div class="cp-q-box">
-            <b>${qi + 1}. ${esc(q.q)}</b>
-            <div class="cp-q-opts">
-              ${q.opts.map((opt, oi) => `<label class="cp-q-opt ${Number(CS.examAnswers[qi]) === oi ? 'is-sel' : ''}">
-                <input type="radio" name="exq-${qi}" ${Number(CS.examAnswers[qi]) === oi ? 'checked' : ''} onchange="CEUCampus.pickExamAnswer(${qi}, ${oi})">
-                <span>${esc(opt)}</span>
-              </label>`).join('')}
-            </div>
-          </div>`).join('')}
-        </div>
-        <div class="flex wrap" style="gap:10px;margin-top:14px">
-          <button type="button" class="btn btn-p" onclick="CEUCampus.submitExam()">✓ Entregar e Corrigir (0–20 valores)</button>
-        </div>
-      </div>` : ''}
-    </div>`;
   }
 
   function campusView() {
@@ -1102,56 +1023,38 @@
     const st = loadState();
     const pMin = String(Math.floor(CS.pomoSec / 60)).padStart(2, '0');
     const pSec = String(CS.pomoSec % 60).padStart(2, '0');
+
     const tabs = [
-      ['turmas', `🏫 Turmas & Salas (${st.classes.length})`],
-      ['materias', `📚 Matérias & PDFs (${st.subjects.length})`],
-      ['exames', '📝 Exames & Flashcards'],
-      ['online', `🔴 Aulas Online (${st.onlineClasses.length})`],
-      ['universidades', `🎓 Escolas & Faculdades (${st.universities.length})`],
-      ['delegados', `🏅 Presidentes AE & Delegados`],
-      ['carreira', `🧭 Mentorias & Estágios`],
+      ['turmas', ic('school'), 'Turmas'],
+      ['estudo', ic('book'), 'Matérias & Exames'],
+      ['online', ic('video'), 'Aulas Online'],
+      ['rede', ic('briefcase'), 'Instituições & Carreira'],
     ];
+
     let body = '';
-    if (CS.tab === 'materias') body = renderSubjectsTab(st);
-    else if (CS.tab === 'exames') body = renderExamsAndFlashcardsTab(st);
+    if (CS.tab === 'estudo') body = renderStudyHub(st);
     else if (CS.tab === 'online') body = renderOnlineTab(st);
-    else if (CS.tab === 'universidades') body = renderUniversitiesTab(st);
-    else if (CS.tab === 'delegados') body = renderDelegatesTab(st);
-    else if (CS.tab === 'carreira' || CS.tab === 'mentorias' || CS.tab === 'estagios') body = renderCareerTab(st);
+    else if (CS.tab === 'rede') body = renderNetworkAndCareerHub(st);
     else body = renderTurmasTab(st);
 
-    const inner = `<section class="ceu-landing cp-shell" data-testid="campus-hub">
-      <div class="cp-hero">
+    const inner = `<section class="ceu-landing cp-shell cp-clean" data-testid="campus-hub">
+      <div class="cp-clean-head">
         <div>
-          <span class="eyebrow-t">CAMPUS DIGITAL · ESCOLAS &amp; UNIVERSIDADES DE ANGOLA</span>
-          <h1>Salas de Turma, Matérias, Exames, Aulas Online &amp; Carreira</h1>
-          <p>Estude pelo <b>programa oficial</b>, baixe <b>sebentas PDF</b>, treine <b>exames 0–20 e flashcards 3D</b>, gere <b>pautas e presenças por QR</b>, inscreva-se em <b>aulas online</b> e aceda a mentorias e estágios.</p>
+          <span class="eyebrow-t">CAMPUS ACADÉMICO</span>
+          <h1>Turmas, Matérias &amp; Carreira</h1>
+          <p class="muted">Salas de aula organizadas, sebentas em PDF, exames simulados, aulas online e oportunidades em Angola.</p>
         </div>
-        <div class="cp-hero-side">
-          <div class="flex wrap" style="gap:8px;justify-content:flex-end">
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleFinder(true)">🔍 Pesquisar Tudo (Ctrl+K)</button>
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleForm('showGradeCalc')">🎯 Simulador Média 0–20</button>
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.togglePomodoro()"><span id="cp-pomo-lbl">${CS.pomoRunning ? `⏸ Foco ${pMin}:${pSec}` : `⏱ Foco ${pMin}:${pSec}`}</span></button>
-          </div>
-          <div class="flex wrap" style="gap:8px;justify-content:flex-end">
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.setTab('turmas');CEUCampus.openClass('');CEUCampus.toggleForm('showCreateClass')">+ Nova Turma</button>
-            <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.setTab('exames')">📝 Simulado 0–20</button>
-          </div>
+        <div class="cp-clean-actions">
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleFinder(true)">${ic('search')} Pesquisar <kbd>Ctrl+K</kbd></button>
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.toggleForm('showGradeCalc')">${ic('sliders')} Média 0–20</button>
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUCampus.togglePomodoro()">${ic('clock')} <span id="cp-pomo-lbl">${CS.pomoRunning ? `Pausar ${pMin}:${pSec}` : `Foco ${pMin}:${pSec}`}</span></button>
         </div>
       </div>
 
-      ${renderGradeCalculator()}
+      ${renderGradeCalculatorBox(false)}
 
-      <div class="cp-kpis">
-        <div onclick="CEUCampus.setTab('turmas')" style="cursor:pointer"><b>${st.classes.length}</b><span>Turmas &amp; Salas</span></div>
-        <div onclick="CEUCampus.setTab('materias')" style="cursor:pointer"><b>${st.subjects.length}</b><span>Matérias &amp; PDFs</span></div>
-        <div onclick="CEUCampus.setTab('online')" style="cursor:pointer"><b>${st.onlineClasses.length}</b><span>Aulas Online</span></div>
-        <div onclick="CEUCampus.setTab('universidades')" style="cursor:pointer"><b>${st.universities.length}</b><span>Escolas &amp; Faculdades</span></div>
-        <div onclick="CEUCampus.setTab('carreira')" style="cursor:pointer"><b>${st.mentorships.length + st.internships.length}</b><span>Mentorias &amp; Estágios</span></div>
-      </div>
-
-      <nav class="cp-tabs" role="tablist" aria-label="Secções do Campus">
-        ${tabs.map(([k, lbl]) => `<button type="button" role="tab" aria-selected="${CS.tab === k}" class="${CS.tab === k ? 'on' : ''}" onclick="CEUCampus.setTab('${k}')">${lbl}</button>`).join('')}
+      <nav class="cp-tabs cp-tabs-clean" role="tablist" aria-label="Secções do Campus">
+        ${tabs.map(([k, iconSvg, lbl]) => `<button type="button" role="tab" aria-selected="${CS.tab === k}" class="${CS.tab === k ? 'on' : ''}" onclick="CEUCampus.setTab('${k}')">${iconSvg}<span>${lbl}</span></button>`).join('')}
       </nav>
 
       ${body}
@@ -1194,12 +1097,24 @@
   window.CEUCampus = {
     view: campusView,
     setTab(t) {
-      if (t === 'mentorias') { CS.tab = 'carreira'; CS.careerSubTab = 'mentorias'; }
-      else if (t === 'estagios') { CS.tab = 'carreira'; CS.careerSubTab = 'estagios'; }
-      else CS.tab = t;
+      if (t === 'materias') { CS.tab = 'estudo'; CS.studySub = 'materias'; }
+      else if (t === 'exames') { CS.tab = 'estudo'; CS.studySub = 'exames'; }
+      else if (t === 'flashcards') { CS.tab = 'estudo'; CS.studySub = 'flashcards'; }
+      else if (t === 'universidades') { CS.tab = 'rede'; CS.netSub = 'universidades'; }
+      else if (t === 'delegados') { CS.tab = 'rede'; CS.netSub = 'delegados'; }
+      else if (t === 'carreira' || t === 'mentorias' || t === 'estagios') {
+        CS.tab = 'rede';
+        CS.netSub = 'carreira';
+        if (t === 'mentorias') CS.careerSubTab = 'mentorias';
+        else if (t === 'estagios') CS.careerSubTab = 'estagios';
+      } else {
+        CS.tab = t;
+      }
       CS.activeClassId = '';
       if (typeof render === 'function') render();
     },
+    setStudySub(s) { CS.studySub = s; if (typeof render === 'function') render(); },
+    setNetSub(s) { CS.netSub = s; if (typeof render === 'function') render(); },
     openClass(id) { CS.activeClassId = String(id || ''); CS.classSubView = 'programa'; if (typeof render === 'function') render(); },
     setClassSubView(v) { CS.classSubView = v === 'pauta' ? 'pauta' : 'programa'; if (typeof render === 'function') render(); },
     togglePomodoro() {
@@ -1212,7 +1127,7 @@
       }
       CS.pomoRunning = true;
       if (CS.pomoSec <= 0) CS.pomoSec = 1500;
-      if (typeof toast === 'function') toast('⏱ Ciclo Pomodoro de 25 min iniciado! Bom foco.');
+      if (typeof toast === 'function') toast('Ciclo de foco de 25 minutos iniciado.');
       if (typeof render === 'function') render();
       pomoTimerId = setInterval(() => {
         CS.pomoSec = Math.max(0, CS.pomoSec - 1);
@@ -1220,19 +1135,19 @@
         if (lbl) {
           const m = String(Math.floor(CS.pomoSec / 60)).padStart(2, '0');
           const s = String(CS.pomoSec % 60).padStart(2, '0');
-          lbl.textContent = `⏸ Foco ${m}:${s}`;
+          lbl.textContent = `Pausar ${m}:${s}`;
         }
         if (CS.pomoSec <= 0) {
           clearInterval(pomoTimerId);
           pomoTimerId = null;
           CS.pomoRunning = false;
           CS.pomoSec = 1500;
-          if (typeof toast === 'function') toast('🎉 25 minutos de estudo concluídos! Faça uma pausa de 5 min.');
+          if (typeof toast === 'function') toast('Sessão de 25 minutos concluída.');
           if (typeof render === 'function') render();
         }
       }, 1000);
     },
-    setExamMode(m) { CS.examMode = m === 'flashcards' ? 'flashcards' : 'simulado'; if (typeof render === 'function') render(); },
+    setExamMode(m) { CS.studySub = m === 'flashcards' ? 'flashcards' : 'exames'; if (typeof render === 'function') render(); },
     selectExam(id) {
       CS.activeExamId = id;
       CS.examAnswers = {};
@@ -1242,13 +1157,13 @@
       CS.examSecLeft = ((found && found.duracaoMin) || 12) * 60;
       if (examTimerId) clearInterval(examTimerId);
       examTimerId = setInterval(() => {
-        if (CS.tab !== 'exames' || CS.examResult) return;
+        if (CS.tab !== 'estudo' || CS.studySub !== 'exames' || CS.examResult) return;
         CS.examSecLeft = Math.max(0, CS.examSecLeft - 1);
         const el = document.getElementById('cp-exam-clock');
         if (el) {
           const mm = String(Math.floor(CS.examSecLeft / 60)).padStart(2, '0');
           const ss = String(CS.examSecLeft % 60).padStart(2, '0');
-          el.textContent = `⏱ Tempo recomendado: ${mm}:${ss}`;
+          el.textContent = `Tempo: ${mm}:${ss}`;
         }
       }, 1000);
       if (typeof render === 'function') render();
@@ -1263,7 +1178,7 @@
       if (window.Study && window.Study.MvpDB && typeof window.Study.MvpDB.saveQuizAttempt === 'function') {
         window.Study.MvpDB.saveQuizAttempt({ id: `ex-${Date.now()}`, deckId: res.examId, title: res.title, score: res.nota20, total: 20 }).catch(() => {});
       }
-      if (typeof toast === 'function') toast(`📝 Simulado corrigido: ${res.nota20.toFixed(1).replace('.', ',')} / 20 valores (${res.nivel})!`);
+      if (typeof toast === 'function') toast(`Simulado corrigido: ${res.nota20.toFixed(1).replace('.', ',')} / 20 valores.`);
       if (typeof render === 'function') render();
     },
     resetExam() { CS.examAnswers = {}; CS.examResult = null; if (typeof render === 'function') render(); },
@@ -1292,7 +1207,7 @@
       CS.fcIdx = 0;
       CS.fcFlipped = false;
       persistLocal();
-      if (typeof toast === 'function') toast(`🃏 ${created.length} flashcards criados com sucesso!`);
+      if (typeof toast === 'function') toast(`${created.length} cartões criados.`);
       if (typeof render === 'function') render();
     },
     togglePresence(clsId, rowIdx) {
@@ -1336,7 +1251,7 @@
       document.body.appendChild(a);
       a.click();
       setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1200);
-      if (typeof toast === 'function') toast(`📊 Pauta ${cls.codigo}.csv exportada (pronta para Excel)!`);
+      if (typeof toast === 'function') toast(`Pauta ${cls.codigo}.csv exportada.`);
     },
     printClassPauta(clsId) {
       const cls = loadState().classes.find((c) => c.id === clsId);
@@ -1356,7 +1271,7 @@
         .signs{display:flex;justify-content:space-between;margin-top:42px;font-size:12px}
         .signs div{border-top:1px solid #0b1c3d;padding-top:6px;min-width:220px;text-align:center}
       </style></head><body>
-        <div class="k">CEU ACADEMY · PAUTA ACADÉMICA DE FREQUÊNCIA E EXAME (ESCALA 0–20)</div>
+        <div class="k">CEU ACADEMY · PAUTA ACADÉMICA (ESCALA 0–20)</div>
         <h1>${esc(cls.instituicao)} · ${esc(cls.codigo)} — ${esc(cls.nome)}</h1>
         <div>Faculdade/Curso: <b>${esc(cls.faculdade)}</b> · Docente: <b>${esc(cls.docente)}</b> · Horário: ${esc(cls.horario)}</div>
         <table><thead><tr><th>N.º Estudante</th><th>Nome Completo</th><th>Presença</th><th>PP1</th><th>PP2</th><th>Média Freq.</th><th>Exame</th><th>Nota Final</th><th>Resultado</th></tr></thead>
@@ -1377,14 +1292,14 @@
       CS[key] = String(val ?? '');
       const resEl = document.getElementById('cp-grade-res');
       if (resEl) {
-        const g = computeAngolaGrade(CS.pp1, CS.pp2, CS.pesoFreq);
+        const g = computeGradeLocal(CS.pp1, CS.pp2, CS.pesoFreq);
         resEl.className = `cp-grade-res is-${g.status}`;
         resEl.innerHTML = `<span class="cp-grade-pill">${esc(g.badge)}</span><p>${esc(g.msg)}</p>`;
       }
     },
     toggleFinder(open) {
       CS.showFinder = Boolean(open);
-      if (open && !/^#\/(campus|escolas|turmas|mentorias|estagios|materias|aulas-online)/.test(location.hash)) {
+      if (open && !/^#\/(campus|escolas|turmas|mentorias|estagios|materias|exames|aulas-online)/.test(location.hash)) {
         location.hash = '#/campus';
         return;
       }
@@ -1399,7 +1314,7 @@
       box.innerHTML = hits.length ? hits.map((h) => `<button type="button" class="cp-finder-item" onclick="${h.action}">
         <div><b>${esc(h.title)}</b><small>${esc(h.sub)}</small></div>
         <span class="cp-badge">${esc(h.kind)}</span>
-      </button>`).join('') : `<p class="muted" style="margin:12px 0 0">Nenhum resultado para "${esc(CS.finderQuery)}".</p>`;
+      </button>`).join('') : `<p class="muted" style="margin:12px 0 0">Sem resultados para "${esc(CS.finderQuery)}".</p>`;
     },
     toggleUnit(clsId, unitIdx) {
       const st = loadState();
@@ -1426,15 +1341,10 @@
       const txt = String((document.getElementById('cp-mural-in') || {}).value || '').trim();
       if (!cls || !txt) return;
       cls.mural = Array.isArray(cls.mural) ? cls.mural : [];
-      cls.mural.unshift({
-        autor: getStudentCard().nome,
-        papel: 'Estudante CEU',
-        data: 'Agora',
-        texto: txt,
-      });
+      cls.mural.unshift({ autor: getStudentCard().nome, papel: 'Estudante', data: 'Agora', texto: txt });
       persistLocal();
       saveToMvpDb('classes', cls);
-      if (typeof toast === 'function') toast('💬 Publicado no mural da turma!');
+      if (typeof toast === 'function') toast('Publicado no mural da turma.');
       if (typeof render === 'function') render();
     },
     downloadSyllabusPdf(clsId) {
@@ -1443,7 +1353,7 @@
       openPrintableSebenta({
         titulo: `${cls.codigo} — ${cls.nome}`,
         subtitulo: `${cls.instituicao} · ${cls.faculdade} · Docente: ${cls.docente}`,
-        resumo: `Plano curricular estruturado da turma ${cls.codigo} (${cls.horario}). Utilize esta folha para acompanhar as unidades estudadas e preparar as provas parcelares e exame.`,
+        resumo: `Plano curricular estruturado da turma ${cls.codigo} (${cls.horario}).`,
         topicos: cls.programa || [],
         perguntas: ['Quais são os conceitos centrais de cada unidade do programa?', 'Que exercícios práticos foram resolvidos em aula sobre estes módulos?'],
       });
@@ -1453,29 +1363,21 @@
       if (!l) return;
       openPrintableSebenta({
         titulo: l.titulo,
-        subtitulo: `${l.turmaNome} · Publicado por ${l.autor}`,
+        subtitulo: `${l.turmaNome} · ${l.autor}`,
         resumo: l.resumo,
         topicos: String(l.slidesText || l.resumo).split(/\n+/).filter(Boolean),
-        perguntas: ['Explique por palavras suas a ideia principal desta aula.', 'Como aplicar este conceito num exercício de exame ou caso prático em Angola?'],
+        perguntas: ['Explique por palavras suas a ideia principal desta aula.', 'Como aplicar este conceito num exercício de exame?'],
       });
     },
     downloadSubjectPdf(subId) {
       const s = loadState().subjects.find((x) => x.id === subId);
       if (!s) return;
-      openPrintableSebenta({
-        titulo: s.titulo,
-        subtitulo: `${s.area} · Nível: ${s.nivel}`,
-        resumo: s.resumo,
-        topicos: s.programa,
-        formulas: s.formulas,
-        perguntas: s.perguntas,
-      });
+      openPrintableSebenta({ titulo: s.titulo, subtitulo: `${s.area} · ${s.nivel}`, resumo: s.resumo, topicos: s.programa, formulas: s.formulas, perguntas: s.perguntas });
     },
     openSubjectInSlides(subId) {
       const s = loadState().subjects.find((x) => x.id === subId);
       if (!s) return;
-      const body = `${s.resumo}\n\nPrograma essencial:\n${s.programa.join('\n')}\n\nFórmulas e estruturas:\n${(s.formulas || []).join('\n')}`;
-      sendTextToProjector(s.titulo, s.subject || 'geral', body, `Biblioteca CEU · ${s.area}`);
+      sendTextToProjector(s.titulo, s.subject || 'geral', `${s.resumo}\n\nPrograma:\n${s.programa.join('\n')}\n\nFórmulas:\n${(s.formulas || []).join('\n')}`, `Biblioteca CEU · ${s.area}`);
     },
     toggleEnrollOnline(id) {
       const st = loadState();
@@ -1490,7 +1392,7 @@
         st.enrolledOnline.push(id);
         o.inscritos = (o.inscritos || 0) + 1;
         saveToMvpDb('online_classes', o);
-        if (typeof toast === 'function') toast(`✓ Inscrito na aula online "${o.titulo}" com Cartão ${getStudentCard().numero}!`);
+        if (typeof toast === 'function') toast(`Inscrito em "${o.titulo}".`);
       }
       persistLocal();
       if (typeof render === 'function') render();
@@ -1506,7 +1408,7 @@
         docente,
         instituicao: String((document.getElementById('of-inst') || {}).value || 'CEU Academy').trim(),
         dataHora: String((document.getElementById('of-data') || {}).value || 'Esta semana · 18h00').trim(),
-        estado: 'INSCRIÇÕES ABERTAS',
+        estado: 'ABERTA',
         inscritos: 1,
         vagas: 150,
         subject: 'geral',
@@ -1517,7 +1419,7 @@
       CS.showCreateOnline = false;
       persistLocal();
       saveToMvpDb('online_classes', rec);
-      if (typeof toast === 'function') toast(`🔴 Aula online "${rec.titulo}" agendada e aberta a inscrições!`);
+      if (typeof toast === 'function') toast(`Aula online "${rec.titulo}" agendada.`);
       if (typeof render === 'function') render();
     },
     openLiveRoom(id) { CS.liveRoomId = String(id || ''); if (typeof render === 'function') render(); },
@@ -1525,18 +1427,12 @@
       const o = loadState().onlineClasses.find((x) => x.id === id);
       if (!o) return;
       CS.liveRoomId = '';
-      sendTextToProjector(o.titulo, o.subject || 'geral', `${o.resumo}\nDocente: ${o.docente}\nInstituição: ${o.instituicao}`, o.instituicao);
+      sendTextToProjector(o.titulo, o.subject || 'geral', `${o.resumo}\nDocente: ${o.docente}`, o.instituicao);
     },
     downloadOnlinePdf(id) {
       const o = loadState().onlineClasses.find((x) => x.id === id);
       if (!o) return;
-      openPrintableSebenta({
-        titulo: o.titulo,
-        subtitulo: `Aula Online · ${o.docente} · ${o.dataHora}`,
-        resumo: o.resumo,
-        topicos: ['Reveja os conceitos base antes do início da transmissão', 'Anote as resoluções passo a passo durante a aula', 'Coloque as suas dúvidas no quadro da sessão'],
-        perguntas: ['Quais foram os 3 pontos mais importantes explicados nesta aula online?'],
-      });
+      openPrintableSebenta({ titulo: o.titulo, subtitulo: `Aula Online · ${o.docente} · ${o.dataHora}`, resumo: o.resumo, topicos: ['Reveja os conceitos base', 'Anote as resoluções passo a passo'], perguntas: ['Quais foram os 3 pontos centrais desta aula?'] });
     },
     downloadIcs(id) {
       const o = loadState().onlineClasses.find((x) => x.id === id);
@@ -1547,13 +1443,8 @@
       const fmt = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
       const ics = [
         'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CEU Academy//Aula Online//PT',
-        'BEGIN:VEVENT',
-        `UID:${o.id}@ceu-academy.com`,
-        `DTSTAMP:${fmt(now)}`,
-        `DTSTART:${fmt(start)}`,
-        `DTEND:${fmt(end)}`,
-        `SUMMARY:${o.titulo} (${o.docente})`,
-        `DESCRIPTION:${o.resumo.replace(/\n/g, ' ')} - Sala Online CEU Academy`,
+        'BEGIN:VEVENT', `UID:${o.id}@ceu-academy.com`, `DTSTAMP:${fmt(now)}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
+        `SUMMARY:${o.titulo} (${o.docente})`, `DESCRIPTION:${o.resumo.replace(/\n/g, ' ')}`,
         'END:VEVENT', 'END:VCALENDAR',
       ].join('\r\n');
       const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
@@ -1564,7 +1455,7 @@
       document.body.appendChild(a);
       a.click();
       setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1200);
-      if (typeof toast === 'function') toast('📅 Evento guardado (.ics) para o seu Calendário!');
+      if (typeof toast === 'function') toast('Evento guardado (.ics).');
     },
     filterTurmasByInst(sigla) {
       CS.turmaFilter = sigla;
@@ -1584,7 +1475,7 @@
       } else {
         st.joinedClasses.push(id);
         cls.alunos = (cls.alunos || 0) + 1;
-        if (typeof toast === 'function') toast(`✓ Inscrito na turma ${cls.codigo} (${cls.nome})!`);
+        if (typeof toast === 'function') toast(`Inscrito na turma ${cls.codigo}.`);
       }
       persistLocal();
       saveToMvpDb('classes', cls);
@@ -1595,7 +1486,7 @@
       if (!val) return typeof toast === 'function' && toast('Escreva o código da turma (ex. UAN-ENG-1A).');
       const st = loadState();
       const found = st.classes.find((c) => String(c.codigo || '').toUpperCase() === val);
-      if (!found) return typeof toast === 'function' && toast(`Turma "${val}" não encontrada. Verifique o código ou crie uma nova turma.`);
+      if (!found) return typeof toast === 'function' && toast(`Turma "${val}" não encontrada.`);
       if (!st.joinedClasses.includes(found.id)) {
         st.joinedClasses.push(found.id);
         found.alunos = (found.alunos || 0) + 1;
@@ -1603,7 +1494,7 @@
         saveToMvpDb('classes', found);
       }
       CS.activeClassId = found.id;
-      if (typeof toast === 'function') toast(`✓ Entrou na Sala da Turma ${found.codigo}!`);
+      if (typeof toast === 'function') toast(`Entrou na Sala da Turma ${found.codigo}.`);
       if (typeof render === 'function') render();
     },
     createClass() {
@@ -1626,18 +1517,19 @@
         alunos: 1,
         vagas: 60,
         programa: rawProg.length ? rawProg : [
-          `Unidade 1 · Introdução e Conceitos Fundamentais de ${nome}`,
-          'Unidade 2 · Exercícios Práticos e Casos Aplicados',
-          'Unidade 3 · Revisão Geral e Preparação de Avaliação',
+          `Unidade 1 · Fundamentos de ${nome}`,
+          'Unidade 2 · Exercícios Práticos',
+          'Unidade 3 · Revisão para Exame',
         ],
         mural: [],
+        pauta: [],
       };
       st.classes.unshift(rec);
       st.joinedClasses.push(rec.id);
       CS.showCreateClass = false;
       persistLocal();
       saveToMvpDb('classes', rec);
-      if (typeof toast === 'function') toast(`🏫 Turma ${rec.codigo} criada com programa estruturado!`);
+      if (typeof toast === 'function') toast(`Turma ${rec.codigo} criada.`);
       if (typeof render === 'function') render();
     },
     publishLesson(customPayload = null) {
@@ -1674,7 +1566,7 @@
       CS.showPublishLesson = false;
       persistLocal();
       saveToMvpDb('lessons', rec);
-      if (typeof toast === 'function') toast(`📢 Aula "${rec.titulo}" publicada em ${rec.turmaNome}!`);
+      if (typeof toast === 'function') toast(`Aula "${rec.titulo}" publicada.`);
       if (!customPayload && typeof render === 'function') render();
       return rec;
     },
@@ -1702,14 +1594,14 @@
         tipo: String((document.getElementById('uf-tipo') || {}).value || 'Universidade Privada'),
         provincia: String((document.getElementById('uf-prov') || {}).value || 'Luanda').trim(),
         faculdades: facs.length ? facs : ['Ciências & Tecnologia', 'Gestão'],
-        parceria: 'Nova Parceria CEU',
+        parceria: 'Parceiro CEU',
         turmasAtivas: 1,
       };
       st.universities.unshift(rec);
       CS.showAddUni = false;
       persistLocal();
       saveToMvpDb('universities', rec);
-      if (typeof toast === 'function') toast(`🎓 ${rec.sigla} adicionada à rede parceira!`);
+      if (typeof toast === 'function') toast(`${rec.sigla} adicionada.`);
       if (typeof render === 'function') render();
     },
     addDelegate() {
@@ -1723,14 +1615,14 @@
         cargo: String((document.getElementById('df-cargo') || {}).value || 'Delegado de Turma'),
         instituicao: inst,
         faculdade: String((document.getElementById('df-fac') || {}).value || 'Geral').trim(),
-        contacto: String((document.getElementById('df-cont') || {}).value || 'Contacto via CEU Academy').trim(),
+        contacto: String((document.getElementById('df-cont') || {}).value || 'CEU Academy').trim(),
         comunicado: String((document.getElementById('df-msg') || {}).value || '').trim(),
       };
       st.delegates.unshift(rec);
       CS.showAddDelegate = false;
       persistLocal();
       saveToMvpDb('delegates', rec);
-      if (typeof toast === 'function') toast(`🏅 ${rec.cargo} (${rec.nome}) registado!`);
+      if (typeof toast === 'function') toast(`${rec.cargo} (${rec.nome}) registado.`);
       if (typeof render === 'function') render();
     },
     bookMentorship(id) {
@@ -1740,11 +1632,11 @@
       const idx = st.bookedMentorships.indexOf(id);
       if (idx >= 0) {
         st.bookedMentorships.splice(idx, 1);
-        if (typeof toast === 'function') toast(`Marcação com ${m.mentor} cancelada.`);
+        if (typeof toast === 'function') toast(`Marcação cancelada.`);
       } else {
         st.bookedMentorships.push(id);
         saveToMvpDb('mentorships', { ...m, lastBookingBy: getStudentCard().nome, bookedAt: new Date().toISOString() });
-        if (typeof toast === 'function') toast(`🧭 Mentoria marcada com ${m.mentor} (${m.horario})!`);
+        if (typeof toast === 'function') toast(`Mentoria marcada com ${m.mentor}.`);
       }
       persistLocal();
       if (typeof render === 'function') render();
@@ -1758,7 +1650,7 @@
         st.appliedInternships.push(id);
         persistLocal();
         saveToMvpDb('internships', { ...item, lastApplicant: card.nome, studentCard: card.numero, appliedAt: new Date().toISOString() });
-        if (typeof toast === 'function') toast(`💼 Candidatura enviada para "${item.titulo}" com Cartão ${card.numero}!`);
+        if (typeof toast === 'function') toast(`Candidatura enviada para "${item.titulo}".`);
         if (typeof render === 'function') render();
       } else if (typeof toast === 'function') {
         toast('Já se candidatou a este estágio.');
@@ -1767,7 +1659,6 @@
     listClasses() { return loadState().classes; },
   };
 
-  // Atalho global Ctrl+K / Cmd+K para Pesquisa Académica Instantânea em qualquer página CEU
   document.addEventListener('keydown', (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {
       if (document.documentElement.dataset.brand !== 'ceu') return;
@@ -1780,10 +1671,10 @@
     on('/campus', campusView);
     on('/escolas', campusView);
     on('/turmas', campusView);
-    on('/materias', () => { CS.tab = 'materias'; return campusView(); });
-    on('/exames', () => { CS.tab = 'exames'; return campusView(); });
+    on('/materias', () => { CS.tab = 'estudo'; CS.studySub = 'materias'; return campusView(); });
+    on('/exames', () => { CS.tab = 'estudo'; CS.studySub = 'exames'; return campusView(); });
     on('/aulas-online', () => { CS.tab = 'online'; return campusView(); });
-    on('/mentorias', () => { CS.tab = 'carreira'; CS.careerSubTab = 'mentorias'; return campusView(); });
-    on('/estagios', () => { CS.tab = 'carreira'; CS.careerSubTab = 'estagios'; return campusView(); });
+    on('/mentorias', () => { CS.tab = 'rede'; CS.netSub = 'carreira'; CS.careerSubTab = 'mentorias'; return campusView(); });
+    on('/estagios', () => { CS.tab = 'rede'; CS.netSub = 'carreira'; CS.careerSubTab = 'estagios'; return campusView(); });
   }
 })();

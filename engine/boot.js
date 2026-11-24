@@ -14,16 +14,16 @@ import * as slideSpec from './slide-spec.js?v=4';
 import * as slideStudio from './slide-studio-engine.js?v=10';
 // Camada de investigação aberta na web (Openverse, NASA, OpenAlex, DuckDuckGo, Wikipédia/Wikimedia/YouTube)
 import * as slideWeb from './web-enrichment.js?v=14';
-import * as aiEngine from './ai-engine.js?v=7';
-import * as quality from './quality-engine.js?v=12';
+import * as aiEngine from './ai-engine.js?v=8';
+import * as quality from './quality-engine.js?v=13';
 import * as pdfEngine from './pdf-engine.js?v=1';
-import * as outlineEngine from './outline-engine.js?v=2';
+import * as outlineEngine from './outline-engine.js?v=3';
 import * as worksheetEngine from './worksheet-engine.js?v=1';
-import * as exportEngine from './export-engine.js?v=2';
-import * as docAnalyzer from './doc-analyzer.js?v=1';
+import * as exportEngine from './export-engine.js?v=3';
+import * as docAnalyzer from './doc-analyzer.js?v=2';
 import * as mvpDb from './mvp-db.js?v=3';
 import * as qrSvg from './qr-svg.js?v=1';
-import * as campusTools from './campus-tools.js?v=1';
+import * as campusTools from './campus-tools.js?v=2';
 
 window.Study = {
   ...summary, ...review, ...teacher, ...attendance, ...planner, ...quiz, ...projector, ...nucleo3d,

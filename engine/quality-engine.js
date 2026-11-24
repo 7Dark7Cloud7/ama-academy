@@ -189,7 +189,7 @@ function improveDeck(deck) {
     closing: 'SÍNTESE',
   };
   const notesHand = {
-    concept: 'O que é isto?', bullets: 'Repara nisto ✎', 'animated-flow': 'Segue a ordem →',
+    concept: 'O que é isto?', bullets: 'Repara nisto', 'animated-flow': 'Segue a ordem →',
     formula: 'Experimenta!', quiz: 'Responde primeiro', mindmap: 'Liga as ideias',
     'web-spotlight': 'Fonte verificada', closing: 'Leva isto contigo',
   };
@@ -197,7 +197,7 @@ function improveDeck(deck) {
   deck.slides.forEach((slide, i) => {
     const label = rhythm[slide.layout];
     if (label) slide.kicker = slide.page ? `${label} · p.${slide.page}` : label;
-    slide.handnote = notesHand[slide.layout] || 'Repara nisto ✎';
+    slide.handnote = notesHand[slide.layout] || 'Repara nisto';
     const isScene = !['quiz', 'check'].includes(slide.layout);
     slide.scene3d = !!(isScene && sceneCount < maxScenes);
     if (slide.scene3d) sceneCount += 1;
@@ -342,7 +342,7 @@ function optimizeTo100(deck, { enforceCeuBrand = true } = {}) {
     s.title = cleanTitle.length >= 3 ? cleanTitle : (L ? 'Key Topic' : 'Tema Central');
 
     const hand = strip(s.handNote || s.handnote || '');
-    s.handNote = hand || (L ? 'Notice this ✎' : 'Repara nisto ✎');
+    s.handNote = hand || (L ? 'Notice this' : 'Repara nisto');
     s.handnote = s.handNote;
 
     const noteVal = strip(s.teacherNote || s.notes || '');
@@ -383,8 +383,8 @@ function optimizeTo100(deck, { enforceCeuBrand = true } = {}) {
       title: clipChars(deck.title || (L ? 'Interactive Lesson' : 'Aula Interactiva'), 65),
       subtitle: L ? 'Structured visual lesson ready for classroom projection.' : 'Aula visual estruturada e pronta para projeção.',
       bullets: [],
-      handNote: L ? 'Start here ✎' : 'Começa pela intuição ✎',
-      handnote: L ? 'Start here ✎' : 'Começa pela intuição ✎',
+      handNote: L ? 'Start here' : 'Começa pela intuição',
+      handnote: L ? 'Start here' : 'Começa pela intuição',
       teacherNote: L ? 'Introduce the main topic and ask an opening question to engage students.' : 'Apresente o tema central e faça uma pergunta de abertura à turma.',
       notes: L ? 'Introduce the main topic and ask an opening question to engage students.' : 'Apresente o tema central e faça uma pergunta de abertura à turma.',
     });
@@ -400,8 +400,8 @@ function optimizeTo100(deck, { enforceCeuBrand = true } = {}) {
       title: clipChars(deck.title || (L ? 'Core Concept' : 'Conceito-Chave'), 65),
       subtitle: clipChars(deck.reading?.centralIdea || deck.title || '', 148),
       bullets: [],
-      handNote: L ? 'Key idea ✎' : 'Repara nisto ✎',
-      handnote: L ? 'Key idea ✎' : 'Repara nisto ✎',
+      handNote: L ? 'Key idea' : 'Repara nisto',
+      handnote: L ? 'Key idea' : 'Repara nisto',
       teacherNote: L ? 'Explain the core concept clearly and invite one example from students.' : 'Explique a ideia-chave com clareza e peça um exemplo aos estudantes.',
       notes: L ? 'Explain the core concept clearly and invite one example from students.' : 'Explique a ideia-chave com clareza e peça um exemplo aos estudantes.',
     });
@@ -424,8 +424,8 @@ function optimizeTo100(deck, { enforceCeuBrand = true } = {}) {
       ],
       correct: 0,
       explanation: clipChars(core.subtitle || (core.bullets && core.bullets[0]) || core.title, 140),
-      handNote: L ? 'Vote before reveal! ✎' : 'Pensa antes de clicar! ✎',
-      handnote: L ? 'Vote before reveal! ✎' : 'Pensa antes de clicar! ✎',
+      handNote: L ? 'Vote before reveal!' : 'Pensa antes de clicar!',
+      handnote: L ? 'Vote before reveal!' : 'Pensa antes de clicar!',
       teacherNote: L ? 'Give 30 seconds for students to vote before revealing the answer.' : 'Dê 30 segundos para a turma votar antes de revelar a resposta.',
       notes: L ? 'Give 30 seconds for students to vote before revealing the answer.' : 'Dê 30 segundos para a turma votar antes de revelar a resposta.',
     });
@@ -441,8 +441,8 @@ function optimizeTo100(deck, { enforceCeuBrand = true } = {}) {
       title: L ? 'Recap & Exit Ticket' : 'Síntese & Bilhete de Saída',
       bullets: rebuilt.slice(1, 4).map((s) => clipChars(s.title, 120)),
       checkQuestions: [L ? 'Exit Ticket: Summarize today in 1 sentence.' : 'Bilhete de Saída: Resuma a aula de hoje em 1 frase.'],
-      handNote: L ? '1-min Exit Ticket ✓' : 'Bilhete de Saída ✎',
-      handnote: L ? '1-min Exit Ticket ✓' : 'Bilhete de Saída ✎',
+      handNote: L ? '1-min Exit Ticket' : 'Bilhete de Saída',
+      handnote: L ? '1-min Exit Ticket' : 'Bilhete de Saída',
       teacherNote: L ? 'Recap the main takeaways and collect 1-minute exit tickets.' : 'Faça a síntese final e recolha o Bilhete de Saída em 1 minuto.',
       notes: L ? 'Recap the main takeaways and collect 1-minute exit tickets.' : 'Faça a síntese final e recolha o Bilhete de Saída em 1 minuto.',
     });

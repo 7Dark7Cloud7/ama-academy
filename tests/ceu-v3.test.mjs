@@ -302,3 +302,17 @@ test('All CEU course posters exist on disk and Supabase schema covers all 11 mul
     assert.ok(sql.includes(tbl), `Expected ${tbl} in supabase/schema.sql`);
   }
 });
+
+test('Clean UI hygiene: zero emojis in CEU views/engines and monoline SVG icons wired in all HTML shells', () => {
+  const emojiRe = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+  for (const rel of ['../ama-ceu.js', '../ama-campus.js', '../ama-projector.js', '../engine/doc-analyzer.js', '../engine/campus-tools.js']) {
+    const src = fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
+    assert.equal(emojiRe.test(src), false, `Unexpected emoji found in ${rel}`);
+  }
+  const iconsSrc = fs.readFileSync(new URL('../engine/ceu-icons.js', import.meta.url), 'utf8');
+  assert.ok(iconsSrc.includes('window.CI =') && iconsSrc.includes('<svg class="ci"'), 'Expected monoline SVG icon dictionary in engine/ceu-icons.js');
+  for (const htmlFile of ['../index.html', '../ceu.html', '../ama.html']) {
+    const html = fs.readFileSync(new URL(htmlFile, import.meta.url), 'utf8');
+    assert.ok(html.includes('engine/ceu-icons.js'), `Expected engine/ceu-icons.js wired in ${htmlFile}`);
+  }
+});

@@ -10,14 +10,14 @@ export function computeAngolaGrade(pp1Raw, pp2Raw, pesoFreqRaw = 0.4) {
   if (mf >= 14) {
     return {
       pp1: p1, pp2: p2, mf, needed: 0, status: 'dispensado',
-      badge: '🎉 DISPENSADO DE EXAME',
+      badge: 'DISPENSADO DE EXAME',
       msg: `Com média de frequência ${mf} val. (>= 14), aprova diretamente sem precisar de exame final!`,
     };
   }
   if (mf < 7) {
     return {
       pp1: p1, pp2: p2, mf, needed: 10, status: 'recurso',
-      badge: '⚠ VAI DIRETO A RECURSO',
+      badge: 'VAI DIRETO A RECURSO',
       msg: `Com média ${mf} val. (< 7), segue diretamente para época de recurso segundo o regulamento geral.`,
     };
   }
@@ -25,7 +25,7 @@ export function computeAngolaGrade(pp1Raw, pp2Raw, pesoFreqRaw = 0.4) {
   const needed = Math.min(20, Math.max(0, Math.ceil(((target - mf * wf) / we) * 10) / 10));
   return {
     pp1: p1, pp2: p2, mf, needed, status: 'exame',
-    badge: '📝 APTO A EXAME NORMAL',
+    badge: 'APTO A EXAME NORMAL',
     msg: `Média de frequência: ${mf} val. Precisa de pelo menos ${needed.toFixed(1)} valores no Exame Final (${Math.round(wf * 100)}% Freq + ${Math.round(we * 100)}% Exame) para aprovar com 10.`,
   };
 }

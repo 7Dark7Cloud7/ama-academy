@@ -166,7 +166,7 @@ export function buildEditableOutline({
         steps: s.steps || [],
         quote: s.quote || '',
         intuition: s.intuition || '',
-        handNote: s.handNote || s.handnote || 'Mensagem-chave ✎',
+        handNote: s.handNote || s.handnote || 'Mensagem-chave',
         teacherNote: s.notes || s.teacherNote || '',
         sourceAnchor: adaptive.sourceName,
       })),
@@ -199,7 +199,7 @@ export function buildEditableOutline({
       options: extra.options || [],
       correct: Number.isInteger(extra.correct) ? extra.correct : 0,
       explanation: extra.explanation || '',
-      handNote: clean(extra.handNote || (L ? 'Notice this ✎' : 'Repara nisto ✎'), 40),
+      handNote: clean(extra.handNote || (L ? 'Notice this' : 'Repara nisto'), 40),
       teacherNote: clean(extra.teacherNote || (L
         ? `Present "${cardTitle}" clearly, connect to a real classroom example, and ask one student to paraphrase before moving on.`
         : `Apresente «${cardTitle}» com clareza, ligue a um exemplo real em sala e peça a um estudante para reformular antes de avançar.`), 420),
@@ -218,7 +218,7 @@ export function buildEditableOutline({
     [hookQ],
     {
       page: 1,
-      handNote: L ? 'Start with intuition ✎' : 'Começa pela intuição ✎',
+      handNote: L ? 'Start with intuition' : 'Começa pela intuição',
       teacherNote: L
         ? `Open the session on "${deckTitle}". Ask the hook question aloud and collect 2 student intuitions before revealing the agenda.`
         : `Abra a sessão sobre «${deckTitle}». Faça a pergunta-gancho em voz alta e recolha 2 intuições da turma antes de avançar para o roteiro.`,
@@ -253,7 +253,7 @@ export function buildEditableOutline({
     'objectives',
     objectives.slice(0, 3),
     {
-      handNote: L ? 'Clear goal = focus ✓' : 'Meta clara = foco ✓',
+      handNote: L ? 'Clear goal = focus' : 'Meta clara = foco',
       teacherNote: L
         ? 'Read the learning outcomes aloud and ask which one students already feel confident about.'
         : 'Leia os objectivos em voz alta e pergunte à turma qual destes pontos já conhece ou precisa de reforço.',
@@ -281,7 +281,7 @@ export function buildEditableOutline({
           page: sec.page,
           formula: clean(fLine, 120),
           steps: sents.filter((s) => s !== fLine).slice(0, 3).map((s) => trimBullet(s, 130)),
-          handNote: L ? 'Inspect every symbol ✎' : 'Cada símbolo conta ✎',
+          handNote: L ? 'Inspect every symbol' : 'Cada símbolo conta',
           teacherNote: L
             ? `Unpack the formal relationship "${clean(fLine, 60)}" symbol by symbol. Have students test a quick numerical example.`
             : `Explique a relação formal «${clean(fLine, 60)}» símbolo a símbolo e resolva um exemplo rápido no quadro com a turma.`,
@@ -299,7 +299,7 @@ export function buildEditableOutline({
           page: sec.page,
           left: m ? clean(m[1], 44) : (L ? 'Concept A' : 'Perspectiva A'),
           right: m ? clean(m[2], 44) : (L ? 'Concept B' : 'Perspectiva B'),
-          handNote: L ? 'Spot the contrast ⚖' : 'Nota o contraste ⚖',
+          handNote: L ? 'Spot the contrast' : 'Nota o contraste',
           teacherNote: L
             ? `Contrast both columns explicitly and invite students to suggest one real-world example for each side.`
             : `Compare os dois lados de forma directa e convide os estudantes a dar um exemplo real para cada coluna.`,
@@ -332,7 +332,7 @@ export function buildEditableOutline({
         sents.slice(0, 3),
         {
           page: sec.page,
-          handNote: L ? 'Remember this ✎' : 'Repara nisto ✎',
+          handNote: L ? 'Remember this' : 'Repara nisto',
           teacherNote: L
             ? `Anchor the entire lesson on "${sec.heading}". Explain intuitively first, then confirm the exact wording from the source.`
             : `Ancore a aula em «${sec.heading}». Comece pela intuição simples e só depois confirme a definição formal do ficheiro.`,
@@ -347,7 +347,7 @@ export function buildEditableOutline({
         sents.slice(0, prof.maxBullets),
         {
           page: sec.page,
-          handNote: L ? 'Apply to real life ✎' : 'Liga ao quotidiano ✎',
+          handNote: L ? 'Apply to real life' : 'Liga ao quotidiano',
           teacherNote: L
             ? `Discuss each crisp card in "${sec.heading}" without reading verbatim; prompt one concrete local example.`
             : `Percorra os cartões de «${sec.heading}» sem ler palavra por palavra; peça um exemplo concreto em Angola.`,
@@ -367,7 +367,7 @@ export function buildEditableOutline({
       {
         formula: clean(formulas[0], 120),
         steps: [L ? 'Identify the known quantities and units.' : 'Identifique os dados conhecidos e as unidades.', L ? 'Substitute carefully and check the final unit.' : 'Substitua os valores e confirme a unidade final.'],
-        handNote: L ? 'Check the units! ✎' : 'Atenção às unidades! ✎',
+        handNote: L ? 'Check the units!' : 'Atenção às unidades!',
       }
     );
   }
@@ -385,7 +385,7 @@ export function buildEditableOutline({
       nodes.map((n) => `${n.term}: ${n.note}`),
       {
         nodes,
-        handNote: L ? 'Everything connects ✦' : 'Tudo se conecta ✦',
+        handNote: L ? 'Everything connects' : 'Tudo se conecta',
         teacherNote: L
           ? 'Use this SVG concept map to show how all ideas connect into one mental model.'
           : 'Use este mapa visual para mostrar à turma como todos os conceitos do ficheiro se ligam num só sistema.',
@@ -412,7 +412,7 @@ export function buildEditableOutline({
       ],
       correct: 0,
       explanation: correctAns,
-      handNote: L ? 'Vote before reveal! ✎' : 'Pensa antes de clicar! ✎',
+      handNote: L ? 'Vote before reveal!' : 'Pensa antes de clicar!',
       teacherNote: L
         ? 'Give 30 seconds of silent thinking (press T for timer), ask students to vote A/B/C, then reveal the explanation.'
         : 'Dê 30 segundos em silêncio (prima T para o cronómetro), peça votos A/B/C à turma e só depois revele a resposta.',
@@ -427,7 +427,7 @@ export function buildEditableOutline({
     'closing',
     recap.length ? recap : [trimBullet(deckTitle, 120)],
     {
-      handNote: L ? '1-min Exit Ticket ✓' : 'Bilhete de Saída ✎',
+      handNote: L ? '1-min Exit Ticket' : 'Bilhete de Saída',
       teacherNote: L
         ? 'Close with the 3 key takeaways and give 1 minute for the Exit Ticket prompt before students leave.'
         : 'Encerre com as 3 ideias essenciais e dê 1 minuto para cada aluno responder ao Bilhete de Saída.',
@@ -487,7 +487,7 @@ export function addOutlineCard(outline, card = {}) {
     bullets: Array.isArray(card.bullets) && card.bullets.length
       ? card.bullets.slice(0, 4)
       : [L ? 'Key idea to explain in class' : 'Ideia central a explicar em sala'],
-    handNote: clean(card.handNote || (L ? 'Key point ✎' : 'Repara nisto ✎'), 40),
+    handNote: clean(card.handNote || (L ? 'Key point' : 'Repara nisto'), 40),
     teacherNote: clean(card.teacherNote || (L ? 'Guide students through this custom point with a live example.' : 'Explique este ponto personalizado com um exemplo prático em sala.'), 300),
     sourceAnchor: outline.sourceName,
   };
@@ -514,8 +514,8 @@ export function buildDeckFromOutline(outline, { author = 'Docente Núcleo CEU', 
       kicker: `${c.rhythm}${c.page ? ` · Pág. ${c.page}` : ''}`,
       title: clean(c.title, 65),
       bullets: (c.bullets || []).slice(0, 4).map((b) => trimBullet(b, 148)),
-      handnote: clean(c.handNote || (L ? 'Notice this ✎' : 'Repara nisto ✎'), 40),
-      handNote: clean(c.handNote || (L ? 'Notice this ✎' : 'Repara nisto ✎'), 40),
+      handnote: clean(c.handNote || (L ? 'Notice this' : 'Repara nisto'), 40),
+      handNote: clean(c.handNote || (L ? 'Notice this' : 'Repara nisto'), 40),
       notes: clean(c.teacherNote, 420),
       teacherNote: clean(c.teacherNote, 420),
       durationMin: c.layout === 'cover' || c.layout === 'agenda' ? 2 : 3,

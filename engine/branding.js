@@ -36,7 +36,8 @@
   function syncChromeVisibility() {
     var onProjector = /^#\/projetor/.test(location.hash || '');
     var inFs = !!document.querySelector('.pj-workspace.is-fs-overlay');
-    corner.hidden = onProjector || inFs;
+    var hasFab = !!document.getElementById('oma-fab');
+    corner.hidden = onProjector || inFs || hasFab;
     credit.hidden = inFs;
   }
 

@@ -684,3 +684,8 @@ body.pj-is-fs .ft{display:none!important}
 @media(prefers-reduced-motion:reduce){
   .pj-deco,.pj-deco i,.pj-ig-svg .ig-draw,.pj-ig-svg .ig-pulse,.pj-slide h2,.pj-bullets-grid li{animation:none!important}
 }
+
+/* Sistema global de ícones vetoriais monolinha (.ci) */
+.ci{display:inline-block;width:15px;height:15px;vertical-align:-2.5px;flex:none;stroke-width:1.75}
+.btn .ci,button .ci,a .ci,summary .ci{margin-right:3px}
+.icon-btn .ci{margin-right:0}

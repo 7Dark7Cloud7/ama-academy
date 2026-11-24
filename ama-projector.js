@@ -12,6 +12,7 @@
   const escAttr = esc;
   const brandName = () => (document.documentElement.dataset.brand === 'ceu' ? 'CEU Academy' : 'AMA');
   const nucleoName = () => (document.documentElement.dataset.brand === 'ceu' ? 'NÚCLEO CEU' : 'NÚCLEO AMA');
+  const ic = (k) => (window.CI && window.CI[k]) || '';
 
   const SAMPLE_LECTURES = {
     fisica: {
@@ -650,12 +651,12 @@
   function renderFusedContext(slide) {
     const parts = [];
     if (slide.intuition && !['cover', 'agenda', 'objectives', 'closing', 'quiz', 'scene-3d', 'map-spotlight'].includes(slide.layout)) {
-      parts.push(`<div class="pj-intuition-box"><span class="pj-int-tag">✦ INTUIÇÃO SIMPLES</span><p>${esc(slide.intuition)}</p></div>`);
+      parts.push(`<div class="pj-intuition-box"><span class="pj-int-tag">INTUIÇÃO SIMPLES</span><p>${esc(slide.intuition)}</p></div>`);
     }
     if (slide.fusedInsight && slide.fusedInsight.text) {
       parts.push(`<div class="pj-fused-card">
-        <div class="pj-fused-h"><span>🌐 INTEGRADO DA WEB · ${esc(slide.fusedInsight.source || 'Wikipédia')}</span>
-          ${slide.fusedInsight.url ? `<a href="${escAttr(slide.fusedInsight.url)}" target="_blank" rel="noopener noreferrer">${esc(slide.fusedInsight.heading || 'Ver fonte')} ↗</a>` : ''}
+        <div class="pj-fused-h"><span>${ic('globe')} INTEGRADO DA WEB · ${esc(slide.fusedInsight.source || 'Wikipédia')}</span>
+          ${slide.fusedInsight.url ? `<a href="${escAttr(slide.fusedInsight.url)}" target="_blank" rel="noopener noreferrer">${esc(slide.fusedInsight.heading || 'Ver fonte')}</a>` : ''}
         </div>
         <p>${esc(slide.fusedInsight.text)}</p>
       </div>`);
@@ -741,7 +742,7 @@
             <span><b>${deck.stats.slides}</b> slides</span><i>·</i>
             <span><b>~${deck.stats.estMinutes} min</b> estimados</span><i>·</i>
             <span><b>${deck.stats.pages}</b> bloco${deck.stats.pages === 1 ? '' : 's'}</span>
-            ${deck.synthesis && deck.synthesis.fusedSlides ? `<i>·</i><span class="pj-meta-ai">✦ PDF + Web + 3D</span>` : ''}
+            ${deck.synthesis && deck.synthesis.fusedSlides ? `<i>·</i><span class="pj-meta-ai">PDF + Web + 3D</span>` : ''}
             ${slide.meta && slide.meta.author ? `<i>·</i><span>${esc(slide.meta.author)}</span>` : ''}
           </div>
         </div>
@@ -1045,17 +1046,17 @@
       ${(P.drawOn || hasStrokes) ? `<canvas class="pj-draw-canvas ${P.drawOn ? 'active' : ''}" aria-label="Quadro de anotações do docente"></canvas>` : ''}
       ${(P.laserOn && !P.drawOn && slide.layout !== 'scene-3d') ? `<span class="pj-laser-dot" aria-hidden="true"></span>` : ''}
       ${P.narrating ? `<div class="pj-caption-bar" role="status" aria-live="polite">
-        <span class="pj-cap-tag">🔊 AUTO-AULA</span>
+        <span class="pj-cap-tag">${ic('volume')} AUTO-AULA</span>
         <p>${esc(slide.narration || slide.notes || slide.subtitle || slide.title || '')}</p>
-        <button type="button" onclick="AMAProjector.toggleNarrate()" aria-label="Parar Auto-Aula">⏹</button>
+        <button type="button" onclick="AMAProjector.toggleNarrate()" aria-label="Parar Auto-Aula">${ic('stop') || 'Parar'}</button>
       </div>` : ''}
       ${P.pulseOpen ? `<div class="pj-pulse-bar" role="region" aria-label="Pulso da turma" onclick="event.stopPropagation()">
-        <span class="pj-pulse-q">⚡ A turma acompanhou este ponto?</span>
+        <span class="pj-pulse-q">A turma acompanhou este ponto?</span>
         <div class="pj-pulse-btns">
-          <button type="button" class="p-ok" onclick="AMAProjector.votePulse('ok')">✓ Claro <b>${P.pulseVotes.ok}</b></button>
-          <button type="button" class="p-mid" onclick="AMAProjector.votePulse('mid')">◐ Quase <b>${P.pulseVotes.mid}</b></button>
-          <button type="button" class="p-rev" onclick="AMAProjector.votePulse('rev')">↻ Rever <b>${P.pulseVotes.rev}</b></button>
-          <button type="button" class="p-x" title="Fechar pulso" onclick="AMAProjector.togglePulse()">✕</button>
+          <button type="button" class="p-ok" onclick="AMAProjector.votePulse('ok')">Claro <b>${P.pulseVotes.ok}</b></button>
+          <button type="button" class="p-mid" onclick="AMAProjector.votePulse('mid')">Quase <b>${P.pulseVotes.mid}</b></button>
+          <button type="button" class="p-rev" onclick="AMAProjector.votePulse('rev')">Rever <b>${P.pulseVotes.rev}</b></button>
+          <button type="button" class="p-x" title="Fechar pulso" onclick="AMAProjector.togglePulse()">×</button>
         </div>
       </div>` : ''}
       ${P.blackout ? `<div class="pj-blackout" role="dialog" aria-label="Cortina de atenção" onclick="AMAProjector.toggleBlackout()">
@@ -1171,13 +1172,13 @@
     return `<section class="card pj-creator pj-creator-calm" data-testid="projector-creator">
       <div class="pj-creator-head">
         <div>
-          <span class="eyebrow-t">${I.doc} PDF &amp; TEXTO → SLIDES INTELIGENTES</span>
-          <h2 style="margin-top:6px">Carregue um ficheiro — a IA adapta, ilustra e cria os slides</h2>
-          <p class="muted">Detecta automaticamente se é Aula, Ata, Relatório ou Regulamento, busca imagens em toda a web (Openverse, NASA, Wikimedia, OpenAlex) e monta cenas 3D dinâmicas.</p>
+          <span class="eyebrow-t">${I.doc} PROJETOR DE SLIDES</span>
+          <h2 style="margin-top:6px">Carregue um PDF ou cole o texto da aula</h2>
+          <p class="muted">Organiza slides visuais 16:9 com imagens, modelos 3D e notas do docente num clique.</p>
         </div>
         <div class="pj-creator-tabs" role="tablist" aria-label="Modo de criação">
-          <button type="button" role="tab" aria-selected="${P.creatorTab !== 'chatgpt'}" class="${P.creatorTab !== 'chatgpt' ? 'on' : ''}" onclick="AMAProjector.setCreatorTab('direct')">📄 PDF / Texto Direto</button>
-          <button type="button" role="tab" aria-selected="${P.creatorTab === 'chatgpt'}" class="${P.creatorTab === 'chatgpt' ? 'on' : ''}" onclick="AMAProjector.setCreatorTab('chatgpt')">✨ Super-IA (ChatGPT / Gemini)</button>
+          <button type="button" role="tab" aria-selected="${P.creatorTab !== 'chatgpt'}" class="${P.creatorTab !== 'chatgpt' ? 'on' : ''}" onclick="AMAProjector.setCreatorTab('direct')">${ic('file')} PDF / Texto</button>
+          <button type="button" role="tab" aria-selected="${P.creatorTab === 'chatgpt'}" class="${P.creatorTab === 'chatgpt' ? 'on' : ''}" onclick="AMAProjector.setCreatorTab('chatgpt')">${ic('layers')} Modo ChatGPT</button>
         </div>
       </div>
 
@@ -1186,13 +1187,13 @@
           <div class="pj-cg-step">
             <span class="pj-b-idx">01</span>
             <div>
-              <b>Copie o Prompt Profissional CEU-3D</b>
-              <p>Este prompt pede ao ChatGPT, Gemini ou Claude para analisar o seu PDF e devolver instruções estruturadas com layouts, imagens e cena 3D volátil à medida.</p>
+              <b>Copie o Prompt CEU-3D</b>
+              <p>Envie o prompt com o seu PDF ao ChatGPT, Gemini ou Claude para obter um guião estruturado com cenas 3D e imagens.</p>
               <div class="flex wrap" style="gap:8px;margin-top:8px">
-                <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.copyExternalPrompt(false)">📋 Copiar Prompt CEU-3D</button>
-                <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.copyExternalPrompt(true)">📋 Prompt + Meu Texto/PDF</button>
-                <a class="btn btn-o btn-sm" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT ↗</a>
-                <a class="btn btn-o btn-sm" href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">Gemini ↗</a>
+                <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.copyExternalPrompt(false)">${ic('copy')} Copiar Prompt CEU-3D</button>
+                <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.copyExternalPrompt(true)">${ic('copy')} Prompt + Texto</button>
+                <a class="btn btn-o btn-sm" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
+                <a class="btn btn-o btn-sm" href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">Gemini</a>
               </div>
               <details class="pj-adv-opts" style="margin-top:10px">
                 <summary>Ver texto completo do prompt pré-definido</summary>
@@ -1203,19 +1204,19 @@
           <div class="pj-cg-step">
             <span class="pj-b-idx">02</span>
             <div>
-              <b>Envie o seu PDF + Prompt ao ChatGPT e cole a resposta aqui</b>
+              <b>Cole a resposta aqui</b>
               <textarea id="pj-ext-json" rows="7" style="width:100%;margin-top:8px" placeholder='Cole aqui o bloco JSON (ou guião) devolvido pelo ChatGPT / Gemini…'></textarea>
               <div class="flex wrap" style="gap:10px;margin-top:10px;align-items:center">
-                <button type="button" class="btn btn-p" onclick="AMAProjector.importExternalBlueprint()">✦ Construir Slides Super-IA + 3D + Imagens</button>
-                <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSuperIADemo()">▶ Testar exemplo Super-IA</button>
+                <button type="button" class="btn btn-p" onclick="AMAProjector.importExternalBlueprint()">${ic('slides')} Construir Slides + 3D</button>
+                <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.loadSuperIADemo()">${ic('play')} Testar exemplo</button>
                 ${P.deck ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleCreator(false)">Voltar aos slides</button>` : ''}
               </div>
             </div>
           </div>
         </div>
       </div>` : `<div class="pj-samples" style="margin-bottom:14px">
-        <span>Experimentar:</span>
-        <button type="button" class="pj-sample-pill is-hi" onclick="AMAProjector.loadSample('ata')">📋 Ata</button>
+        <span>Exemplos rápidos:</span>
+        <button type="button" class="pj-sample-pill is-hi" onclick="AMAProjector.loadSample('ata')">Ata</button>
         <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('fisica')">Física</button>
         <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('financas')">Finanças</button>
         <button type="button" class="pj-sample-pill" onclick="AMAProjector.loadSample('programacao')">Python</button>
@@ -1265,16 +1266,16 @@
             <label for="pj-brief">Como quer os slides e as imagens? <small>(opcional · escreva ou fale por áudio)</small></label>
             <div class="pj-voice-row">
               <input id="pj-brief" maxlength="320" placeholder="Ex.: Fotos reais de foguetões e carros, tom simples para 1.º ano, tema escuro…" value="${escAttr(P.brief || '')}" oninput="AMAProjector.setBrief(this.value)">
-              <button type="button" class="btn btn-o btn-sm pj-mic-btn ${P.voiceListening && P.voiceTarget === 'brief' ? 'is-rec' : ''}" title="Falar descrição por áudio (microfone)" onclick="AMAProjector.toggleVoice('brief')">${P.voiceListening && P.voiceTarget === 'brief' ? '● A ouvir…' : '🎙 Falar'}</button>
+              <button type="button" class="btn btn-o btn-sm pj-mic-btn ${P.voiceListening && P.voiceTarget === 'brief' ? 'is-rec' : ''}" title="Falar descrição por áudio (microfone)" onclick="AMAProjector.toggleVoice('brief')">${P.voiceListening && P.voiceTarget === 'brief' ? 'A ouvir…' : ic('mic') + ' Falar'}</button>
             </div>
           </div>
           <div class="flex wrap" style="gap:10px;align-items:center">
-            <button type="button" class="btn btn-p" onclick="AMAProjector.generateFromForm()">${I.spark} Gerar slides automaticamente</button>
+            <button type="button" class="btn btn-p" onclick="AMAProjector.generateFromForm()">${ic('slides') || I.spark} Gerar slides</button>
             ${P.deck ? `<button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleCreator(false)">Voltar aos slides</button>` : ''}
           </div>
 
           <details class="pj-adv-opts">
-            <summary>⚙ Opções avançadas (título, tipo, roteiro editável, links)</summary>
+            <summary>${ic('sliders')} Opções avançadas (título, tipo, roteiro, links)</summary>
             <div class="pj-adv-body">
               <div class="st-grid-in">
                 <div class="field"><label for="pj-title">Título (auto se vazio)</label><input id="pj-title" maxlength="90" placeholder="Detectado automaticamente" value="${escAttr(prefill && prefill.title || '')}" oninput="this.removeAttribute('data-auto-title')"></div>
@@ -1323,7 +1324,7 @@
                   <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.fromSelectedNotebook()">Abrir</button>
                 </div>
               </div>` : ''}
-              <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.buildOutlineFromForm()">▤ Editar Roteiro antes de gerar</button>
+              <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.buildOutlineFromForm()">${ic('layers')} Editar Roteiro antes de gerar</button>
             </div>
           </details>
         </div>
@@ -1393,7 +1394,7 @@
       ? 'A enriquecer com imagens e web…'
       : (P.aiBusy
           ? 'IA a refinar explicações…'
-          : (deck.synthesis && deck.synthesis.imagesEmbedded ? `✦ IA · ${deck.synthesis.imagesEmbedded} img + 3D` : '✦ IA + 3D activos'));
+          : (deck.synthesis && deck.synthesis.imagesEmbedded ? `IA · ${deck.synthesis.imagesEmbedded} img + 3D` : 'IA + 3D ativos'));
 
     const morePopover = P.moreOpen ? `<div class="pj-more-pop" role="menu" aria-label="Mais opções" onclick="event.stopPropagation()">
       <div class="pj-mp-sec">
@@ -1414,16 +1415,16 @@
       <div class="pj-mp-sec">
         <span class="pj-mp-h">Sala de Aula (atalhos)</span>
         <div class="pj-mp-row">
-          <button type="button" onclick="AMAProjector.openPresenterWindow()">🖥 Janela do Docente</button>
-          <button type="button" class="${P.narrating ? 'on' : ''}" onclick="AMAProjector.toggleNarrate()">${P.narrating ? '⏹ Parar Auto-Aula' : '▶ Auto-Aula + Voz (V)'}</button>
-          <button type="button" class="${P.pulseOpen ? 'on' : ''}" onclick="AMAProjector.togglePulse()">⚡ Pulso Turma (P)</button>
+          <button type="button" onclick="AMAProjector.openPresenterWindow()">${ic('monitor')} Janela do Docente</button>
+          <button type="button" class="${P.narrating ? 'on' : ''}" onclick="AMAProjector.toggleNarrate()">${P.narrating ? ic('stop') + ' Parar Auto-Aula' : ic('volume') + ' Auto-Aula (V)'}</button>
+          <button type="button" class="${P.pulseOpen ? 'on' : ''}" onclick="AMAProjector.togglePulse()">Pulso Turma (P)</button>
           <button type="button" class="${P.showNotes ? 'on' : ''}" onclick="AMAProjector.toggleNotes()">Notas (N)</button>
           <button type="button" class="${P.revealMode ? 'on' : ''}" onclick="AMAProjector.toggleRevealMode()">1-a-1 (S)</button>
           <button type="button" class="${P.drawOn ? 'on' : ''}" onclick="AMAProjector.toggleDraw()">Desenhar (D)</button>
           <button type="button" class="${P.blackout ? 'on' : ''}" onclick="AMAProjector.toggleBlackout()">Cortina (B)</button>
-          <button type="button" class="${P.timerRunning ? 'on' : ''}" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerRunning ? `${P.timerSec}s` : '60s'} (T)</button>
+          <button type="button" class="${P.timerRunning ? 'on' : ''}" onclick="AMAProjector.toggleTimer()">${ic('clock')} ${P.timerRunning ? `${P.timerSec}s` : '60s'} (T)</button>
           <button type="button" class="${P.laserOn ? 'on' : ''}" onclick="AMAProjector.toggleLaser()">Laser Auto (L)</button>
-          <button type="button" onclick="AMAProjector.toggleShortcuts()">⌨ Atalhos (?)</button>
+          <button type="button" onclick="AMAProjector.toggleShortcuts()">Atalhos (?)</button>
         </div>
       </div>
       <div class="pj-mp-sec">
@@ -1433,8 +1434,8 @@
             .map(([k, l]) => `<button type="button" class="${P.level === k ? 'on' : ''}" onclick="AMAProjector.setLevel('${k}')">${l}</button>`).join('')}
         </div>
         <div class="pj-mp-row" style="margin-top:6px">
-          <button type="button" onclick="AMAProjector.openChatGPTTab()">✨ Modo ChatGPT</button>
-          <button type="button" onclick="AMAProjector.promptBrief()">🎙 Descrever estilo/imagens</button>
+          <button type="button" onclick="AMAProjector.openChatGPTTab()">Modo ChatGPT</button>
+          <button type="button" onclick="AMAProjector.promptBrief()">${ic('mic')} Descrever estilo</button>
           <button type="button" onclick="AMAProjector.togglePlanPanel()">${P.showPlan ? 'Ocultar Plano' : 'Ver Plano IA'}</button>
           <button type="button" onclick="AMAProjector.improveAI()">Refinar IA</button>
           <button type="button" onclick="AMAProjector.configGeminiKey()">Chave Gemini</button>
@@ -1443,8 +1444,8 @@
       <div class="pj-mp-sec">
         <span class="pj-mp-h">Exportar &amp; Partilha</span>
         <div class="pj-mp-row">
-          <button type="button" onclick="AMAProjector.shareDeck()">📱 Partilhar / QR (Q)</button>
-          <button type="button" onclick="AMAProjector.publishToCampusClass()">📢 Publicar na Turma</button>
+          <button type="button" onclick="AMAProjector.shareDeck()">${ic('qr')} Partilhar / QR (Q)</button>
+          <button type="button" onclick="AMAProjector.publishToCampusClass()">${ic('school')} Publicar na Turma</button>
           <button type="button" onclick="AMAProjector.exportPptx()">.PPTX</button>
           <button type="button" onclick="AMAProjector.exportPrintPdf()">PDF</button>
           <button type="button" onclick="AMAProjector.exportOfflineHtml()">HTML Offline</button>
@@ -1479,14 +1480,14 @@
         ${P.drawOn ? `<div class="pj-ink-picker" role="group" aria-label="Caneta">
           ${[['#ff6b57', 'Coral'], ['#b8f36b', 'Lima'], ['#00a4dc', 'Azul']].map(([c, n]) => `<button type="button" class="pj-ink-dot ${P.drawColor === c ? 'on' : ''}" style="background:${c}" title="${n}" onclick="AMAProjector.setDrawColor('${c}')"></button>`).join('')}
           <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.clearDrawing()">Limpar</button>
-          <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleDraw()">✕</button>
+          <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.toggleDraw()">×</button>
         </div>` : ''}
-        <button type="button" class="btn btn-o btn-sm ${P.editingSlide ? 'is-on' : ''}" title="Editar este slide (E)" onclick="AMAProjector.toggleEditSlide()">✎ Editar</button>
+        <button type="button" class="btn btn-o btn-sm ${P.editingSlide ? 'is-on' : ''}" title="Editar este slide (E)" onclick="AMAProjector.toggleEditSlide()">${ic('edit')} Editar</button>
         <div class="pj-more-wrap">
-          <button type="button" class="btn btn-o btn-sm ${P.moreOpen ? 'is-on' : ''}" aria-expanded="${P.moreOpen}" onclick="event.stopPropagation();AMAProjector.toggleMore()">⋯ Mais</button>
+          <button type="button" class="btn btn-o btn-sm ${P.moreOpen ? 'is-on' : ''}" aria-expanded="${P.moreOpen}" onclick="event.stopPropagation();AMAProjector.toggleMore()">Mais</button>
           ${morePopover}
         </div>
-        <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.toggleFullscreen()">▶ Projetar</button>
+        <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.toggleFullscreen()">${ic('play')} Projetar</button>
       </div>
     </div>`;
 
@@ -1511,19 +1512,19 @@
       body = `${planPanel}<div class="pj-grid-view" data-testid="projector-grid">
         ${deck.slides.map((sl, i) => `<div class="pj-grid-card ${i === idx ? 'on' : ''}">
           <button type="button" class="pj-gc-open" onclick="AMAProjector.jumpSlide(${i})">
-            <span class="pj-gc-n">${String(i + 1).padStart(2, '0')} · ${esc(sl.layout)}${sl.visual ? ' · 🖼' : ''}${sl.layout === 'scene-3d' || sl.mode3d ? ' · 3D' : ''}</span>
+            <span class="pj-gc-n">${String(i + 1).padStart(2, '0')} · ${esc(sl.layout)}${sl.visual ? ' · img' : ''}${sl.layout === 'scene-3d' || sl.mode3d ? ' · 3D' : ''}</span>
             <strong>${esc(sl.title)}</strong>
             <small>${esc(sl.subtitle || (sl.bullets && sl.bullets[0]) || sl.kicker)}</small>
           </button>
           <div class="pj-gc-acts">
             <button type="button" title="Mover antes" ${i === 0 ? 'disabled' : ''} onclick="AMAProjector.moveSlideAt(${i}, -1)">←</button>
             <button type="button" title="Mover depois" ${i === deck.slides.length - 1 ? 'disabled' : ''} onclick="AMAProjector.moveSlideAt(${i}, 1)">→</button>
-            <button type="button" title="Duplicar slide" onclick="AMAProjector.duplicateSlideAt(${i})">⧉</button>
-            ${deck.slides.length > 2 ? `<button type="button" title="Apagar slide" onclick="AMAProjector.deleteSlideAt(${i})">✕</button>` : ''}
+            <button type="button" title="Duplicar slide" onclick="AMAProjector.duplicateSlideAt(${i})">Duplicar</button>
+            ${deck.slides.length > 2 ? `<button type="button" title="Apagar slide" onclick="AMAProjector.deleteSlideAt(${i})">×</button>` : ''}
           </div>
         </div>`).join('')}
         <button type="button" class="pj-grid-card pj-gc-add" onclick="AMAProjector.addSlide()">
-          <span>＋</span>
+          <span>+</span>
           <strong>Novo Slide</strong>
           <small>Inserir ponto personalizado</small>
         </button>
@@ -1541,7 +1542,7 @@
             <button type="button" class="btn btn-o btn-sm" ${idx === 0 ? 'disabled' : ''} title="Mover slide para trás" onclick="AMAProjector.moveSlide(-1)">← Mover</button>
             <button type="button" class="btn btn-o btn-sm" ${idx >= deck.slides.length - 1 ? 'disabled' : ''} title="Mover slide para a frente" onclick="AMAProjector.moveSlide(1)">Mover →</button>
             <button type="button" class="btn btn-o btn-sm" title="Inserir novo slide a seguir" onclick="AMAProjector.addSlide()">+ Slide</button>
-            ${deck.slides.length > 2 ? `<button type="button" class="btn btn-o btn-sm" title="Remover este slide" onclick="AMAProjector.deleteSlide()">🗑 Apagar</button>` : ''}
+            ${deck.slides.length > 2 ? `<button type="button" class="btn btn-o btn-sm" title="Remover este slide" onclick="AMAProjector.deleteSlide()">${ic('trash')} Apagar</button>` : ''}
             <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.toggleEditSlide()">Concluir</button>
           </div>
         </div>
@@ -1560,9 +1561,9 @@
           <label for="pj-ed-imgq">Descrição da imagem deste slide (escreva ou fale por áudio · busca em toda a web)</label>
           <div class="pj-voice-row" style="margin-top:4px">
             <input id="pj-ed-imgq" placeholder="Ex.: foguetão espacial, sala de reunião, energia solar, floresta do Maiombe…" value="${escAttr(slide.visualPrompt || '')}">
-            <button type="button" class="btn btn-o btn-sm pj-mic-btn ${P.voiceListening && P.voiceTarget === 'slideImg' ? 'is-rec' : ''}" onclick="AMAProjector.toggleVoice('slideImg')">${P.voiceListening && P.voiceTarget === 'slideImg' ? '● Ouvir' : '🎙'}</button>
-            <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.searchSlideImage()">${P.imgGalleryBusy ? 'A procurar…' : '↻ Galeria Web'}</button>
-            <label class="btn btn-o btn-sm" style="margin:0;cursor:pointer">📷 Foto PC<input type="file" accept="image/*" hidden onchange="AMAProjector.uploadSlideImage(this)"></label>
+            <button type="button" class="btn btn-o btn-sm pj-mic-btn ${P.voiceListening && P.voiceTarget === 'slideImg' ? 'is-rec' : ''}" onclick="AMAProjector.toggleVoice('slideImg')">${P.voiceListening && P.voiceTarget === 'slideImg' ? 'Ouvir' : ic('mic')}</button>
+            <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.searchSlideImage()">${P.imgGalleryBusy ? 'A procurar…' : ic('refresh') + ' Galeria Web'}</button>
+            <label class="btn btn-o btn-sm" style="margin:0;cursor:pointer">${ic('image')} Foto PC<input type="file" accept="image/*" hidden onchange="AMAProjector.uploadSlideImage(this)"></label>
             <button type="button" class="btn btn-o btn-sm" onclick="AMAProjector.useSlide3D()">Usar 3D</button>
           </div>
           ${(Array.isArray(P.imgGallery) && P.imgGallery.length) ? `<div class="pj-img-gallery" aria-label="Escolha uma imagem coerente">
@@ -1581,14 +1582,14 @@
         <span class="pj-fs-pos">${String(idx + 1).padStart(2, '0')} / ${String(deck.slides.length).padStart(2, '0')}</span>
         <button type="button" ${idx >= deck.slides.length - 1 && (!P.revealMode || P.revealStep >= revTotal) ? 'disabled' : ''} onclick="AMAProjector.step(1)">→</button>
         <i></i>
-        <button type="button" class="${P.narrating ? 'on' : ''}" title="Narrar aula em voz alta (V)" onclick="AMAProjector.toggleNarrate()">${P.narrating ? '⏹ Voz' : '🔊 Voz'}</button>
-        <button type="button" class="${P.drawOn ? 'on' : ''}" title="Desenhar (D)" onclick="AMAProjector.toggleDraw()">✎ Desenhar</button>
+        <button type="button" class="${P.narrating ? 'on' : ''}" title="Narrar aula em voz alta (V)" onclick="AMAProjector.toggleNarrate()">${P.narrating ? ic('stop') + ' Voz' : ic('volume') + ' Voz'}</button>
+        <button type="button" class="${P.drawOn ? 'on' : ''}" title="Desenhar (D)" onclick="AMAProjector.toggleDraw()">${ic('edit')} Desenhar</button>
         ${P.drawOn ? `<button type="button" title="Limpar (C)" onclick="AMAProjector.clearDrawing()">Limpar</button>` : ''}
         <button type="button" class="${P.showNotes ? 'on' : ''}" title="Notas (N)" onclick="AMAProjector.toggleNotes()">Notas</button>
-        <button type="button" class="${P.pulseOpen ? 'on' : ''}" title="Pulso da turma (P)" onclick="AMAProjector.togglePulse()">⚡</button>
-        <button type="button" class="${P.blackout ? 'on' : ''}" title="Cortina (B)" onclick="AMAProjector.toggleBlackout()">■</button>
-        ${P.timerRunning ? `<button type="button" class="on" title="Parar cronómetro (T)" onclick="AMAProjector.toggleTimer()">⏱ ${P.timerSec}s</button>` : ''}
-        <button type="button" class="pj-fs-exit" title="Sair (Esc)" onclick="AMAProjector.toggleFullscreen()">Sair ✕</button>
+        <button type="button" class="${P.pulseOpen ? 'on' : ''}" title="Pulso da turma (P)" onclick="AMAProjector.togglePulse()">Pulso</button>
+        <button type="button" class="${P.blackout ? 'on' : ''}" title="Cortina (B)" onclick="AMAProjector.toggleBlackout()">Cortina</button>
+        ${P.timerRunning ? `<button type="button" class="on" title="Parar cronómetro (T)" onclick="AMAProjector.toggleTimer()">${P.timerSec}s</button>` : ''}
+        <button type="button" class="pj-fs-exit" title="Sair (Esc)" onclick="AMAProjector.toggleFullscreen()">Sair ×</button>
       </div>` : '';
 
       body = `${!P.fullscreen ? planPanel : ''}<div class="pj-stage-wrap ${P.fullscreen ? 'is-fs' : ''}">
@@ -1636,13 +1637,13 @@
         <div class="pj-modal-card" onclick="event.stopPropagation()">
           <div class="pj-modal-head">
             <div><span class="pj-kicker">PARTILHA EM SALA · QR OFFLINE</span><h3>${esc(deck.title)}</h3></div>
-            <button type="button" class="icon-btn" aria-label="Fechar" onclick="AMAProjector.closeShareModal()">✕</button>
+            <button type="button" class="icon-btn" aria-label="Fechar" onclick="AMAProjector.closeShareModal()">×</button>
           </div>
           <p class="pj-modal-sub">Os estudantes podem apontar a câmara do telemóvel para o ecrã do projetor para abrir estes slides imediatamente.</p>
           <div class="pj-qr-box" data-testid="projector-qr-box">${qr}</div>
           <div class="pj-voice-row" style="margin-top:12px">
             <input id="pj-share-url-in" readonly value="${escAttr(P.shareModalUrl)}" onclick="this.select()">
-            <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.copyShareUrl()">📋 Copiar</button>
+            <button type="button" class="btn btn-p btn-sm" onclick="AMAProjector.copyShareUrl()">${ic('copy')} Copiar</button>
           </div>
         </div>
       </div>`;
@@ -1652,7 +1653,7 @@
       <div class="pj-modal-card pj-modal-keys" onclick="event.stopPropagation()">
         <div class="pj-modal-head">
           <div><span class="pj-kicker">MODO DOCENTE</span><h3>Atalhos de Teclado</h3></div>
-          <button type="button" class="icon-btn" aria-label="Fechar" onclick="AMAProjector.toggleShortcuts()">✕</button>
+          <button type="button" class="icon-btn" aria-label="Fechar" onclick="AMAProjector.toggleShortcuts()">×</button>
         </div>
         <div class="pj-keys-grid">
           <div><kbd>←</kbd> <kbd>→</kbd> / <kbd>Espaço</kbd><span>Mudar slide / revelar passo</span></div>
@@ -1788,7 +1789,7 @@
         const baseText = target === 'slideImg'
           ? String((document.getElementById('pj-ed-imgq') || {}).value || '').trim()
           : String(P.brief || '').trim();
-        toast('🎙 A ouvir… descreva como quer os slides e as imagens.');
+        toast('A ouvir… descreva como quer os slides e as imagens.');
         render();
         rec.onresult = (ev) => {
           let transcript = '';
@@ -1936,9 +1937,9 @@
         <footer>
           <button onclick="send('prev')">← Anterior</button>
           <button class="pri" onclick="send('next')">Próximo Slide →</button>
-          <button onclick="send('narrate')">🔊 Voz</button>
-          <button onclick="send('pulse')">⚡ Pulso</button>
-          <button onclick="send('blackout')">■ Cortina</button>
+          <button onclick="send('narrate')">Voz</button>
+          <button onclick="send('pulse')">Pulso</button>
+          <button onclick="send('blackout')">Cortina</button>
         </footer>
         <script>
           const ch = new BroadcastChannel('ceu-projector-sync');
@@ -1958,7 +1959,7 @@
         </script></body></html>`);
       win.document.close();
       setTimeout(broadcastPresenterState, 250);
-      toast('🖥 Janela do Docente aberta e sincronizada em tempo real!');
+      toast('Janela do Docente aberta e sincronizada em tempo real.');
     },
     useSlide3D() {
       if (!P.deck) return;
@@ -1994,7 +1995,7 @@
           setTimeout(speakCurrent, 500);
         } else {
           this.stopNarrate();
-          toast('🎉 Auto-Aula concluída!');
+          toast('Auto-Aula concluída.');
           render();
         }
       };
@@ -2025,7 +2026,7 @@
           P._autoPlayTimer = setTimeout(advanceSlide, estMs);
         }
       };
-      toast('▶ Auto-Aula iniciada com voz e legendas ao vivo (prima V para parar).');
+      toast('Auto-Aula iniciada com voz e legendas ao vivo (prima V para parar).');
       render();
       speakCurrent();
     },
@@ -2135,11 +2136,11 @@
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(url);
-          return toast('🔗 Link partilhável copiado!');
+          return toast('Link partilhável copiado.');
         }
       } catch { }
       const el = document.getElementById('pj-share-url-in');
-      if (el) { el.select(); document.execCommand?.('copy'); toast('🔗 Link selecionado para copiar.'); }
+      if (el) { el.select(); document.execCommand?.('copy'); toast('Link selecionado para copiar.'); }
     },
     publishToCampusClass() {
       P.moreOpen = false;
@@ -2174,7 +2175,7 @@
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(url);
-          toast('📱 QR Code aberto & link copiado para partilhar com a turma!');
+          toast('QR Code aberto e link copiado para partilhar com a turma.');
         }
       } catch { }
     },
@@ -2276,7 +2277,7 @@
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(promptText);
-          return toast(includeText ? '📋 Prompt + texto do ficheiro copiados! Cole directamente no ChatGPT/Gemini.' : '📋 Prompt CEU-3D copiado! Cole no ChatGPT/Gemini juntamente com o seu PDF.');
+          return toast(includeText ? 'Prompt + texto do ficheiro copiados! Cole no ChatGPT/Gemini.' : 'Prompt CEU-3D copiado! Cole no ChatGPT/Gemini com o seu PDF.');
         }
       } catch { }
       window.prompt('Copie o prompt pré-definido:', promptText);
@@ -2317,7 +2318,7 @@
       P.showCreator = false;
       P.moreOpen = false;
       saveDeck(deck);
-      toast(`✨ Apresentação Super-IA criada (${deck.slides.length} slides)! A procurar imagens em toda a web…`);
+      toast(`Apresentação criada (${deck.slides.length} slides). A procurar imagens na web…`);
       render();
 
       // Para cada slide que trouxe imageQuery do ChatGPT, procurar imagem real aberta em toda a web (Openverse + NASA + Wikimedia)
@@ -2340,7 +2341,7 @@
         deck.synthesis = { ...(deck.synthesis || {}), imagesEmbedded: foundCount, has3D: true };
         saveDeck(deck);
         if (P.deck && P.deck.id === deck.id) render();
-        if (foundCount) toast(`🌐 ${foundCount} imagem(ns) da web ligadas ao guião do ChatGPT!`);
+        if (foundCount) toast(`${foundCount} imagem(ns) da web ligadas ao guião.`);
       }
     },
     select3DNode(idx) {
@@ -2512,7 +2513,7 @@
           classTimerId = null;
           P.timerRunning = false;
           P.timerSec = 60;
-          toast('⏱ Tempo esgotado! Peça as respostas à turma.');
+          toast('Tempo esgotado! Peça as respostas à turma.');
         }
         if (/^#\/projetor/.test(location.hash)) render();
       }, 1000);
@@ -2522,7 +2523,7 @@
       if (!P.deck || !q || typeof q.optimizeTo100 !== 'function') return;
       const res = q.optimizeTo100(P.deck, { enforceCeuBrand: document.documentElement.dataset.brand === 'ceu' });
       saveDeck(P.deck);
-      toast(`✦ Rubrica pedagógica otimizada: ${res.qualityScore}/100!`);
+      toast(`Rubrica pedagógica otimizada: ${res.qualityScore}/100.`);
       render();
     },
     async exportPptx() {

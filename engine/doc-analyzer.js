@@ -16,7 +16,7 @@ const clean = (s, max = 260) => String(s ?? '').replace(/\s+/g, ' ').trim().slic
 export const DOC_TYPES = {
   ata: {
     id: 'ata',
-    icon: '📋',
+    icon: 'ATA',
     label: 'Ata de Reunião',
     shortLabel: 'Ata',
     audience: 'Equipa / Direcção / Assembleia',
@@ -24,7 +24,7 @@ export const DOC_TYPES = {
   },
   relatorio: {
     id: 'relatorio',
-    icon: '📊',
+    icon: 'REL',
     label: 'Relatório / Proposta',
     shortLabel: 'Relatório',
     audience: 'Gestores / Parceiros / Decisores',
@@ -32,7 +32,7 @@ export const DOC_TYPES = {
   },
   regulamento: {
     id: 'regulamento',
-    icon: '⚖️',
+    icon: 'LEI',
     label: 'Regulamento / Norma',
     shortLabel: 'Norma',
     audience: 'Colaboradores / Estudantes / Cidadãos',
@@ -40,7 +40,7 @@ export const DOC_TYPES = {
   },
   cientifico: {
     id: 'cientifico',
-    icon: '🔬',
+    icon: 'ART',
     label: 'Artigo / Monografia',
     shortLabel: 'Científico',
     audience: 'Banca / Comunidade Académica',
@@ -48,7 +48,7 @@ export const DOC_TYPES = {
   },
   plano: {
     id: 'plano',
-    icon: '🗺️',
+    icon: 'PLN',
     label: 'Plano / Procedimento',
     shortLabel: 'Plano',
     audience: 'Equipa Operacional / Projecto',
@@ -56,7 +56,7 @@ export const DOC_TYPES = {
   },
   aula: {
     id: 'aula',
-    icon: '🎓',
+    icon: 'AUL',
     label: 'Aula / Sebenta',
     shortLabel: 'Aula',
     audience: 'Estudantes Universitários / Secundário',
@@ -366,7 +366,7 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
   const slides = [];
 
   const push = (layout, rhythm, slideTitle, fields = {}) => {
-    const hand = clean(fields.handNote || 'Mensagem-chave ✎', 40);
+    const hand = clean(fields.handNote || 'Mensagem-chave', 40);
     const note = clean(fields.notes || `Apresente «${slideTitle}» em tom ${meta.tone.toLowerCase()}.`, 440);
     slides.push({
       id: `doc-${slides.length + 1}`,
@@ -393,7 +393,7 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
       subtitle: subParts.length ? `${subParts.join(' · ')} — ${extracted.coreMessage}` : extracted.coreMessage,
       bullets: [],
       meta: { subject: 'ata', estMinutes: 12, pages: 1, author },
-      handNote: 'Decisões & Prazos ✎',
+      handNote: 'Decisões & Prazos',
       notes: `Abra a apresentação resumindo em 30 segundos o contexto desta reunião${extracted.date ? ` (${extracted.date})` : ''}. Explique que o objectivo é confirmar decisões aprovadas e prazos sem reler a ata toda.`,
     });
 
@@ -404,7 +404,7 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
         extracted.participants.length ? `Participantes: ${extracted.participants.slice(0, 6).join(', ')}` : 'Equipa alinhada nos pontos centrais da ordem de trabalhos',
         extracted.agenda.length ? `Ordem de trabalhos: ${extracted.agenda.slice(0, 3).join(' · ')}` : 'Foco nos temas prioritários registados na ata',
       ],
-      handNote: 'Síntese em 1 minuto ✎',
+      handNote: 'Síntese em 1 minuto',
       notes: `Explique a mensagem global da reunião antes dos detalhes. ${extracted.participants.length ? `Confirme presenças (${extracted.participants.join(', ')}).` : ''} Assim todos entendem o contexto imediatamente.`,
     });
 
@@ -414,7 +414,7 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
     push('bullets', 'DECISÕES APROVADAS', 'Deliberações que entram em vigor', {
       intuition: 'Estes são os compromissos formalmente aprovados — não estão mais em discussão, passam à execução.',
       bullets: decList.slice(0, 4),
-      handNote: 'Aprovado em ata ✓',
+      handNote: 'Aprovado em ata',
       notes: 'Percorra cada deliberação aprovada em voz alta e valide se todos têm a mesma leitura do que ficou decidido. Evite reabrir debates já votados.',
     });
 
@@ -435,7 +435,7 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
         right: extracted.openIssues[0],
         bullets: extracted.openIssues.slice(0, 3).map((o) => `Atenção: ${o}`),
         intuition: 'Separar o que já está fechado do que ainda precisa de resposta evita bloqueios até à próxima reunião.',
-        handNote: 'Não deixar cair! ✎',
+        handNote: 'Não deixar cair!',
         notes: 'Destaque os pontos pendentes ou riscos para a próxima reunião e pergunte o que falta desbloquear hoje.',
       });
     }
@@ -450,7 +450,7 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
         'Todos os responsáveis confirmam os seus prazos e recursos necessários?',
         'Existe algum bloqueio que precise ser resolvido antes da próxima reunião?',
       ],
-      handNote: 'Partilhar síntese ✓',
+      handNote: 'Partilhar síntese',
       notes: 'Encerre pedindo confirmação verbal dos prazos aos responsáveis e exporte em PDF ou HTML para enviar no WhatsApp/e-mail da equipa.',
     });
   } else if (docType === 'relatorio') {
@@ -458,7 +458,7 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
       subtitle: extracted.coreMessage,
       bullets: [],
       meta: { subject: 'relatorio', estMinutes: 15, pages: 1, author },
-      handNote: 'Conclusão primeiro ✎',
+      handNote: 'Conclusão primeiro',
       notes: 'Comece pela conclusão principal do relatório (método pirâmide) para captar logo a atenção dos decisores.',
     });
     if (extracted.kpis.length) {
@@ -467,27 +467,27 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
         source: sourceName,
         bullets: extracted.kpis.slice(1, 4),
         intuition: extracted.whyItMatters,
-        handNote: 'Dado decisivo ✎',
+        handNote: 'Dado decisivo',
         notes: 'Deixe o número respirar 5 segundos no ecrã e explique o que ele significa para o orçamento ou estratégia.',
       });
     }
     push('bullets', 'DIAGNÓSTICO', 'Principais conclusões extraídas', {
       bullets: extracted.findings.slice(0, 4),
       intuition: 'Em vez de tabelas densas, focamos nos sinais que realmente explicam o desempenho.',
-      handNote: 'Factos chave ✎',
+      handNote: 'Factos chave',
       notes: 'Percorra os achados centrais ligando cada ponto a evidências concretas do documento.',
     });
     push('comparison', 'RISCOS VS ACÇÕES', 'Desafios identificados vs Recomendações', {
       left: extracted.risks[0] || 'Principais desafios e gargalos actuais',
       right: extracted.recommendations[0] || 'Acções prioritárias recomendadas',
       bullets: [...extracted.risks.slice(0, 2).map((r) => `Risco: ${r}`), ...extracted.recommendations.slice(0, 2).map((r) => `Acção: ${r}`)].slice(0, 4),
-      handNote: 'Decisão estratégica ⚖',
+      handNote: 'Decisão estratégica',
       notes: 'Use este contraste para conduzir a discussão de prioridades e alocação de recursos.',
     });
     push('closing', 'PLANO DE EXECUÇÃO', 'Recomendações e decisão esperada', {
       bullets: (extracted.recommendations.length ? extracted.recommendations : extracted.findings).slice(0, 3),
       checkQuestions: ['Qual recomendação tem maior impacto imediato com menor custo?', 'Quem lidera a primeira fase de implementação?'],
-      handNote: 'Passar à acção ✓',
+      handNote: 'Passar à acção',
       notes: 'Feche pedindo uma decisão concreta sobre o primeiro passo recomendado.',
     });
   } else if (docType === 'regulamento') {
@@ -495,7 +495,7 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
       subtitle: extracted.coreMessage,
       bullets: [],
       meta: { subject: 'regulamento', estMinutes: 12, pages: 1, author },
-      handNote: 'Sem juridiquês ✎',
+      handNote: 'Sem juridiquês',
       notes: 'Apresente o regulamento traduzido em linguagem simples para que todos saibam exactamente como cumprir.',
     });
     push('comparison', 'DIREITOS VS DEVERES', 'O que pode fazer vs O que é obrigatório', {
@@ -503,19 +503,19 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
       right: extracted.duties[0] || 'Obrigações e regras de cumprimento obrigatório',
       bullets: [...extracted.rights.slice(0, 2).map((r) => `Direito: ${r}`), ...extracted.duties.slice(0, 2).map((d) => `Dever: ${d}`)].slice(0, 4),
       intuition: extracted.whyItMatters,
-      handNote: 'Equilíbrio claro ⚖',
+      handNote: 'Equilíbrio claro',
       notes: 'Compare lado a lado direitos e obrigações dando um exemplo prático do dia a dia.',
     });
     push('bullets', 'REGRAS ESSENCIAIS', 'Artigos e prazos a não esquecer', {
       bullets: (extracted.articles.length ? extracted.articles : sents.slice(0, 4).map((s) => trimClean(s, 135))).slice(0, 4),
       intuition: 'Estes são os pontos onde acontecem mais dúvidas ou erros de interpretação.',
-      handNote: 'Atenção aos prazos! ✎',
+      handNote: 'Atenção aos prazos!',
       notes: 'Sublinhe os prazos e eventuais penalidades para prevenir falhas administrativas.',
     });
     push('closing', 'CHECKLIST DE CUMPRIMENTO', 'Como aplicar esta norma hoje', {
       bullets: (extracted.duties.length ? extracted.duties : sents.slice(0, 3)).slice(0, 3).map((d) => trimClean(d, 130)),
       checkQuestions: ['Que dúvida prática ainda existe sobre a aplicação desta norma?', 'Que processo interno precisa ser ajustado já esta semana?'],
-      handNote: 'Checklist prático ✓',
+      handNote: 'Checklist prático',
       notes: 'Valide se a equipa consegue aplicar as regras sem precisar reler o texto legal inteiro.',
     });
   } else if (docType === 'cientifico') {
@@ -523,14 +523,14 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
       subtitle: extracted.coreMessage,
       bullets: [],
       meta: { subject: 'cientifico', estMinutes: 15, pages: 1, author },
-      handNote: 'Rigor + Clareza ✎',
+      handNote: 'Rigor + Clareza',
       notes: 'Apresente o título, o problema de investigação e por que este estudo é relevante.',
     });
     push('concept', 'PROBLEMA & OBJECTIVO', 'Que pergunta este estudo responde?', {
       subtitle: extracted.problem[0] || extracted.coreMessage,
       bullets: extracted.problem.slice(1, 4),
       intuition: extracted.whyItMatters,
-      handNote: 'Foco da pesquisa ✎',
+      handNote: 'Foco da pesquisa',
       notes: 'Deixe cristalina a pergunta de partida antes de avançar para a metodologia.',
     });
     push('animated-flow', 'METODOLOGIA', 'Como o estudo foi conduzido', {
@@ -542,13 +542,13 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
     push('bullets', 'RESULTADOS PRINCIPAIS', 'O que os dados demonstraram', {
       bullets: extracted.results.slice(0, 4),
       intuition: 'Concentre-se nos resultados que respondem directamente à hipótese central.',
-      handNote: 'Evidência real ✎',
+      handNote: 'Evidência real',
       notes: 'Destaque os resultados mais fortes e evite ler números secundários.',
     });
     push('closing', 'CONCLUSÕES & CONTRIBUTO', 'O que muda após este estudo', {
       bullets: extracted.conclusions.slice(0, 3),
       checkQuestions: ['Qual é a principal contribuição prática ou teórica deste trabalho?', 'Que investigação futura este estudo abre?'],
-      handNote: 'Pronto p/ defesa ✓',
+      handNote: 'Pronto p/ defesa',
       notes: 'Termine resumindo o contributo original e abra espaço para perguntas da banca.',
     });
   } else {
@@ -557,7 +557,7 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
       subtitle: extracted.coreMessage,
       bullets: [],
       meta: { subject: 'plano', estMinutes: 12, pages: 1, author },
-      handNote: 'Do plano à acção ✎',
+      handNote: 'Do plano à acção',
       notes: 'Alinhe a equipa em torno do objectivo final antes de detalhar as fases.',
     });
     push('animated-flow', 'FASES DE EXECUÇÃO', 'Sequência passo a passo', {
@@ -569,13 +569,13 @@ export function buildAdaptiveDocumentDeck(text = '', opts = {}) {
     });
     push('bullets', 'ENTREGÁVEIS & METAS', 'Como sabemos que ficou bem feito', {
       bullets: (extracted.deliverables.length ? extracted.deliverables : sents.slice(0, 4).map((s) => trimClean(s, 135))).slice(0, 4),
-      handNote: 'Critérios claros ✓',
+      handNote: 'Critérios claros',
       notes: 'Valide os critérios de qualidade de cada entregável.',
     });
     push('closing', 'CHECKLIST OPERACIONAL', 'Arranque imediato', {
       bullets: extracted.steps.slice(0, 3),
       checkQuestions: ['Qual é a primeira acção a executar nas próximas 24 horas?', 'Que recursos ou aprovações ainda faltam?'],
-      handNote: 'Mãos à obra ✓',
+      handNote: 'Mãos à obra',
       notes: 'Confirme o arranque da Etapa 1 com toda a equipa.',
     });
   }

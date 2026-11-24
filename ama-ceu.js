@@ -1,9 +1,8 @@
-/* CEU Academy — entrada rebranded, focada em cursos para universitários.
-   Os cursos de Matemática, Física e Estudo são acrescentados ao catálogo
-   apenas na marca CEU (a versão AMA continua intacta). */
+/* CEU Academy — Portal Universitário & Escolar Limpo, Minimalista e Sem Emojis */
 (function () {
   'use strict';
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ic = (k) => (window.CI && window.CI[k]) || '';
   const isCeu = () => document.documentElement.dataset.brand === 'ceu'
     || new URLSearchParams(location.search).get('marca') === 'ceu'
     || /(^|\/)ceu$/.test(location.pathname.replace(/\/+$/, ''));
@@ -14,7 +13,7 @@
       categoria: 'Matemática', nivel: 'Iniciante', preco_kz: 0, preco_anterior_kz: 0,
       rating: 4.8, alunos: 412, instrutor_id: 12, aulas: 8, duracaoH: 6,
       instrutor: 'Prof.ª Ana Silva', poster: 'nucleo-math-3d', estado: 'PUBLIC',
-      resumo: 'Da algebra elementar às funções: bases sólidas para qualquer curso universitário de Ciências, Engenharia ou Economia.',
+      resumo: 'Da álgebra elementar às funções: bases sólidas para qualquer curso universitário de Ciências, Engenharia ou Economia.',
       aprendizagens: ['Rever operações com expressões algébricas', 'Resolver equações e inequações', 'Ler e representar funções', 'Aplicar funções a problemas reais'],
       requisitos: ['Nenhum pré-requisito', 'Caderno e calculadora'],
     },
@@ -110,7 +109,7 @@
     ],
     105: [
       'Estruture apresentações orais em inglês com Signposting claro: "Today I will cover three main points…", "Turning now to…", "To sum up, the key takeaway is…".',
-      'Leia papers e capítulos técnicos usando Skimming (ideia global pelo abstract e subtítulos) e Scanning (dados e conclusões), anotando conectores académicos (moreover, tuttavia/however, therefore).',
+      'Leia papers e capítulos técnicos usando Skimming (ideia global pelo abstract e subtítulos) e Scanning (dados e conclusões), anotando conectores académicos (moreover, however, therefore).',
       'Escreva emails formais para docentes/empresas ("I am writing regarding the internship opening…") e construa um CV internacional orientado a resultados mensuráveis.',
       'Domine vocabulário técnico e o método STAR (Situation, Task, Action, Result) para responder com segurança em entrevistas de estágio e bolsas internacionais.',
     ],
@@ -157,7 +156,7 @@
           dur_seg: 420 + li * 60,
           livre: 1,
           tipo: 'video',
-          resumo: richNotes[li] || `${a} — explicação estruturada passo a passo com exemplos aplicados em Angola no curso ${c.titulo}.`,
+          resumo: richNotes[li] || `${a} — explicação estruturada passo a passo no curso ${c.titulo}.`,
         }));
         const mod2 = items.slice(2, 4).map((a, li) => ({
           id: 9000 + ci * 10 + 2 + li,
@@ -166,7 +165,7 @@
           dur_seg: 480 + li * 60,
           livre: 1,
           tipo: 'video',
-          resumo: richNotes[2 + li] || `${a} — aplicação prática e preparação para avaliações e mercado de trabalho.`,
+          resumo: richNotes[2 + li] || `${a} — aplicação prática e preparação para avaliações.`,
         }));
         detail[String(c.id)] = {
           seccoes: [
@@ -179,7 +178,6 @@
       }
     });
     try { localStorage.setItem('ama-data-v1', JSON.stringify(data)); } catch { }
-    // Sincronizar também aulas enriquecidas na base local ama-v1-db se já existir
     try {
       const dbRaw = localStorage.getItem('ama-v1-db');
       if (dbRaw) {
@@ -199,19 +197,19 @@
   injectCourses();
 
   let homeCourseFilter = 'Todos';
-  let homeShowcaseTab = 'turmas'; // 'turmas' | 'cartao' | 'slides'
+  let homeShowcaseTab = 'turmas';
 
   function courseCard(c) {
     return `<a class="ceu-course" href="#/curso/${esc(c.id)}">
       <span class="ceu-course-art">
         <img src="media/${esc(c.poster || 'catalog-student-v2')}.jpg?v=70" alt="${esc(c.titulo)}" loading="lazy">
-        <span class="ceu-course-tag">${c.preco_kz ? `${Number(c.preco_kz).toLocaleString('pt-PT')} Kz` : 'Gratuito CEU'}</span>
+        <span class="ceu-course-tag">${c.preco_kz ? `${Number(c.preco_kz).toLocaleString('pt-PT')} Kz` : 'Gratuito'}</span>
       </span>
       <span class="ceu-course-body">
         <small>${esc(c.categoria)} · ${esc(c.nivel)}</small>
         <b>${esc(c.titulo)}</b>
-        <span class="ceu-course-meta">★ ${Number(c.rating || 4.7).toFixed(1).replace('.', ',')} · ${c.aulas || 6} aulas · ${(c.alunos || 0).toLocaleString('pt-PT')} estudantes</span>
-        <span class="ceu-course-cta">Abrir programa &amp; Slides 3D →</span>
+        <span class="ceu-course-meta">${Number(c.rating || 4.7).toFixed(1).replace('.', ',')} · ${c.aulas || 6} aulas · ${(c.alunos || 0).toLocaleString('pt-PT')} alunos</span>
+        <span class="ceu-course-cta">Abrir curso →</span>
       </span>
     </a>`;
   }
@@ -220,7 +218,7 @@
     if (homeShowcaseTab === 'cartao') {
       const verifyUrl = `https://ceu.ao/verify?num=${encodeURIComponent(card.numero)}&uni=${encodeURIComponent(card.universidade)}`;
       const miniQr = (window.Study && window.Study.QR && typeof window.Study.QR.renderQrSvg === 'function')
-        ? window.Study.QR.renderQrSvg(verifyUrl, { size: 74, fg: '#00217e', bg: '#ffffff', label: 'QR CEU' })
+        ? window.Study.QR.renderQrSvg(verifyUrl, { size: 72, fg: '#00217e', bg: '#ffffff', label: 'QR CEU' })
         : '';
       return `<div class="uni-demo-pane" data-testid="hero-demo-cartao">
         <div class="uni-mini-id">
@@ -238,34 +236,33 @@
             ${miniQr ? `<div class="uni-mini-qr">${miniQr}</div>` : ''}
           </div>
         </div>
-        <div class="uni-demo-foot"><span>Verificação por QR Code offline e impressão direta</span><a href="#/cartao-ceu">Personalizar →</a></div>
+        <div class="uni-demo-foot"><span>Verificação offline por QR Code</span><a href="#/cartao-ceu">Personalizar →</a></div>
       </div>`;
     }
     if (homeShowcaseTab === 'slides') {
       return `<div class="uni-demo-pane" data-testid="hero-demo-slides">
         <div class="uni-mini-slide">
-          <div class="uni-ms-top"><span>✦ SLIDE 3D · SUPER-IA</span><small>QR Turma · Voz · Laser</small></div>
+          <div class="uni-ms-top"><span>PROJETOR IA · 3D</span><small>PDF · Voz · QR</small></div>
           <strong>Energia Solar &amp; Física Aplicada</strong>
           <div class="uni-ms-grid">
-            <div class="uni-ms-stat"><b>2.200 h</b><span>Insolação/ano em Angola</span></div>
+            <div class="uni-ms-stat"><b>2.200 h</b><span>Insolação anual</span></div>
             <div class="uni-ms-pts">
-              <span>• PDF, Ata ou guião ChatGPT → Slides</span>
-              <span>• Imagens reais da Web + 3D interactivo</span>
-              <span>• Exportação .PPTX, PDF e Ficha do Aluno</span>
+              <span>PDF ou texto convertidos em slides</span>
+              <span>Modelos 3D interativos e fotos reais</span>
+              <span>Exportação PowerPoint e Sebenta PDF</span>
             </div>
           </div>
         </div>
-        <div class="uni-demo-foot"><span>Do documento à projeção em sala em segundos</span><a href="#/projetor">Abrir Projetor →</a></div>
+        <div class="uni-demo-foot"><span>Pronto para projetar em segundos</span><a href="#/projetor">Abrir Projetor →</a></div>
       </div>`;
     }
     return `<div class="uni-demo-pane" data-testid="hero-demo-turmas">
       <div class="uni-mini-list">
-        <a class="uni-mini-row" href="#/campus"><div><b>UAN-ENG-1A · Física I</b><small>Universidade Agostinho Neto · 72 alunos</small></div><span>Slides 3D</span></a>
-        <a class="uni-mini-row" href="#/campus"><div><b>ISPTEC-INF-2A · Python &amp; IA</b><small>ISPTEC · 46 alunos · Delegado activo</small></div><span>Publicada</span></a>
-        <a class="uni-mini-row" href="#/campus"><div><b>CEU-MKT-01 · Marketing Digital</b><small>Escola Online Aberta · 118 alunos</small></div><span>Ao Vivo</span></a>
-        <a class="uni-mini-row" href="#/campus"><div><b>IMIL-INF-12A · Acesso Superior</b><small>Ensino Médio Técnico · 39 alunos</small></div><span>Ficha + IA</span></a>
+        <a class="uni-mini-row" href="#/campus"><div><b>UAN · Física I</b><small>Faculdade de Engenharia · 72 alunos</small></div><span>Programa</span></a>
+        <a class="uni-mini-row" href="#/campus"><div><b>ISPTEC · Python &amp; Dados</b><small>Eng. Informática · 46 alunos</small></div><span>Pauta 0–20</span></a>
+        <a class="uni-mini-row" href="#/campus"><div><b>CEU · Inglês &amp; Marketing</b><small>Turmas abertas · 252 alunos</small></div><span>Online</span></a>
       </div>
-      <div class="uni-demo-foot"><span>Várias turmas em paralelo · escolas e universidades</span><a href="#/campus">Entrar no Campus →</a></div>
+      <div class="uni-demo-foot"><span>Escolas técnicas e universidades</span><a href="#/campus">Abrir Campus →</a></div>
     </div>`;
   }
 
@@ -279,155 +276,61 @@
       return c.categoria === homeCourseFilter;
     }).slice(0, 6);
 
-    const portals = [
-      { badge: 'ESTUDANTES', t: 'Turmas, Cursos & Estágios', d: 'Entre nas turmas da sua escola ou faculdade, aceda a aulas publicadas, mentorias e vagas de estágio.', href: '#/campus', cta: 'Abrir Campus' },
-      { badge: 'DOCENTES', t: 'Publicar Aulas & Slides 3D', d: 'Transforme PDFs em slides interativos com voz e publique imediatamente nas suas turmas.', href: '#/projetor', cta: 'Criar Aula IA' },
-      { badge: 'DELEGADOS & AE', t: 'Presidentes AE & Turmas', d: 'Coordene associações de estudantes, publique comunicados oficiais e organize jornadas científicas.', href: '#/campus', cta: 'Portal Direção AE', tab: 'delegados' },
-      { badge: 'INSTITUIÇÕES', t: 'Escolas & Universidades', d: 'Rede nacional de faculdades, colégios e institutos médios técnicos ligados ao Cartão CEU.', href: '#/campus', cta: 'Ver Rede Parceira', tab: 'universidades' },
+    const essentials = [
+      { icon: 'school', t: 'Campus & Turmas', d: 'Salas de aula com programa oficial, sebentas em PDF, pauta 0–20, exames simulados e aulas online.', href: '#/campus', cta: 'Abrir Campus' },
+      { icon: 'slides', t: 'Projetor de Slides', d: 'Carregue um PDF, ata ou apontamentos: gera slides limpos com imagens reais e cenas 3D.', href: '#/projetor', cta: 'Criar slides' },
+      { icon: 'book', t: 'Cursos Gratuitos', d: 'Inglês Académico, Marketing Digital, Excel/Power BI, Matemática, Física e Liderança.', href: '#/catalogo', cta: 'Ver catálogo' },
+      { icon: 'card', t: 'Cartão CEU', d: 'Identidade estudantil digital com QR Code verificável, pronta a imprimir e usar em estágios.', href: '#/cartao-ceu', cta: 'Abrir cartão' },
     ];
 
     const unis = ['UAN', 'ISPTEC', 'UCAN', 'ULuanda', 'UMA', 'UPRA', 'UTANGA', 'UJES', 'UMN', 'UKB', 'IMETRO', 'Unibelas', 'IMIL', 'IMEL'];
     const card = loadLocalCard();
-    const inner = `<section class="ceu-landing uni-home">
-      <div class="uni-notice-bar" role="region" aria-label="Destaque Académico">
-        <span class="uni-dot"></span>
-        <span><b>Ano Letivo 2026/2027</b> · Escola Online &amp; Portal Universitário de Angola — Turmas, Cursos, Mentorias, Estágios e Cartão CEU</span>
-        <a href="#/campus">Explorar Campus →</a>
-      </div>
-
+    const inner = `<section class="ceu-landing uni-home-clean">
       <div class="ceu-hero ceu-main-hero">
         <div class="ceu-hero-copy">
-          <span class="uni-crest-pill">✦ ECOSSISTEMA ACADÉMICO · CEU.AO</span>
-          <h1>A Escola e Universidade<br><em>Digital de Angola.</em></h1>
-          <p>Um campus completo que ajuda mesmo a estudar: <b>salas de turma com programa oficial, sebentas PDF, aulas online com inscrição, cursos de Inglês e Marketing, simulador de média 0–20, mentorias, estágios</b> e Projetor IA 3D.</p>
+          <span class="eyebrow-t">CEU ACADEMY · ANGOLA</span>
+          <h1>Ensino superior e técnico,<br><em>simples e acessível.</em></h1>
+          <p>Turmas organizadas, sebentas em PDF, cursos gratuitos de Inglês, Marketing e Ciências, simulados de exame, estágios e Projetor de Slides 3D num único espaço limpo.</p>
           <div class="ceu-cta">
-            <a class="btn btn-p" href="#/campus">🏫 Entrar no Campus &amp; Turmas</a>
-            <button type="button" class="btn btn-o" onclick="if(window.CEUCampus)CEUCampus.toggleFinder(true);else location.hash='#/campus'">🔍 Pesquisar Matéria / Turma (Ctrl+K)</button>
-          </div>
-          <div class="ceu-hero-facts">
-            <span><b>MESCTI</b> Reconhecido</span>
-            <span><b>Sebentas PDF</b> + Slides 3D</span>
-            <span><b>Aulas Online</b> + Inscrição</span>
-            <span><b>14+</b> Instituições AO</span>
+            <a class="btn btn-p" href="#/campus">${ic('school')} Entrar no Campus</a>
+            <a class="btn btn-o" href="#/projetor">${ic('slides')} Projetor de Slides</a>
           </div>
         </div>
 
-        <aside class="uni-showcase-card" aria-label="Demonstração interativa da plataforma">
-          <div class="uni-sc-tabs" role="tablist" aria-label="Pré-visualização do sistema">
-            <button type="button" role="tab" aria-selected="${homeShowcaseTab === 'turmas'}" class="${homeShowcaseTab === 'turmas' ? 'on' : ''}" onclick="CEUHome.setShowcaseTab('turmas')">🏫 Multi-Turmas</button>
-            <button type="button" role="tab" aria-selected="${homeShowcaseTab === 'cartao'}" class="${homeShowcaseTab === 'cartao' ? 'on' : ''}" onclick="CEUHome.setShowcaseTab('cartao')">🎓 Cartão CEU</button>
-            <button type="button" role="tab" aria-selected="${homeShowcaseTab === 'slides'}" class="${homeShowcaseTab === 'slides' ? 'on' : ''}" onclick="CEUHome.setShowcaseTab('slides')">✦ Slides 3D</button>
+        <aside class="uni-showcase-card" aria-label="Demonstração da plataforma">
+          <div class="uni-sc-tabs" role="tablist" aria-label="Pré-visualização">
+            <button type="button" role="tab" aria-selected="${homeShowcaseTab === 'turmas'}" class="${homeShowcaseTab === 'turmas' ? 'on' : ''}" onclick="CEUHome.setShowcaseTab('turmas')">Turmas</button>
+            <button type="button" role="tab" aria-selected="${homeShowcaseTab === 'cartao'}" class="${homeShowcaseTab === 'cartao' ? 'on' : ''}" onclick="CEUHome.setShowcaseTab('cartao')">Cartão CEU</button>
+            <button type="button" role="tab" aria-selected="${homeShowcaseTab === 'slides'}" class="${homeShowcaseTab === 'slides' ? 'on' : ''}" onclick="CEUHome.setShowcaseTab('slides')">Slides 3D</button>
           </div>
           ${renderHeroShowcase(card)}
         </aside>
       </div>
 
-      <div class="uni-metrics-strip" aria-label="Números do ecossistema CEU">
-        <div><b>14+</b><span>Grandes Universidades &amp; Escolas Técnicas</span></div>
-        <div><b>10+</b><span>Cursos: Inglês, Marketing, STEM &amp; Dados</span></div>
-        <div><b>Multi-Turmas</b><span>Aulas publicadas, delegados e horários</span></div>
-        <div><b>Carreira</b><span>Mentorias 1-a-1 &amp; Estágios em Angola</span></div>
-      </div>
-
-      <div class="ceu-section-head">
-        <span class="eyebrow-t">PLATAFORMA COMPLETA · DEMONSTRAÇÃO AO VIVO</span>
-        <h2>Tudo o que estudantes, docentes e escolas precisam num só lugar</h2>
-        <p>Do ensino médio técnico às grandes faculdades — cada módulo funciona integrado para estudar, ensinar, representar turmas e conquistar estágios.</p>
-      </div>
-
-      <div class="uni-bento" data-testid="home-bento-showcase">
-        <a class="uni-bento-card is-wide is-navy" href="#/campus">
-          <div class="uni-b-top"><span class="uni-b-tag">SALAS DE TURMA · PROGRAMA &amp; MATERIAIS</span><span>🏫</span></div>
-          <h3>Salas de Turma com Programa Oficial, Slides 3D &amp; Mural</h3>
-          <p>Entre na sua turma por código, acompanhe e marque as unidades do programa estudadas, baixe sebentas PDF e tire dúvidas no mural.</p>
-          <div class="uni-b-chips">
-            <span>UAN-ENG-1A · Física I</span>
-            <span>ISPTEC-INF-2A · Python</span>
-            <span>CEU-MKT-01 · Marketing</span>
-            <span>CEU-ING-B2 · Inglês</span>
-            <span>IMIL-INF-12A · Acesso</span>
-          </div>
-          <span class="uni-b-cta">Abrir Salas de Turma →</span>
-        </a>
-
-        <a class="uni-bento-card" href="#/materias">
-          <div class="uni-b-top"><span class="uni-b-tag">BIBLIOTECA DE ESTUDO</span><span>📚</span></div>
-          <h3>Matérias, Sebentas PDF &amp; Fórmulas</h3>
-          <p>8 disciplinas chave (Cálculo, Física, Python, Inglês, Marketing, Finanças, Direito e Biologia) com sebenta PDF pronta a imprimir.</p>
-          <div class="uni-b-chips"><span>Sebenta A4 PDF</span><span>Questões Exame</span></div>
-          <span class="uni-b-cta">Baixar Sebentas PDF →</span>
-        </a>
-
-        <a class="uni-bento-card" href="#/aulas-online">
-          <div class="uni-b-top"><span class="uni-b-tag">TRANSMISSÕES &amp; REVISÕES</span><span>🔴</span></div>
-          <h3>Aulas Online &amp; Inscrição 1-Clique</h3>
-          <p>Inscreva-se gratuitamente nas revisões de exame e clubes de conversação em inglês, guarde no calendário (.ics) e entre na sala.</p>
-          <div class="uni-b-chips"><span>● Ao Vivo Hoje</span><span>Agenda .ICS</span><span>Acesso Livre CEU</span></div>
-          <span class="uni-b-cta">Inscrever em Aula Online →</span>
-        </a>
-
-        <a class="uni-bento-card" href="#/campus" onclick="setTimeout(()=>{if(window.CEUCampus){CEUCampus.toggleForm('showGradeCalc')}},60)">
-          <div class="uni-b-top"><span class="uni-b-tag">FERRAMENTAS INTELIGENTES</span><span>🎯</span></div>
-          <h3>Simulador de Média 0–20 &amp; Exame</h3>
-          <p>Introduza as notas da 1.ª e 2.ª Parcelar: descubra na hora se dispensou (&ge; 14 valores) ou quanto precisa tirar no Exame Final.</p>
-          <div class="uni-b-mini"><b>40% Freq + 60% Exame</b> ou 50%/50% — adaptado às universidades de Angola.</div>
-          <span class="uni-b-cta">Calcular a Minha Média →</span>
-        </a>
-
-        <a class="uni-bento-card" href="#/estagios">
-          <div class="uni-b-top"><span class="uni-b-tag">CARREIRA, AE &amp; PROJETOR 3D</span><span>💼</span></div>
-          <h3>Mentorias, Estágios &amp; Presidentes AE</h3>
-          <p>Candidate-se a estágios com o Cartão CEU, marque mentorias de carreira/bolsas e acompanhe comunicados das Associações de Estudantes.</p>
-          <div class="uni-b-chips"><span>Estágios AO</span><span>Mentorias</span><span>Direção AE</span><span>Projetor 3D</span></div>
-          <span class="uni-b-cta">Ver Mentorias &amp; Estágios →</span>
-        </a>
-
-        <div class="uni-bento-card is-full">
-          <div class="uni-b-top"><span class="uni-b-tag">GRANDES UNIVERSIDADES &amp; ESCOLAS PARCEIRAS DE ANGOLA</span><span>🎓</span></div>
-          <h3>Rede Nacional — Ensino Superior &amp; Ensino Médio Técnico</h3>
-          <p>Clique em qualquer instituição para consultar as suas faculdades, turmas activas e representação estudantil.</p>
-          <div class="uni-inst-grid">
-            ${unis.map((u) => `<a href="#/campus" onclick="setTimeout(()=>{if(window.CEUCampus)CEUCampus.filterTurmasByInst('${u}')},40)">${u}</a>`).join('')}
-          </div>
-        </div>
+      <div class="ceu-features uni-clean-cards" data-testid="home-bento-showcase">
+        ${essentials.map((f) => `<a class="ceu-feature uni-clean-card" href="${f.href}">
+          <span class="uni-ic-box">${ic(f.icon)}</span>
+          <b>${esc(f.t)}</b>
+          <p>${esc(f.d)}</p>
+          <span class="ceu-feature-cta">${esc(f.cta)} →</span>
+        </a>`).join('')}
       </div>
 
       <div class="ceu-section-head uni-courses-head">
         <div>
-          <span class="eyebrow-t">FORMAÇÃO CONTÍNUA &amp; UNIVERSITÁRIA</span>
-          <h2>Cursos de Inglês, Marketing, Dados, STEM &amp; Liderança</h2>
-          <p>Aulas práticas com acompanhamento, certificação digital e abertura direta em Slides 3D.</p>
+          <span class="eyebrow-t">FORMAÇÃO ABERTA</span>
+          <h2>Cursos em destaque</h2>
         </div>
-        <div class="cp-pills" role="group" aria-label="Filtrar cursos na página inicial">
+        <div class="cp-pills" role="group" aria-label="Filtrar cursos">
           ${['Todos', 'Idiomas', 'Marketing', 'STEM & Dados', 'Liderança'].map((cat) => `<button type="button" class="${homeCourseFilter === cat ? 'on' : ''}" onclick="CEUHome.setCourseFilter('${cat}')">${cat}</button>`).join('')}
         </div>
       </div>
       <div class="ceu-courses uni-courses-grid">${cursos.map(courseCard).join('')}</div>
-      <div class="ceu-all-courses"><a class="btn btn-o" href="#/catalogo">Ver todos os cursos do catálogo →</a></div>
+      <div class="ceu-all-courses"><a class="btn btn-o" href="#/catalogo">Ver todos os cursos →</a></div>
 
-      <div class="ceu-section-head">
-        <span class="eyebrow-t">ENTRADA POR PERFIL</span>
-        <h2>Desenhado para cada papel da comunidade educativa</h2>
-      </div>
-      <div class="uni-portals" aria-label="Portais por perfil académico">
-        ${portals.map((p) => `<a class="uni-portal-card" href="${p.href}" ${p.tab ? `onclick="setTimeout(()=>{if(window.CEUCampus)CEUCampus.setTab('${p.tab}')},40)"` : ''}>
-          <span class="uni-portal-k">${esc(p.badge)}</span>
-          <strong>${esc(p.t)}</strong>
-          <p>${esc(p.d)}</p>
-          <span>${esc(p.cta)} →</span>
-        </a>`).join('')}
-      </div>
-
-      <div class="ceu-band uni-band">
-        <div>
-          <span class="eyebrow-t">CEU ACADEMY · ANGOLA</span>
-          <h2>Comece hoje na sua escola ou faculdade.</h2>
-          <p>Entre nas turmas da sua instituição, personalize o seu Cartão CEU com QR Code, inscreva-se em Inglês ou Marketing e aceda a mentorias e estágios.</p>
-        </div>
-        <div class="flex wrap" style="gap:10px">
-          <a class="btn btn-p" href="#/campus">Entrar no Campus →</a>
-          <a class="btn btn-o" href="#/cartao-ceu">Criar Cartão CEU</a>
-        </div>
+      <div class="ceu-partners uni-partners" aria-label="Universidades e escolas em Angola">
+        <small>INSTITUIÇÕES EM REDE</small>
+        ${unis.map((u) => `<a class="uni-inst-chip" href="#/campus" onclick="setTimeout(()=>{if(window.CEUCampus)CEUCampus.filterTurmasByInst('${u}')},40)">${u}</a>`).join('')}
       </div>
 
       <div class="ceu-mobile-bar" aria-label="Navegação rápida">
@@ -461,7 +364,7 @@
     const card = loadLocalCard();
     let decks = [];
     try { decks = JSON.parse(localStorage.getItem('ama-projector-v1') || '[]'); } catch { decks = []; }
-    const unis = ['ISPTEC', 'UCAN', 'Universidade de Luanda', 'UMA', 'IMETRO', 'INSUTEC', 'Unibelas', 'UGS', 'Universidade Agostinho Neto'];
+    const unis = ['ISPTEC', 'UCAN', 'Universidade de Luanda', 'UMA', 'IMETRO', 'INSUTEC', 'Unibelas', 'UGS', 'Universidade Agostinho Neto', 'IMIL', 'IMEL'];
     const verifyUrl = `https://ceu.ao/verify?num=${encodeURIComponent(card.numero)}&uni=${encodeURIComponent(card.universidade)}`;
     let cardQr = '';
     if (window.Study && window.Study.QR && typeof window.Study.QR.renderQrSvg === 'function') {
@@ -474,14 +377,14 @@
     const inner = `<section class="ceu-landing" style="padding-top:24px">
       <div class="page-h" style="margin-bottom:20px">
         <div>
-          <span class="eyebrow-t">CARTÃO DIGITAL · BASE DE DADOS MVP</span>
-          <h1 style="margin-top:6px">Cartão CEU &amp; Minhas Apresentações</h1>
-          <p class="muted">Os seus dados de estudante e apresentações PDF → Slides ficam guardados em IndexedDB e sincronizados com o servidor MVP.</p>
+          <span class="eyebrow-t">IDENTIDADE ACADÉMICA</span>
+          <h1 style="margin-top:6px">Cartão CEU &amp; Apresentações</h1>
+          <p class="muted">Personalize o seu cartão digital verificável por QR Code e aceda às suas apresentações guardadas.</p>
         </div>
         <div class="flex wrap" style="gap:8px">
-          <a class="btn btn-p btn-sm" href="#/projetor">✦ Novo slide PDF</a>
-          <button type="button" class="btn btn-o btn-sm" onclick="CEUHome.printCard()">🖨 Imprimir Cartão</button>
-          <button type="button" class="btn btn-o btn-sm" onclick="if(window.AMAProjector)AMAProjector.exportBackup()">↓ Backup BD (.json)</button>
+          <a class="btn btn-p btn-sm" href="#/projetor">${ic('slides')} Novo slide PDF</a>
+          <button type="button" class="btn btn-o btn-sm" onclick="CEUHome.printCard()">${ic('printer')} Imprimir Cartão</button>
+          <button type="button" class="btn btn-o btn-sm" onclick="if(window.AMAProjector)AMAProjector.exportBackup()">${ic('download')} Backup (.json)</button>
         </div>
       </div>
 
@@ -516,9 +419,9 @@
         </div>
 
         <form class="card ceu-id-form" onsubmit="event.preventDefault();CEUHome.saveCard()">
-          <h3 style="margin:0 0 12px">Personalizar e guardar na Base de Dados</h3>
+          <h3 style="margin:0 0 12px">Dados do Estudante</h3>
           <div class="field"><label for="cc-nome">Nome completo</label><input id="cc-nome" required value="${esc(card.nome)}"></div>
-          <div class="field"><label for="cc-uni">Universidade</label>
+          <div class="field"><label for="cc-uni">Instituição</label>
             <select id="cc-uni">${unis.map((u) => `<option value="${esc(u)}" ${card.universidade === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select>
           </div>
           <div class="st-grid-in">
@@ -526,26 +429,26 @@
             <div class="field"><label for="cc-ano">Ano</label><input id="cc-ano" value="${esc(card.ano)}"></div>
           </div>
           <div class="field"><label for="cc-num">Número de estudante</label><input id="cc-num" value="${esc(card.numero)}"></div>
-          <button type="submit" class="btn btn-p" style="width:100%;justify-content:center">Guardar Cartão na Base de Dados</button>
+          <button type="submit" class="btn btn-p" style="width:100%;justify-content:center">Guardar Cartão</button>
         </form>
       </div>
 
       <div class="ceu-section-head" style="margin-top:38px">
-        <span class="eyebrow-t">BASE DE DADOS LOCAL + API</span>
+        <span class="eyebrow-t">BIBLIOTECA PESSOAL</span>
         <h2>Apresentações guardadas (${decks.length})</h2>
       </div>
       ${decks.length ? `<div class="ceu-features">
-        ${decks.slice(0, 8).map((dk) => `<a class="ceu-feature" href="#/projetor" onclick="setTimeout(()=>{if(window.AMAProjector)AMAProjector.openSaved('${esc(dk.id)}')},60)">
-          <span class="ceu-feature-ic">${esc((dk.docTypeMeta && dk.docTypeMeta.icon) || '✦')}</span>
+        ${decks.slice(0, 8).map((dk) => `<a class="ceu-feature uni-clean-card" href="#/projetor" onclick="setTimeout(()=>{if(window.AMAProjector)AMAProjector.openSaved('${esc(dk.id)}')},60)">
+          <span class="uni-ic-box">${ic('slides')}</span>
           <b>${esc(dk.title)}</b>
           <p>${dk.stats?.slides || (dk.slides || []).length} slides · ${esc(dk.sourceName || 'CEU Academy')}</p>
           <span class="ceu-feature-cta">Abrir no Projetor →</span>
         </a>`).join('')}
-      </div>` : `<div class="card" style="padding:22px"><p class="muted" style="margin:0">Ainda não guardou nenhuma apresentação. <a href="#/projetor" style="color:#0066b8;font-weight:700">Crie a primeira com PDF + IA →</a></p></div>`}
+      </div>` : `<div class="card" style="padding:22px"><p class="muted" style="margin:0">Ainda não guardou nenhuma apresentação. <a href="#/projetor" style="color:#0066b8;font-weight:700">Criar a primeira →</a></p></div>`}
 
       <div class="ceu-mobile-bar" aria-label="Navegação rápida">
         <a href="#/ceu-inicio">Início</a>
-        <a href="#/catalogo">Cursos</a>
+        <a href="#/campus">Campus</a>
         <a href="#/projetor" class="primary">Projetor</a>
         <a href="#/cartao-ceu" class="active">Cartão</a>
       </div>
@@ -568,6 +471,7 @@
     if (btn) btn.hidden = false;
     if (/^#\/ceu-inicio/.test(location.hash) && typeof render === 'function') render();
   });
+
   window.CEUHome = {
     view: ceuHomeView,
     cardView: ceuCardView,
@@ -593,7 +497,7 @@
       if (window.Study && window.Study.MvpDB && typeof window.Study.MvpDB.saveStudentCard === 'function') {
         window.Study.MvpDB.saveStudentCard(card).catch(() => {});
       }
-      if (typeof toast === 'function') toast('Cartão CEU guardado na base de dados!');
+      if (typeof toast === 'function') toast('Cartão CEU guardado.');
       if (typeof render === 'function') render();
     },
     printCard() {

@@ -451,7 +451,7 @@ function panelShell(active, content, items, opts = {}) {
       <div class="sp"></div>
       ${themeBtn()}
       <a class="icon-btn" href="#/ao-vivo" title="Aulas ao vivo">${I.live}</a>
-      <button class="icon-btn tb-spark" title="Kuzaya AI" aria-label="Abrir Kuzaya AI" onclick="omaToggle()">${I.spark}</button>
+      <button class="icon-btn tb-spark" title="${isCeuSite() ? 'CEU AI' : 'Kuzaya AI'}" aria-label="Abrir ${isCeuSite() ? 'CEU AI' : 'Kuzaya AI'}" onclick="omaToggle()">${I.spark}</button>
       <div class="dd notif-dd" id="notif-dd">
         <button class="icon-btn tb-notif" title="Notificações" aria-label="Notificações" aria-haspopup="true" onclick="ddToggle(event);notifToggle(event)">${I.bell}<b class="nb" id="notif-n" hidden>0</b></button>
         <div class="dd-menu notif-menu" id="notif-menu"></div>
@@ -981,12 +981,12 @@ on('/curso/:id', async ({ args }) => {
         <div class="cta-row">
           ${inscrito
             ? `<button class="btn btn-f btn-lg" onclick="go('/aprender/${curso.id}')">Continuar a aprender <span class="btn-arr">${I.arrow}</span></button>
-               <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">✦ Abrir em Slides 3D</button>`
+               <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">${(window.CI && CI.slides) || I.play} Abrir em Slides 3D</button>`
             : (!curso.preco_kz
-                ? `<button class="btn btn-f btn-lg" onclick="enrollFreeCourse(${curso.id})">🎓 Estudar Curso Gratuito <span class="btn-arr">${I.arrow}</span></button>
-                   <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">✦ Abrir em Slides 3D</button>`
+                ? `<button class="btn btn-f btn-lg" onclick="enrollFreeCourse(${curso.id})">${I.grad} Estudar Curso Gratuito <span class="btn-arr">${I.arrow}</span></button>
+                   <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">${(window.CI && CI.slides) || I.play} Abrir em Slides 3D</button>`
                 : `<button class="btn btn-f btn-lg" onclick="openCheckout(${curso.id})">Começar agora <span class="btn-arr">${I.arrow}</span></button>
-                   <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">✦ Abrir em Slides 3D</button>`)}
+                   <button class="btn btn-prog btn-lg" onclick="projectCourse(${curso.id})">${(window.CI && CI.slides) || I.play} Abrir em Slides 3D</button>`)}
         </div>
       </div>
       <div class="dh-right">
@@ -1044,8 +1044,8 @@ on('/curso/:id', async ({ args }) => {
           : (!curso.preco_kz
               ? `<div class="bc-price"><b class="free">Gratuito CEU</b></div>
                  <p class="bc-inst">Acesso aberto imediato para estudantes e docentes</p>
-                 <button class="btn btn-p btn-lg" style="width:100%;justify-content:center" onclick="enrollFreeCourse(${curso.id})">🎓 Começar Curso Gratuito</button>
-                 <button class="btn btn-o" style="width:100%;margin-top:10px" onclick="projectCourse(${curso.id})">✦ Gerar Slides 3D deste Curso</button>`
+                 <button class="btn btn-p btn-lg" style="width:100%;justify-content:center" onclick="enrollFreeCourse(${curso.id})">${I.grad} Começar Curso Gratuito</button>
+                 <button class="btn btn-o" style="width:100%;margin-top:10px" onclick="projectCourse(${curso.id})">${(window.CI && CI.slides) || I.play} Gerar Slides 3D deste Curso</button>`
               : `<div class="bc-price"><b>${kz(curso.preco_kz)}</b><s>${kz(curso.preco_anterior_kz)}</s></div>
                  <p class="bc-inst">ou <b>${kz(Math.round(curso.preco_kz / 3))}</b> × 3 com MULTICAIXA</p>
                  <button class="btn btn-f btn-lg" style="width:100%;justify-content:center" onclick="openCheckout(${curso.id})">Comprar curso</button>
@@ -1313,7 +1313,7 @@ window.enrollFreeCourse = async (cursoId) => {
     const o = await api('/api/checkout', { method: 'POST', body: { cursoId, metodo: 'MULTICAIXA' } });
     if (o && o.encomendaId) await api('/api/pagamentos/simular', { method: 'POST', body: { encomendaId: o.encomendaId } });
   } catch { }
-  toast('🎓 Matrícula gratuita activada! Bom estudo.');
+  toast('Matrícula gratuita activada! Bom estudo.');
   go('/aprender/' + cursoId);
 };
 
@@ -1374,7 +1374,7 @@ on('/aluno', async () => {
   const next = live[0];
   const mm = next ? mentorDe(next.instrutor_id) : null;
   return panelShell('aluno', `
-    <div class="page-h"><div><h1>Olá, ${esc(S.user.handle)} 👋</h1><p>Continue a aprender e a alcançar os seus objetivos.</p></div>
+    <div class="page-h"><div><h1>Olá, ${esc(S.user.handle)}</h1><p>Continue a aprender e a alcançar os seus objetivos.</p></div>
       <a class="btn btn-p" href="#/catalogo">${I.plus} Explorar novos cursos</a></div>
     <div class="grid g-3 dash-feat">
       <div class="card feat">
@@ -1612,7 +1612,7 @@ const aprenderView = async ({ args }) => {
             ${aula.resumo ? `<p>${esc(aula.resumo)}…</p>` : ''}
           </div>
           <div class="lf-r">
-            <button type="button" class="btn btn-o" onclick="projectCurrentLesson()">✦ Slides 3D</button>
+            <button type="button" class="btn btn-o" onclick="projectCurrentLesson()">${(window.CI && CI.slides) || I.play} Slides 3D</button>
             <button class="btn ${doneAula ? 'btn-o' : 'btn-f'}" id="markbtn" onclick="markDone(${aula.id},${curso.id})">${doneAula ? I.check + ' Concluída — anular' : I.check + ' Marcar aula como concluída'}</button>
             ${next ? `<button class="btn btn-o lf-next" onclick="go('/aprender/${curso.id}/${next.id}')">Próxima aula ${I.arrow}</button>` : `<span class="lf-end">${I.cert} Última aula — conclua para o certificado</span>`}
           </div>
@@ -1665,9 +1665,10 @@ window.playerTab = (btn) => {
     }).catch(() => { const ta = $('#nota-in'); if (ta) ta.value = ''; });
     return;
   }
+  const aiBrand = isCeuSite() ? 'Tutor IA CEU' : 'Kuzaya AI';
   body.innerHTML = `<div id="ai-log"></div><div class="flex wrap" style="gap:7px;margin-bottom:12px">${['resume esta aula','dá-me um exemplo prático','recomenda-me um curso relacionado'].map(s => `<span class="chip" style="cursor:pointer" onclick="askAI('${escAttr(s)}')">${esc(s)}</span>`).join('')}</div>
-    <div class="chat-in" style="border-top:1px solid var(--line);padding:12px 0"><input id="ai-in" placeholder="Pergunte ao Kuzaya AI…" onkeydown="if(event.key==='Enter')askAI()"><button class="btn btn-p btn-sm" onclick="askAI()">➤</button></div>`;
-  aiLog = $('#ai-log'); addAI('me', 'Olá! Sou o Kuzaya AI. Respondo com base nas transcrições das aulas a que tem acesso, sempre com a fonte — e também encontro cursos para si.');
+    <div class="chat-in" style="border-top:1px solid var(--line);padding:12px 0"><input id="ai-in" placeholder="Pergunte ao ${aiBrand}…" onkeydown="if(event.key==='Enter')askAI()"><button class="btn btn-p btn-sm" onclick="askAI()">${I.arrow}</button></div>`;
+  aiLog = $('#ai-log'); addAI('me', `Olá! Sou o ${aiBrand}. Respondo com base nas transcrições das aulas a que tem acesso, sempre com a fonte — e também encontro cursos para si.`);
 };
 window.saveAulaNota = async () => {
   try {
@@ -1731,9 +1732,9 @@ window.markDone = async (aid, cid, silent) => {
   const nowDone = !doneIds.has(aid);
   try {
     const r = await api('/api/progresso', { method: 'POST', body: { aulaId: aid, concluido: nowDone, vistoSeg: 0 } });
-    if (r.certificado) toast('🎉 Parabéns! Curso concluído — certificado ' + r.certificado + ' emitido.');
+    if (r.certificado) toast('Parabéns! Curso concluído — certificado ' + r.certificado + ' emitido.');
     else if (!silent) toast(nowDone ? `Aula concluída · ${r.pct}% do curso` : 'Progresso atualizado');
-    if (silent && !r.certificado) toast('Aula concluída automaticamente ✓');
+    if (silent && !r.certificado) toast('Aula concluída automaticamente');
     render();
   } catch (e) { toast(e.message); }
 };
@@ -1748,7 +1749,7 @@ on('/instrutor', async () => {
   const vendas = d.vendas30d.length ? d.vendas30d : [{ l: 'hoje', v: 0 }];
   const prog = d.cursos.slice(0, 5).map((c, i) => ({ nome: c.titulo, pct: [80, 65, 45, 35, 20][i] ?? 20, img: mentorDe(c.instrutor_id)?.img }));
   return panelShell('instrutor', `
-    <div class="page-h"><div><h1>Olá, ${esc(S.user.handle)} 👋</h1><p>Aqui está o resumo das suas atividades.</p></div>
+    <div class="page-h"><div><h1>Olá, ${esc(S.user.handle)}</h1><p>Aqui está o resumo das suas atividades.</p></div>
       <a class="btn btn-f" href="#/instrutor/criar">${I.plus} Criar aula</a></div>
     <div class="grid i-feat">
       <div class="card feat next-class">
@@ -2031,9 +2032,9 @@ on('/instrutor/criar', async () => {
 
     <div class="cr-tpl-bar">
       <span>Começar com modelo:</span>
-      <button type="button" class="btn btn-o btn-sm" onclick="crApplyTpl('rapido')">⚡ Curso Prático (4 aulas)</button>
-      <button type="button" class="btn btn-o btn-sm" onclick="crApplyTpl('pro')">💼 Formação Pro (Python)</button>
-      <button type="button" class="btn btn-o btn-sm" onclick="crApplyTpl('gratis')">🎁 Mini-Curso Grátis</button>
+      <button type="button" class="btn btn-o btn-sm" onclick="crApplyTpl('rapido')">Curso Prático (4 aulas)</button>
+      <button type="button" class="btn btn-o btn-sm" onclick="crApplyTpl('pro')">Formação Pro (Python)</button>
+      <button type="button" class="btn btn-o btn-sm" onclick="crApplyTpl('gratis')">Mini-Curso Grátis</button>
     </div>
 
     <div class="cr-layout">
@@ -2819,14 +2820,15 @@ window.leaveLive = () => { cleanupLive(); go('/ao-vivo'); };
 /* ====================== Kuzaya AI — dock flutuante ====================== */
 const OMA_QUICK = ['Recomenda-me um curso para perder o medo de falar em público', 'Quanto custa o curso de Python?', 'Como funciona o certificado?', 'Resume a técnica STOP'];
 function omaDockHTML() {
+  const aiLabel = isCeuSite() ? 'CEU AI' : 'Kuzaya AI';
   return `
-  <button class="oma-fab" id="oma-fab" title="Kuzaya AI — assistente" aria-label="Abrir Kuzaya AI" onclick="omaToggle()">
-    <span class="fab-halo" aria-hidden="true"></span>${I.spark}<span class="fab-lbl">Kuzaya AI</span></button>
+  <button class="oma-fab" id="oma-fab" title="${aiLabel} — assistente" aria-label="Abrir ${aiLabel}" onclick="omaToggle()">
+    <span class="fab-halo" aria-hidden="true"></span>${I.spark}<span class="fab-lbl">${aiLabel}</span></button>
   <div class="oma-scrim" id="oma-scrim" onclick="omaToggle(false)"></div>
-  <aside class="oma-panel" id="oma-panel" role="dialog" aria-label="Kuzaya AI">
+  <aside class="oma-panel" id="oma-panel" role="dialog" aria-label="${aiLabel}">
     <header class="oma-head">${blobSvgShort()}
       <span class="oma-av">${LOGO_SM}</span>
-      <div class="oma-id"><b>Kuzaya AI</b><small><i class="on-dot"></i>Online · responde com fontes dos seus cursos</small></div>
+      <div class="oma-id"><b>${aiLabel}</b><small><i class="on-dot"></i>Online · responde com fontes dos seus cursos</small></div>
       <button class="icon-btn oma-x" onclick="omaToggle(false)" aria-label="Fechar assistente">${I.close}</button>
     </header>
     <div class="oma-tabs"><button class="on" onclick="omaTab(this, 'log')">Assistente</button><button onclick="omaTab(this, 'hist')">Histórico</button></div>
@@ -2965,7 +2967,7 @@ function notifHtml() {
     if (dia !== ultimoDia) { corpo += `<div class="nm-sep">${esc(dia)}</div>`; ultimoDia = dia; }
     corpo += notifRow(n);
   }
-  if (!corpo) corpo = `<div class="nm-empty">${I.check}<p><b>Tudo em dia ✨</b><br>Nenhuma novidade ${NM.filtro !== 'all' ? 'em ' + esc(NCAT[NM.filtro]).toLowerCase() : 'por aqui'}.</p></div>`;
+  if (!corpo) corpo = `<div class="nm-empty">${I.check}<p><b>Tudo em dia</b><br>Nenhuma novidade ${NM.filtro !== 'all' ? 'em ' + esc(NCAT[NM.filtro]).toLowerCase() : 'por aqui'}.</p></div>`;
   const rodape = `<div class="nm-foot">${NM.naoLidas ? `<button onclick="notifReadAll()">Marcar todas como lidas</button>` : '<span>Sem novidades por ler</span>'}${itens.length >= 30 ? '<span>· últimos 30 itens</span>' : ''}</div>`;
   return head + chips + `<div class="nm-list">${corpo}</div>` + rodape;
 }
