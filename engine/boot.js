@@ -21,7 +21,7 @@ import * as outlineEngine from './outline-engine.js?v=2';
 import * as worksheetEngine from './worksheet-engine.js?v=1';
 import * as exportEngine from './export-engine.js?v=2';
 import * as docAnalyzer from './doc-analyzer.js?v=1';
-import * as mvpDb from './mvp-db.js?v=1';
+import * as mvpDb from './mvp-db.js?v=2';
 import * as qrSvg from './qr-svg.js?v=1';
 
 window.Study = {

@@ -295,6 +295,7 @@ function shellPublic(content, active = '') {
     ? `<a href="#/ceu-inicio" class="lnk ${active == 'inicio' ? 'on' : ''}">Início</a>
       <a href="#/projetor" class="lnk ${active == 'projetor' ? 'on' : ''}">Projetor IA</a>
       <a href="#/catalogo" class="lnk ${active == 'catalogo' ? 'on' : ''}">Cursos</a>
+      <a href="#/campus" class="lnk ${active == 'campus' ? 'on' : ''}">Campus &amp; Turmas</a>
       <a href="#/cartao-ceu" class="lnk ${active == 'cartao' ? 'on' : ''}">Cartão CEU</a>
       ${S.user ? `<a href="#/${homePath()}" class="lnk ${active == 'painel' ? 'on' : ''}">Painel</a>` : ''}`
     : `<span class="lnk-wrap"><button class="lnk ${active == 'catalogo' ? 'on' : ''}" onclick="toggleMega(event)" aria-haspopup="true" aria-expanded="false">Cursos ${I.chev}</button>

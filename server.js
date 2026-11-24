@@ -16,22 +16,22 @@ app.use(express.json({ limit: '6mb' }));
 // Persistent local MVP JSON database (data/mvp-db.json)
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'mvp-db.json');
-const ALLOWED_RESOURCES = new Set(['decks', 'profiles', 'classes', 'student_cards', 'quiz_attempts']);
+const RESOURCES = [
+  'decks', 'profiles', 'classes', 'student_cards', 'quiz_attempts',
+  'lessons', 'mentorships', 'internships', 'delegates', 'universities', 'online_classes',
+];
+const ALLOWED_RESOURCES = new Set(RESOURCES);
 
 function readMvpDb() {
+  const empty = Object.fromEntries(RESOURCES.map((r) => [r, []]));
   try {
     if (fs.existsSync(DB_FILE)) {
       const parsed = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-      return {
-        decks: Array.isArray(parsed.decks) ? parsed.decks : [],
-        profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
-        classes: Array.isArray(parsed.classes) ? parsed.classes : [],
-        student_cards: Array.isArray(parsed.student_cards) ? parsed.student_cards : [],
-        quiz_attempts: Array.isArray(parsed.quiz_attempts) ? parsed.quiz_attempts : [],
-      };
+      for (const r of RESOURCES) empty[r] = Array.isArray(parsed[r]) ? parsed[r] : [];
+      return empty;
     }
   } catch { }
-  return { decks: [], profiles: [], classes: [], student_cards: [], quiz_attempts: [] };
+  return empty;
 }
 
 function writeMvpDb(db) {
@@ -46,17 +46,13 @@ app.get('/api/mvp', (req, res) => {
   const resource = String((req.query && req.query.resource) || 'health');
   if (resource === 'health') {
     const db = readMvpDb();
+    const counts = Object.fromEntries(RESOURCES.map((r) => [r, (db[r] || []).length]));
     return res.json({
       ok: true,
-      service: 'ceu-academy-mvp-api',
+      service: 'ceu-academy-school-api',
       storage: 'local-file-db',
-      counts: {
-        decks: db.decks.length,
-        profiles: db.profiles.length,
-        classes: db.classes.length,
-        student_cards: db.student_cards.length,
-        quiz_attempts: db.quiz_attempts.length,
-      },
+      resources: RESOURCES,
+      counts,
       timestamp: new Date().toISOString(),
     });
   }

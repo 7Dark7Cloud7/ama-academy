@@ -1439,6 +1439,7 @@
         <span class="pj-mp-h">Exportar &amp; Partilha</span>
         <div class="pj-mp-row">
           <button type="button" onclick="AMAProjector.shareDeck()">📱 Partilhar / QR (Q)</button>
+          <button type="button" onclick="AMAProjector.publishToCampusClass()">📢 Publicar na Turma</button>
           <button type="button" onclick="AMAProjector.exportPptx()">.PPTX</button>
           <button type="button" onclick="AMAProjector.exportPrintPdf()">PDF</button>
           <button type="button" onclick="AMAProjector.exportOfflineHtml()">HTML Offline</button>
@@ -1684,6 +1685,10 @@
     if (!S_() || !S_().buildProjectorDeck) {
       waitForStudy(() => { if (/^#\/projetor/.test(location.hash)) render(); });
       return wrapShell('<div class="spinner"></div>');
+    }
+    if (sessionStorage.getItem('ama-pj-prefill')) {
+      P.showCreator = true;
+      P.creatorTab = 'direct';
     }
     if (q && q.deck && (!P.deck || P.deck.id !== q.deck)) {
       const localFound = loadDecks().find((d) => String(d.id) === String(q.deck));
@@ -2119,6 +2124,29 @@
       } catch { }
       const el = document.getElementById('pj-share-url-in');
       if (el) { el.select(); document.execCommand?.('copy'); toast('🔗 Link selecionado para copiar.'); }
+    },
+    publishToCampusClass() {
+      P.moreOpen = false;
+      if (!P.deck) return;
+      saveDeck(P.deck);
+      if (window.CEUCampus && typeof window.CEUCampus.publishLesson === 'function') {
+        const classes = window.CEUCampus.listClasses ? window.CEUCampus.listClasses() : [];
+        const first = classes[0];
+        const summary = (P.deck.slides || []).slice(0, 3).map((s) => s.title).filter(Boolean).join(' · ');
+        window.CEUCampus.publishLesson({
+          turmaId: first ? first.id : 'cls-uan-eng1',
+          titulo: P.deck.title || 'Aula em Slides 3D',
+          tipo: 'Slides 3D',
+          deckId: P.deck.id,
+          resumo: `${P.deck.slides.length} slides gerados no Projetor IA: ${summary}`,
+          slidesText: (P.deck.reading && P.deck.reading.fullText) || summary,
+          subject: P.deck.subject || 'geral',
+          autor: (typeof S !== 'undefined' && S.user && S.user.nome) || `Docente ${brandName()}`,
+        });
+        render();
+        return;
+      }
+      toast('Abra Campus & Turmas para publicar esta aula.');
     },
     async shareDeck() {
       P.moreOpen = false;

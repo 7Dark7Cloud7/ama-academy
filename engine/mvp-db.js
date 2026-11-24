@@ -1,16 +1,92 @@
-// CEU Academy / AMA — Camada de Base de Dados MVP (IndexedDB + Sync /api/mvp)
-// Armazena decks grandes (PDFs, imagens, 3D, notas, anotações), cartões de estudante,
-// turmas, inscrições e tentativas de quiz sem limite de 5 MB do localStorage.
-// Sincroniza automaticamente com /api/mvp quando há servidor disponível.
+// CEU Academy / AMA — Camada de Base de Dados Multi-Turmas (IndexedDB + /api/mvp + Supabase Cloud)
+// Suporta escolas, institutos médios e universidades com multi-turmas, publicação de aulas,
+// delegados/presidentes AE, mentorias, estágios, universidades parceiras, cartões CEU e decks 3D.
 
 const DB_NAME = 'ceu_academy_mvp_v1';
-const DB_VERSION = 1;
-const STORES = ['decks', 'profiles', 'classes', 'student_cards', 'quiz_attempts', 'meta'];
+const DB_VERSION = 3;
+const RESOURCES = [
+  'decks', 'profiles', 'classes', 'student_cards', 'quiz_attempts',
+  'lessons', 'mentorships', 'internships', 'delegates', 'universities', 'online_classes',
+];
+const STORES = [...RESOURCES, 'meta'];
+const SUPA_KEY = 'ceu-supabase-config-v1';
 
 let dbPromise = null;
 
 function hasIDB() {
   return typeof indexedDB !== 'undefined';
+}
+
+export function getSupabaseConfig() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SUPA_KEY) || 'null');
+    if (raw && raw.url && raw.anonKey) {
+      return { url: String(raw.url).trim().replace(/\/+$/, ''), anonKey: String(raw.anonKey).trim() };
+    }
+  } catch { }
+  return null;
+}
+
+export function saveSupabaseConfig(cfg) {
+  try {
+    if (!cfg || !cfg.url || !cfg.anonKey) {
+      localStorage.removeItem(SUPA_KEY);
+      return null;
+    }
+    const clean = {
+      url: String(cfg.url).trim().replace(/\/+$/, ''),
+      anonKey: String(cfg.anonKey).trim(),
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(SUPA_KEY, JSON.stringify(clean));
+    return clean;
+  } catch {
+    return null;
+  }
+}
+
+async function directSupabase(resource, method = 'GET', record = null, query = '') {
+  const cfg = getSupabaseConfig();
+  if (!cfg || typeof fetch !== 'function') return null;
+  const table = `mvp_${resource}`;
+  const url = `${cfg.url}/rest/v1/${table}${query}`;
+  const headers = {
+    apikey: cfg.anonKey,
+    Authorization: `Bearer ${cfg.anonKey}`,
+    'Content-Type': 'application/json',
+  };
+  if (method === 'POST') headers.Prefer = 'resolution=merge-duplicates,return=representation';
+  const body = method === 'POST' && record ? JSON.stringify({
+    id: String(record.id).slice(0, 80),
+    title: String(record.title || record.nome || record.sigla || ''),
+    payload: record,
+    updated_at: record.updatedAt || new Date().toISOString(),
+  }) : undefined;
+  const res = await fetch(url, { method, headers, body });
+  if (!res.ok) throw new Error(`Supabase HTTP ${res.status}`);
+  if (res.status === 204) return [];
+  const data = await res.json();
+  if (method === 'GET' && Array.isArray(data)) {
+    return data.map((row) => (row && row.payload ? { ...row.payload, id: row.id, updatedAt: row.updated_at || row.payload.updatedAt } : row));
+  }
+  return data;
+}
+
+export async function testSupabaseConnection(customCfg = null) {
+  const cfg = customCfg && customCfg.url && customCfg.anonKey
+    ? { url: String(customCfg.url).trim().replace(/\/+$/, ''), anonKey: String(customCfg.anonKey).trim() }
+    : getSupabaseConfig();
+  if (!cfg) return { ok: false, error: 'Introduza o Supabase URL e a Anon Key.' };
+  try {
+    const r = await fetch(`${cfg.url}/rest/v1/mvp_classes?select=id&limit=1`, {
+      headers: { apikey: cfg.anonKey, Authorization: `Bearer ${cfg.anonKey}` },
+    });
+    if (r.ok) return { ok: true, mode: 'supabase-cloud', message: 'Ligado ao Supabase! Tabelas multi-turmas detetadas.' };
+    if (r.status === 404) return { ok: false, error: 'Projeto acessível, mas falta executar supabase/schema.sql no SQL Editor.' };
+    return { ok: false, error: `Supabase respondeu HTTP ${r.status}. Verifique a Anon Key e políticas RLS.` };
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : 'Sem ligação ao endpoint Supabase.' };
+  }
 }
 
 export function openMvpDb() {
@@ -42,7 +118,7 @@ async function txPut(storeName, record) {
   return new Promise((resolve) => {
     try {
       const tx = db.transaction(storeName, 'readwrite');
-      tx.objectStore(storeName).put({ ...record, updatedAt: new Date().toISOString() });
+      tx.objectStore(storeName).put({ ...record, updatedAt: record.updatedAt || new Date().toISOString() });
       tx.oncomplete = () => resolve(true);
       tx.onerror = () => resolve(false);
     } catch { resolve(false); }
@@ -76,6 +152,31 @@ async function txDelete(storeName, id) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Coleções genéricas multi-turmas / escola / universidade            */
+/* ------------------------------------------------------------------ */
+export async function saveCollectionRecord(resource, record) {
+  if (!RESOURCES.includes(resource) || !record || !record.id) return null;
+  const clean = { ...record, id: String(record.id).slice(0, 80), updatedAt: new Date().toISOString() };
+  await txPut(resource, clean);
+  pushRemote(resource, clean).catch(() => {});
+  return clean;
+}
+
+export async function listCollectionRecords(resource) {
+  if (!RESOURCES.includes(resource)) return [];
+  const rows = await txGetAll(resource);
+  rows.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  return rows;
+}
+
+export async function deleteCollectionRecord(resource, id) {
+  if (!RESOURCES.includes(resource) || !id) return false;
+  const ok = await txDelete(resource, String(id));
+  deleteRemote(resource, String(id)).catch(() => {});
+  return ok;
+}
+
+/* ------------------------------------------------------------------ */
 /* Decks (Apresentações PDF -> Slides)                                */
 /* ------------------------------------------------------------------ */
 export async function saveDeckRecord(deck) {
@@ -92,7 +193,6 @@ export async function saveDeckRecord(deck) {
     updatedAt: new Date().toISOString(),
   };
   const ok = await txPut('decks', payload);
-  // Background sync to /api/mvp (non-blocking, resilient offline)
   pushRemote('decks', payload).catch(() => {});
   return ok;
 }
@@ -147,24 +247,31 @@ export async function saveQuizAttempt(attempt) {
 }
 
 export async function getMvpStats() {
-  const [decks, cards, attempts] = await Promise.all([
+  const [decks, cards, attempts, classes, lessons, delegates] = await Promise.all([
     txGetAll('decks'),
     txGetAll('student_cards'),
     txGetAll('quiz_attempts'),
+    txGetAll('classes'),
+    txGetAll('lessons'),
+    txGetAll('delegates'),
   ]);
+  const supa = getSupabaseConfig();
   const remote = await checkRemoteHealth();
   return {
-    engine: hasIDB() ? 'IndexedDB + API Sync' : 'localStorage',
+    engine: supa ? 'Supabase Cloud + IndexedDB' : (hasIDB() ? 'IndexedDB + API Sync' : 'localStorage'),
     decks: decks.length,
     studentCards: cards.length,
     quizAttempts: attempts.length,
-    cloudConnected: !!remote.ok,
-    cloudMode: remote.mode || 'local-first',
+    classes: classes.length,
+    lessons: lessons.length,
+    delegates: delegates.length,
+    cloudConnected: Boolean(supa || remote.ok),
+    cloudMode: supa ? 'supabase-client' : (remote.mode || 'local-first'),
   };
 }
 
 /* ------------------------------------------------------------------ */
-/* Sincronização com Backend REST (/api/mvp)                          */
+/* Sincronização com Backend REST (/api/mvp) + Supabase Direto        */
 /* ------------------------------------------------------------------ */
 async function checkRemoteHealth() {
   if (typeof fetch !== 'function') return { ok: false, mode: 'offline' };
@@ -180,6 +287,9 @@ async function checkRemoteHealth() {
 
 async function pushRemote(resource, record) {
   if (typeof fetch !== 'function') return null;
+  if (getSupabaseConfig()) {
+    try { await directSupabase(resource, 'POST', record); } catch { }
+  }
   try {
     const res = await fetch('/api/mvp', {
       method: 'POST',
@@ -194,6 +304,9 @@ async function pushRemote(resource, record) {
 
 async function deleteRemote(resource, id) {
   if (typeof fetch !== 'function') return null;
+  if (getSupabaseConfig()) {
+    try { await directSupabase(resource, 'DELETE', null, `?id=eq.${encodeURIComponent(id)}`); } catch { }
+  }
   try {
     const res = await fetch('/api/mvp', {
       method: 'POST',
@@ -206,32 +319,49 @@ async function deleteRemote(resource, id) {
   }
 }
 
-export async function syncWithServer() {
-  const health = await checkRemoteHealth();
-  if (!health.ok) return { ok: false, synced: 0, mode: 'local-first' };
-  try {
-    const r = await fetch('/api/mvp?resource=decks', { headers: { Accept: 'application/json' } });
-    if (!r.ok) return { ok: false, synced: 0, mode: health.mode };
-    const json = await r.json();
-    const remoteDecks = Array.isArray(json?.records) ? json.records : [];
-    const localDecks = await txGetAll('decks');
-    const localMap = new Map(localDecks.map((d) => [d.id, d]));
-    let synced = 0;
-    for (const rd of remoteDecks) {
-      if (!rd || !rd.id) continue;
-      const cur = localMap.get(rd.id);
-      if (!cur || String(rd.updatedAt || '') > String(cur.updatedAt || '')) {
-        await txPut('decks', rd);
-        synced += 1;
-      }
-    }
-    return { ok: true, synced, mode: health.mode, totalRemote: remoteDecks.length };
-  } catch {
-    return { ok: false, synced: 0, mode: 'local-first' };
+export async function syncResource(resource) {
+  if (!RESOURCES.includes(resource)) return { ok: false, synced: 0 };
+  let remoteRows = null;
+  let mode = 'local-first';
+  if (getSupabaseConfig()) {
+    try {
+      remoteRows = await directSupabase(resource, 'GET', null, '?order=updated_at.desc&limit=80');
+      mode = 'supabase-cloud';
+    } catch { }
   }
+  if (!remoteRows && typeof fetch === 'function') {
+    try {
+      const r = await fetch(`/api/mvp?resource=${encodeURIComponent(resource)}`, { headers: { Accept: 'application/json' } });
+      if (r.ok) {
+        const json = await r.json();
+        remoteRows = Array.isArray(json?.records) ? json.records : [];
+        mode = json?.storage || 'api';
+      }
+    } catch { }
+  }
+  if (!Array.isArray(remoteRows)) return { ok: false, synced: 0, mode };
+  const localRows = await txGetAll(resource);
+  const localMap = new Map(localRows.map((d) => [d.id, d]));
+  let synced = 0;
+  for (const rd of remoteRows) {
+    if (!rd || !rd.id) continue;
+    const cur = localMap.get(rd.id);
+    if (!cur || String(rd.updatedAt || '') > String(cur.updatedAt || '')) {
+      await txPut(resource, rd);
+      synced += 1;
+    }
+  }
+  return { ok: true, synced, mode, totalRemote: remoteRows.length };
 }
 
-/* Migração automática de localStorage -> IndexedDB na primeira abertura */
+export async function syncWithServer() {
+  const targets = ['decks', 'classes', 'lessons', 'delegates', 'mentorships', 'internships', 'universities'];
+  const results = await Promise.all(targets.map((r) => syncResource(r).catch(() => ({ ok: false, synced: 0 }))));
+  const synced = results.reduce((acc, x) => acc + (x.synced || 0), 0);
+  const firstOk = results.find((x) => x.ok);
+  return { ok: !!firstOk, synced, mode: firstOk ? firstOk.mode : 'local-first' };
+}
+
 export async function migrateLocalStorageDecks() {
   try {
     const raw = JSON.parse(localStorage.getItem('ama-projector-v1') || '[]');
@@ -253,16 +383,15 @@ export async function migrateLocalStorageDecks() {
 }
 
 export async function exportFullBackup() {
-  const [decks, profiles, classes, student_cards, quiz_attempts] = await Promise.all([
-    txGetAll('decks'), txGetAll('profiles'), txGetAll('classes'), txGetAll('student_cards'), txGetAll('quiz_attempts'),
-  ]);
+  const entries = await Promise.all(RESOURCES.map(async (r) => [r, await txGetAll(r)]));
+  const indexedDb = Object.fromEntries(entries);
   let localDb = null;
   try { localDb = JSON.parse(localStorage.getItem('ama-v1-db') || 'null'); } catch { }
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     brand: typeof document !== 'undefined' ? (document.documentElement.dataset.brand || 'ceu') : 'ceu',
-    indexedDb: { decks, profiles, classes, student_cards, quiz_attempts },
+    indexedDb,
     localDb,
   };
 }
